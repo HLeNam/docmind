@@ -8,6 +8,7 @@ import {
   jwtConfig,
   envSchema,
 } from './config/index.js';
+import { PrismaModule } from './prisma/prisma.module.js';
 
 @Module({
   imports: [
@@ -20,6 +21,8 @@ import {
       load: [appConfig, databaseConfig, jwtConfig],
       validationSchema: envSchema,
     }),
+
+    PrismaModule,
   ],
   controllers: [AppController],
   providers: [AppService],

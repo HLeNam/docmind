@@ -1,0 +1,382 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────
+// Identity & Auth
+// ─────────────────────────────────────────────
+
+enum AuthProviderType {
+  PASSWORD
+  GOOGLE
+  // Thêm provider mới ở đây trong tương lai (MICROSOFT, GITHUB...)
+  // — không cần đổi schema Identity/TenantMembership khi thêm.
+}
+
+model Identity {
+  id              String   @id @default(uuid())
+  email           String   @unique
+  displayName     String? @map("display_name")
+  emailVerifiedAt DateTime? @map("email_verified_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  authProviders        AuthProvider[]
+  memberships          TenantMembership[]
+  refreshTokens        RefreshToken[]
+  passwordResetTokens  PasswordResetToken[]
+  @@map("identities")
+}
+
+// 1 hàng = 1 cách đăng nhập của 1 Identity.
+// PASSWORD: passwordHash có giá trị, providerAccountId null.
+// GOOGLE (và provider OAuth khác sau này): providerAccountId = sub ID từ provider, passwordHash null.
+model AuthProvider {
+  id                String           @id @default(uuid())
+  identityId        String @map("identity_id")
+  provider          AuthProviderType
+  providerAccountId String? @map("provider_account_id") //  null với PASSWORD
+  passwordHash      String? @map("password_hash") //  chỉ có với PASSWORD
+  createdAt         DateTime         @default(now()) @map("created_at")
+
+  identity Identity @relation(fields: [identityId], references: [id], onDelete: Cascade)
+
+  @@unique([identityId, provider])
+  @@unique([provider, providerAccountId])
+  @@map("auth_providers")
+}
+
+// Refresh token với ROTATION + REUSE DETECTION:
+// - Mỗi lần refresh: token cũ bị revoke ngay, cấp token mới cùng familyId.
+// - Nếu 1 token đã revoke bị dùng lại → dấu hiệu bị đánh cắp → revoke toàn bộ family,
+//   bắt đăng nhập lại trên mọi thiết bị thuộc family đó.
+// - familyId sinh ra khi login, giữ nguyên xuyên suốt các lần rotate → 1 family = 1 phiên thiết bị,
+//   cho phép nhiều thiết bị đăng nhập song song (mỗi thiết bị 1 family riêng) và liệt kê được
+//   "các thiết bị đang đăng nhập" bằng cách query các family còn active.
+model RefreshToken {
+  id                   String    @id @default(uuid())
+  familyId             String @map("family_id")
+  identityId           String @map("identity_id")
+  tokenHash            String    @unique @map("token_hash") //  hash SHA-256, không lưu token gốc
+  expiresAt            DateTime @map("expires_at")
+  revokedAt            DateTime? @map("revoked_at")
+  replacedByTokenHash  String? @map("replaced_by_token_hash") //  trỏ tới token kế tiếp trong cùng family, phục vụ audit/reuse detection
+  userAgent            String? @map("user_agent")
+  ipAddress            String? @map("ip_address")
+  createdAt            DateTime  @default(now()) @map("created_at")
+
+  identity Identity @relation(fields: [identityId], references: [id], onDelete: Cascade)
+
+  @@index([identityId])
+  @@index([familyId])
+  @@map("refresh_tokens")
+}
+
+model PasswordResetToken {
+  id         String    @id @default(uuid())
+  identityId String @map("identity_id")
+  tokenHash  String    @unique @map("token_hash")
+  expiresAt  DateTime @map("expires_at")
+  usedAt     DateTime? @map("used_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  identity Identity @relation(fields: [identityId], references: [id], onDelete: Cascade)
+  @@map("password_reset_tokens")
+}
+
+// ─────────────────────────────────────────────
+// Multi-tenancy & Membership
+// ─────────────────────────────────────────────
+
+enum MembershipRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum MembershipStatus {
+  INVITED
+  ACTIVE
+  SUSPENDED
+}
+
+enum PlanTier {
+  FREE
+  PRO
+  ENTERPRISE
+}
+
+model Tenant {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  plan      PlanTier @default(FREE)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  memberships      TenantMembership[]
+  collections      Collection[]
+  documents        Document[]
+  conversations    Conversation[]
+  apiKeys          ApiKey[]
+  usageLogs        UsageLog[]
+  invitations      Invitation[]
+  slackIntegration SlackIntegration?
+  @@map("tenants")
+}
+
+// 1 Identity có thể có nhiều TenantMembership (nhiều tenant khác nhau, giống đổi workspace Slack).
+// Mọi entity nghiệp vụ (Document, Conversation...) trỏ vào bảng này thay vì thẳng vào Identity.
+model TenantMembership {
+  id         String            @id @default(uuid())
+  tenantId   String @map("tenant_id")
+  identityId String @map("identity_id")
+  role       MembershipRole    @default(MEMBER)
+  status     MembershipStatus  @default(ACTIVE)
+  joinedAt   DateTime          @default(now()) @map("joined_at")
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  identity Identity @relation(fields: [identityId], references: [id], onDelete: Cascade)
+
+  collectionAccess  CollectionAccess[]
+  documentsUploaded Document[]         @relation("UploadedBy")
+  conversations     Conversation[]
+  feedback          Feedback[]
+  invitationsSent   Invitation[]       @relation("InvitedBy")
+
+  @@unique([tenantId, identityId])
+  @@index([tenantId])
+  @@map("tenant_memberships")
+}
+
+// Admin mời user vào tenant (UC06). Nếu email đã có Identity → chỉ tạo TenantMembership mới
+// khi accept. Nếu chưa có → tạo Identity + AuthProvider + TenantMembership cùng lúc.
+model Invitation {
+  id           String         @id @default(uuid())
+  tenantId     String @map("tenant_id")
+  email        String
+  role         MembershipRole @default(MEMBER)
+  token        String         @unique
+  invitedById  String @map("invited_by_id")
+  expiresAt    DateTime @map("expires_at")
+  acceptedAt   DateTime? @map("accepted_at")
+  createdAt    DateTime       @default(now()) @map("created_at")
+
+  tenant    Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invitedBy TenantMembership @relation("InvitedBy", fields: [invitedById], references: [id])
+
+  @@index([tenantId])
+  @@map("invitations")
+}
+
+// ─────────────────────────────────────────────
+// Collections & Documents
+// ─────────────────────────────────────────────
+
+model Collection {
+  id          String   @id @default(uuid())
+  tenantId    String @map("tenant_id")
+  name        String
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  tenant           Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  documents        Document[]
+  access           CollectionAccess[]
+  slackChannelMaps SlackChannelMapping[]
+
+  @@index([tenantId])
+  @@map("collections")
+}
+
+// Phân quyền member theo collection cụ thể (UC07)
+model CollectionAccess {
+  id           String   @id @default(uuid())
+  collectionId String @map("collection_id")
+  membershipId String @map("membership_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  collection Collection       @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  membership TenantMembership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+
+  @@unique([collectionId, membershipId])
+  @@map("collection_accesses")
+}
+
+enum DocumentStatus {
+  PENDING
+  PROCESSING
+  INDEXED
+  FAILED
+}
+
+model Document {
+  id           String         @id @default(uuid())
+  tenantId     String @map("tenant_id")
+  collectionId String @map("collection_id")
+  filename     String
+  fileUrl      String @map("file_url")
+  mimeType     String? @map("mime_type")
+  status       DocumentStatus @default(PENDING)
+  failReason   String? @map("fail_reason")
+  uploadedById String @map("uploaded_by_id")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+
+  tenant     Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  collection Collection       @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  uploadedBy TenantMembership @relation("UploadedBy", fields: [uploadedById], references: [id])
+  chunks     DocumentChunk[]
+
+  @@index([tenantId])
+  @@index([collectionId])
+  @@index([status])
+  @@map("documents")
+}
+
+// embedding dùng Unsupported("vector(1536)") — Prisma chưa có kiểu native cho pgvector,
+// nên query similarity search phải viết bằng $queryRaw.
+model DocumentChunk {
+  id             String                       @id @default(uuid())
+  documentId     String @map("document_id")
+  content        String
+  embedding      Unsupported("vector(1536)")?
+  contentTsv     Unsupported("tsvector")?     @map("content_tsv")
+  pageNumber     Int? @map("page_number")
+  chunkIndex     Int @map("chunk_index")
+  headingContext String? @map("heading_context")
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@map("document_chunks")
+}
+
+// ─────────────────────────────────────────────
+// Chat & Retrieval
+// ─────────────────────────────────────────────
+
+model Conversation {
+  id           String   @id @default(uuid())
+  tenantId     String @map("tenant_id")
+  membershipId String @map("membership_id")
+  title        String?
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  tenant     Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  membership TenantMembership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  messages   Message[]
+
+  @@index([tenantId])
+  @@index([membershipId])
+  @@map("conversations")
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+}
+
+model Message {
+  id             String      @id @default(uuid())
+  conversationId String @map("conversation_id")
+  role           MessageRole
+  content        String
+  // citations: [{ documentId, chunkId, pageNumber, snippet }]
+  citations      Json?
+  createdAt      DateTime    @default(now()) @map("created_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  feedback     Feedback?
+
+  @@index([conversationId])
+  @@map("messages")
+}
+
+model Feedback {
+  id           String   @id @default(uuid())
+  messageId    String   @unique @map("message_id")
+  membershipId String @map("membership_id")
+  rating       Int      // 1 = thumbs up, -1 = thumbs down
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  message    Message          @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  membership TenantMembership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  @@map("feedbacks")
+}
+
+// ─────────────────────────────────────────────
+// API-first & Integration
+// ─────────────────────────────────────────────
+
+model ApiKey {
+  id           String    @id @default(uuid())
+  tenantId     String @map("tenant_id")
+  name         String
+  keyHash      String    @unique @map("key_hash") //  lưu hash, không lưu key gốc
+  keyPrefix    String @map("key_prefix") //  vd: "dm_live_ab12" — hiển thị cho user nhận diện key
+  collectionId String? @map("collection_id") //  null = scope toàn bộ tenant
+  createdAt    DateTime  @default(now()) @map("created_at")
+  revokedAt    DateTime? @map("revoked_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("api_keys")
+}
+
+model SlackIntegration {
+  id          String   @id @default(uuid())
+  tenantId    String   @unique @map("tenant_id")
+  slackTeamId String   @unique @map("slack_team_id")
+  accessToken String @map("access_token") //  mã hóa ở tầng application trước khi lưu
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  tenant      Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  channelMaps SlackChannelMapping[]
+  @@map("slack_integrations")
+}
+
+model SlackChannelMapping {
+  id                 String @id @default(uuid())
+  slackIntegrationId String @map("slack_integration_id")
+  slackChannelId     String @map("slack_channel_id")
+  collectionId       String @map("collection_id")
+
+  slackIntegration SlackIntegration @relation(fields: [slackIntegrationId], references: [id], onDelete: Cascade)
+  collection       Collection       @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+
+  @@unique([slackIntegrationId, slackChannelId])
+  @@map("slack_channel_mappings")
+}
+
+// ─────────────────────────────────────────────
+// Analytics & Usage
+// ─────────────────────────────────────────────
+
+enum UsageType {
+  EMBEDDING
+  GENERATION
+}
+
+model UsageLog {
+  id        String    @id @default(uuid())
+  tenantId  String @map("tenant_id")
+  type      UsageType
+  tokens    Int
+  costUsd   Decimal   @db.Decimal(10, 4) @map("cost_usd")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
+  @@map("usage_logs")
+}
