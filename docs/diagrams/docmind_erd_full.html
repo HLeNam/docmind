@@ -1,0 +1,186 @@
+<style>
+#erd svg.erDiagram .divider path { stroke-opacity: 0.5; }
+#erd svg.erDiagram .row-rect-odd path,
+#erd svg.erDiagram .row-rect-odd rect,
+#erd svg.erDiagram .row-rect-even path,
+#erd svg.erDiagram .row-rect-even rect { stroke: none !important; }
+</style>
+<h2 class="sr-only">Sơ đồ ERD đầy đủ của hệ thống database DocMind</h2>
+<div id="erd"></div>
+<script type="module">
+import mermaid from 'https://esm.sh/mermaid@11/dist/mermaid.esm.min.mjs';
+const themeMode = document.documentElement.dataset.mode;
+const dark = themeMode ? themeMode === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+await document.fonts.ready;
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'base',
+  fontFamily: '"anthropic-sans", sans-serif',
+  themeVariables: {
+    darkMode: dark,
+    fontSize: '12px',
+    fontFamily: '"anthropic-sans", sans-serif',
+    lineColor: dark ? '#9c9a92' : '#73726c',
+    textColor: dark ? '#c2c0b6' : '#3d3d3a',
+  },
+});
+const def = `erDiagram
+  Identity ||--o{ AuthProvider : has
+  Identity ||--o{ RefreshToken : has
+  Identity ||--o{ PasswordResetToken : has
+  Identity ||--o{ TenantMembership : has
+  Tenant ||--o{ TenantMembership : has
+  Tenant ||--o{ Collection : has
+  Tenant ||--o{ Document : has
+  Tenant ||--o{ Conversation : has
+  Tenant ||--o{ ApiKey : has
+  Tenant ||--o{ UsageLog : has
+  Tenant ||--o{ Invitation : has
+  Tenant ||--o| SlackIntegration : has
+  TenantMembership ||--o{ CollectionAccess : has
+  TenantMembership ||--o{ Document : uploads
+  TenantMembership ||--o{ Conversation : owns
+  TenantMembership ||--o{ Feedback : gives
+  TenantMembership ||--o{ Invitation : sends
+  Collection ||--o{ Document : contains
+  Collection ||--o{ CollectionAccess : has
+  Collection ||--o{ SlackChannelMapping : maps
+  Document ||--o{ DocumentChunk : has
+  Conversation ||--o{ Message : has
+  Message ||--o| Feedback : has
+  SlackIntegration ||--o{ SlackChannelMapping : has
+
+  Identity {
+    uuid id PK
+    string email
+    datetime emailVerifiedAt
+  }
+  AuthProvider {
+    uuid id PK
+    uuid identityId FK
+    enum provider
+    string passwordHash
+  }
+  RefreshToken {
+    uuid id PK
+    uuid identityId FK
+    string familyId
+    string tokenHash
+    datetime revokedAt
+  }
+  PasswordResetToken {
+    uuid id PK
+    uuid identityId FK
+    string tokenHash
+  }
+  Tenant {
+    uuid id PK
+    string name
+    string slug
+    enum plan
+  }
+  TenantMembership {
+    uuid id PK
+    uuid tenantId FK
+    uuid identityId FK
+    enum role
+    enum status
+  }
+  Invitation {
+    uuid id PK
+    uuid tenantId FK
+    string email
+    enum role
+    string token
+  }
+  Collection {
+    uuid id PK
+    uuid tenantId FK
+    string name
+  }
+  CollectionAccess {
+    uuid id PK
+    uuid collectionId FK
+    uuid membershipId FK
+  }
+  Document {
+    uuid id PK
+    uuid tenantId FK
+    uuid collectionId FK
+    uuid uploadedById FK
+    enum status
+  }
+  DocumentChunk {
+    uuid id PK
+    uuid documentId FK
+    string content
+    vector embedding
+  }
+  Conversation {
+    uuid id PK
+    uuid tenantId FK
+    uuid membershipId FK
+    string title
+  }
+  Message {
+    uuid id PK
+    uuid conversationId FK
+    enum role
+    json citations
+  }
+  Feedback {
+    uuid id PK
+    uuid messageId FK
+    uuid membershipId FK
+    int rating
+  }
+  ApiKey {
+    uuid id PK
+    uuid tenantId FK
+    string keyHash
+    uuid collectionId
+  }
+  SlackIntegration {
+    uuid id PK
+    uuid tenantId FK
+    string slackTeamId
+  }
+  SlackChannelMapping {
+    uuid id PK
+    uuid slackIntegrationId FK
+    uuid collectionId FK
+  }
+  UsageLog {
+    uuid id PK
+    uuid tenantId FK
+    enum type
+    int tokens
+  }
+`;
+const { svg } = await mermaid.render('erd-svg', def);
+document.getElementById('erd').innerHTML = svg;
+
+document.querySelectorAll('#erd svg.erDiagram .node').forEach(node => {
+  const firstPath = node.querySelector('path[d]');
+  if (!firstPath) return;
+  const d = firstPath.getAttribute('d');
+  const nums = d.match(/-?[\d.]+/g)?.map(Number);
+  if (!nums || nums.length < 8) return;
+  const xs = [nums[0], nums[2], nums[4], nums[6]];
+  const ys = [nums[1], nums[3], nums[5], nums[7]];
+  const x = Math.min(...xs), y = Math.min(...ys);
+  const w = Math.max(...xs) - x, h = Math.max(...ys) - y;
+  const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+  rect.setAttribute('x', x); rect.setAttribute('y', y);
+  rect.setAttribute('width', w); rect.setAttribute('height', h);
+  rect.setAttribute('rx', '8');
+  for (const a of ['fill', 'stroke', 'stroke-width', 'class', 'style']) {
+    if (firstPath.hasAttribute(a)) rect.setAttribute(a, firstPath.getAttribute(a));
+  }
+  firstPath.replaceWith(rect);
+});
+
+document.querySelectorAll('#erd svg.erDiagram .row-rect-odd path, #erd svg.erDiagram .row-rect-even path').forEach(p => {
+  p.setAttribute('stroke', 'none');
+});
+</script>
