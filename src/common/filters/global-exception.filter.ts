@@ -3,7 +3,7 @@ import type { Request, Response } from 'express';
 import { randomUUID } from 'node:crypto';
 import type { ExceptionHandler } from './handlers/index.js';
 import {
-  //   PrismaErrorHandler,
+  PrismaErrorHandler,
   AppExceptionHandler,
   HttpExceptionHandler,
   UnknownErrorHandler,
@@ -13,7 +13,7 @@ import {
 export class GlobalExceptionFilter implements ExceptionFilter {
   // Thứ tự quan trọng: handler cụ thể hơn đứng trước, UnknownErrorHandler luôn ở cuối
   private readonly handlers: ExceptionHandler[] = [
-    // new PrismaErrorHandler(),
+    new PrismaErrorHandler(),
     new AppExceptionHandler(),
     new HttpExceptionHandler(),
     new UnknownErrorHandler(), // fallback — supports() luôn true
