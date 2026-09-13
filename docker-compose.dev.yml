@@ -2,8 +2,8 @@ services:
   postgres:
     image: pgvector/pgvector:pg16
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: docmind_owner
+      POSTGRES_PASSWORD: 123456789
       POSTGRES_DB: docmind
     ports:
       - "5433:5432"
