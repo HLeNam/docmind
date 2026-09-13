@@ -20,3 +20,21 @@ export const LoginSchema = z.object({
 export const RefreshTokenSchema = z.object({
   refreshToken: z.string().min(1),
 });
+
+export const TokensResponseSchema = z.object({
+  accessToken: z.string(),
+  refreshToken: z.string(),
+});
+
+export const LoginResponseSchema = z.union([
+  TokensResponseSchema,
+  z.object({
+    requiresTenantSelection: z.literal(true),
+    tenants: z.array(
+      z.object({
+        tenantId: z.string(),
+        role: z.string(),
+      }),
+    ),
+  }),
+]);
