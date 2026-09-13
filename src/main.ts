@@ -6,9 +6,13 @@ import { ValidationAppException } from './common/exceptions/app.exception.js';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter.js';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor.js';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor.js';
+import { ConfigService } from '@nestjs/config';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { zodSwaggerDocumentOptions } from './common/swagger/zod-schema-converter.js';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const configService = app.get(ConfigService);
 
   app.useGlobalPipes(
     new StandardSchemaValidationPipe({
@@ -36,6 +40,31 @@ async function bootstrap() {
     new ResponseInterceptor(),
   );
 
-  await app.listen(process.env.PORT ?? 3000);
+  // Chỉ bật Swagger UI ở non-production — tránh lộ toàn bộ API surface ra ngoài
+  const nodeEnv = configService.get<string>('NODE_ENV', { infer: true });
+  if (nodeEnv !== 'production') {
+    const config = new DocumentBuilder()
+      .setTitle('DocMind API')
+      .setDescription('API documentation cho DocMind backend')
+      .setVersion('1.0')
+      .addBearerAuth(
+        {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+        },
+        'access-token', // tên định danh, dùng lại ở @ApiBearerAuth('access-token')
+      )
+      .addTag('users')
+      .build();
+
+    const documentFactory = () =>
+      SwaggerModule.createDocument(app, config, zodSwaggerDocumentOptions);
+
+    SwaggerModule.setup('api/docs', app, documentFactory);
+  }
+
+  const port = configService.get<number>('PORT', { infer: true }) ?? 3000;
+  await app.listen(port);
 }
 await bootstrap();
