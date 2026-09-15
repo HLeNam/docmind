@@ -38,3 +38,22 @@ export const LoginResponseSchema = z.union([
     ),
   }),
 ]);
+
+export const GetMeResponseSchema = z.object({
+  identity: z.object({
+    id: z.string(),
+    email: z.string().email(),
+    emailVerifiedAt: z.date().nullable(),
+  }),
+  tenant: z.object({
+    id: z.string(),
+    name: z.string(),
+    slug: z.string(),
+    plan: z.string(),
+  }),
+  membership: z.object({
+    id: z.string(),
+    role: z.string(),
+    status: z.string(),
+  }),
+});

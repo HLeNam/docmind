@@ -1,12 +1,20 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { AuthService } from './auth.service.js';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Post,
+} from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { type AccessTokenPayload, AuthService } from './auth.service.js';
 import {
   RegisterSchema,
   LoginSchema,
   RefreshTokenSchema,
   TokensResponseSchema,
   LoginResponseSchema,
+  GetMeResponseSchema,
 } from './schemas/auth.schema.js';
 import type {
   RegisterDto,
@@ -17,6 +25,7 @@ import { Public } from '../common/decorators/public.decorator.js';
 import { ApiZodResponse } from '../common/swagger/api-zod-response.decorator.js';
 import { ApiErrorResponse } from '../common/swagger/api-error-response.decorator.js';
 import { z } from 'zod';
+import { CurrentUser } from '../common/decorators/current-user.decorator.js';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -83,5 +92,23 @@ export class AuthController {
   })
   logout(@Body({ schema: RefreshTokenSchema }) dto: RefreshTokenDto) {
     return this.authService.logout(dto.refreshToken);
+  }
+
+  // KHÔNG @Public() — đây chính là route cần bảo vệ nhất bằng pattern global guard vừa làm ở mục 4.4.
+  // FE gọi route này sau khi có accessToken để hydrate thông tin user/tenant/role, hoặc để verify
+  // token còn sống sau khi reload trang.
+  @Get('me')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Get current user information',
+  })
+  @ApiZodResponse({
+    status: HttpStatus.OK,
+    description: 'Returns current user identity, tenant, and membership info.',
+    schema: GetMeResponseSchema,
+  })
+  @ApiErrorResponse(HttpStatus.UNAUTHORIZED, 'Invalid or expired access token.')
+  me(@CurrentUser() user: AccessTokenPayload) {
+    return this.authService.getMe(user);
   }
 }

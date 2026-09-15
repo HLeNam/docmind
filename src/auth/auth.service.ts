@@ -8,6 +8,7 @@ import {
   UnprocessableAppException,
 } from '../common/exceptions/app.exception.js';
 import type { RegisterDto, LoginDto } from './dtos/auth.dto.js';
+import { PrismaService } from '../prisma/prisma.service.js';
 
 export interface AccessTokenPayload {
   identityId: string;
@@ -19,7 +20,10 @@ export interface AccessTokenPayload {
 @Injectable()
 export class AuthService {
   constructor(
-    private readonly prisma: PrismaSystemService,
+    private readonly prisma: PrismaService,
+    // BYPASSRLS — CHỈ dùng cho truy vấn cross-tenant hợp lệ trong auth flow (chưa biết tenant cụ thể),
+    // luôn tự lọc theo identityId đã xác thực trước đó, không bao giờ nhận tenantId/filter tuỳ ý từ client.
+    private readonly system: PrismaSystemService,
     private readonly jwtService: JwtService,
     private readonly refreshTokenService: RefreshTokenService,
   ) {}
@@ -39,8 +43,10 @@ export class AuthService {
       '-' +
       Math.random().toString(36).slice(2, 8);
 
-    // 4 bảng liên quan phải tạo cùng lúc hoặc không tạo gì cả -> $transaction
-    const { identity, tenant, membership } = await this.prisma.$transaction(
+    // 4 bảng liên quan phải tạo cùng lúc hoặc không tạo gì cả -> $transaction.
+    // Dùng this.system (BYPASSRLS) ở đây vì Tenant/TenantMembership chưa tồn tại lúc bắt đầu transaction —
+    // chưa có app.current_tenant nào hợp lệ để set, PrismaService thường sẽ bị RLS chặn ngay câu insert đầu tiên.
+    const { identity, tenant, membership } = await this.system.$transaction(
       async (tx) => {
         const identity = await tx.identity.create({
           data: { email: dto.email },
@@ -69,7 +75,7 @@ export class AuthService {
   async login(dto: LoginDto) {
     const identity = await this.prisma.identity.findUnique({
       where: { email: dto.email },
-      include: { authProviders: true, memberships: true },
+      include: { authProviders: true }, // KHÔNG include memberships ở đây — bị RLS lọc rỗng, xem cảnh báo phía trên
     });
     if (!identity) {
       throw new UnauthorizedException('Email or password not valid');
@@ -85,9 +91,10 @@ export class AuthService {
       throw new UnauthorizedException('Email or password not valid');
     }
 
-    const activeMemberships = identity.memberships.filter(
-      (m) => m.status === 'ACTIVE',
-    );
+    // Cross-tenant discovery hợp lệ: đã xác thực password xong mới được phép hỏi "identity này thuộc những tenant nào".
+    const activeMemberships = await this.system.tenantMembership.findMany({
+      where: { identityId: identity.id, status: 'ACTIVE' },
+    });
     if (activeMemberships.length === 0) {
       throw new UnprocessableAppException(
         'Account does not belong to any organization',
@@ -96,7 +103,7 @@ export class AuthService {
 
     let membership = activeMemberships[0];
     if (dto.tenantSlug) {
-      const tenant = await this.prisma.tenant.findUnique({
+      const tenant = await this.system.tenant.findUnique({
         where: { slug: dto.tenantSlug },
       });
       const match = activeMemberships.find((m) => m.tenantId === tenant?.id);
@@ -125,9 +132,10 @@ export class AuthService {
   async refresh(rawRefreshToken: string) {
     const { raw, identityId } =
       await this.refreshTokenService.rotate(rawRefreshToken);
-    // access token mới cần lại đủ tenantId/membershipId/role -> phải tra lại membership hiện tại
-    // (đơn giản nhất: yêu cầu FE cũng gửi kèm tenantId nếu multi-tenant; ở đây lấy membership đầu tiên active)
-    const membership = await this.prisma.tenantMembership.findFirst({
+    // access token mới cần lại đủ tenantId/membershipId/role -> phải tra lại membership hiện tại.
+    // Cross-tenant discovery giống login() — identityId đã được xác thực hợp lệ qua rotate() ở trên,
+    // nên dùng this.system ở đây là an toàn, không phải lỗ hổng.
+    const membership = await this.system.tenantMembership.findFirst({
       where: { identityId, status: 'ACTIVE' },
     });
     if (!membership)
@@ -140,6 +148,42 @@ export class AuthService {
       role: membership.role,
     });
     return { accessToken, refreshToken: raw };
+  }
+
+  /**
+   * GET /auth/me — trả data mới nhất từ DB, không chỉ decode lại JWT payload,
+   * vì role/tenant/status có thể đã đổi giữa lúc access token còn hạn (15 phút) và lúc gọi.
+   * payload.tenantId lấy từ JWT đã verify (đáng tin), nên dùng runInTenantContext bình thường,
+   * KHÔNG cần this.system ở đây — khác với login()/refresh() vì ở đây đã biết chính xác tenant nào.
+   */
+  async getMe(payload: AccessTokenPayload) {
+    const identity = await this.prisma.identity.findUniqueOrThrow({
+      where: { id: payload.identityId },
+      select: { id: true, email: true, emailVerifiedAt: true },
+    });
+
+    const membership = await this.prisma.runInTenantContext(
+      payload.tenantId,
+      (tx) =>
+        tx.tenantMembership.findUniqueOrThrow({
+          where: { id: payload.membershipId },
+          include: {
+            tenant: {
+              select: { id: true, name: true, slug: true, plan: true },
+            },
+          },
+        }),
+    );
+
+    return {
+      identity,
+      tenant: membership.tenant,
+      membership: {
+        id: membership.id,
+        role: membership.role,
+        status: membership.status,
+      },
+    };
   }
 
   async logout(rawRefreshToken: string) {
