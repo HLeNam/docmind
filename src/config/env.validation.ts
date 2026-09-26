@@ -18,6 +18,8 @@ export const envSchema = z.object({
 
   JWT_SECRET: z.string().min(16),
   JWT_EXPIRES_IN: z.string().default('1d'),
+
+  GOOGLE_CLIENT_ID: z.string().min(1),
 });
 
 export type EnvSchema = z.infer<typeof envSchema>;
