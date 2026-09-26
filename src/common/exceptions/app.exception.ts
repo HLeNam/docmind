@@ -1,10 +1,9 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
+import { ErrorCode, ErrorMessage } from './error-codes.js';
 
 export abstract class AppException extends HttpException {
-  abstract readonly code: string;
-
   constructor(
-    code: string,
+    public readonly code: string,
     message: string,
     status: HttpStatus,
     public readonly details?: unknown,
@@ -13,63 +12,64 @@ export abstract class AppException extends HttpException {
   }
 }
 
-// 400 — dùng khi bạn muốn tự throw validation error thủ công ngoài luồng Zod
+function resolveMessageAndCode(
+  codeOrMessage: string,
+  defaultCode: ErrorCode,
+  explicitCode?: string,
+): { message: string; code: string } {
+  const isKnownCode = codeOrMessage in ErrorMessage;
+  const code = explicitCode || (isKnownCode ? codeOrMessage : defaultCode);
+  const message = isKnownCode
+    ? ErrorMessage[codeOrMessage as ErrorCode]
+    : codeOrMessage;
+  return { message, code };
+}
+
 export class ValidationAppException extends AppException {
-  readonly code = 'VALIDATION_ERROR';
-  constructor(message: string, details?: unknown) {
-    super('VALIDATION_ERROR', message, HttpStatus.BAD_REQUEST, details);
+  constructor(codeOrMessage: string = ErrorCode.VALIDATION_ERROR, details?: unknown, explicitCode?: string) {
+    const { message, code } = resolveMessageAndCode(codeOrMessage, ErrorCode.VALIDATION_ERROR, explicitCode);
+    super(code, message, HttpStatus.BAD_REQUEST, details);
   }
 }
 
-// 401 — chưa xác thực
 export class UnauthorizedAppException extends AppException {
-  readonly code = 'UNAUTHORIZED';
-  constructor(message = 'Unauthorized') {
-    super('UNAUTHORIZED', message, HttpStatus.UNAUTHORIZED);
+  constructor(codeOrMessage: string = ErrorCode.UNAUTHORIZED, explicitCode?: string) {
+    const { message, code } = resolveMessageAndCode(codeOrMessage, ErrorCode.UNAUTHORIZED, explicitCode);
+    super(code, message, HttpStatus.UNAUTHORIZED);
   }
 }
 
-// 403 — không đủ quyền
 export class ForbiddenAppException extends AppException {
-  readonly code = 'FORBIDDEN';
-  constructor(message = 'Forbidden') {
-    super('FORBIDDEN', message, HttpStatus.FORBIDDEN);
+  constructor(codeOrMessage: string = ErrorCode.FORBIDDEN, explicitCode?: string) {
+    const { message, code } = resolveMessageAndCode(codeOrMessage, ErrorCode.FORBIDDEN, explicitCode);
+    super(code, message, HttpStatus.FORBIDDEN);
   }
 }
 
-// 404 — không tìm thấy resource
 export class NotFoundAppException extends AppException {
-  readonly code = 'NOT_FOUND';
-  constructor(message = 'Not found') {
-    super('NOT_FOUND', message, HttpStatus.NOT_FOUND);
+  constructor(codeOrMessage: string = ErrorCode.NOT_FOUND, explicitCode?: string) {
+    const { message, code } = resolveMessageAndCode(codeOrMessage, ErrorCode.NOT_FOUND, explicitCode);
+    super(code, message, HttpStatus.NOT_FOUND);
   }
 }
 
-// 409 — xung đột dữ liệu (vd trùng unique key)
 export class ConflictAppException extends AppException {
-  readonly code = 'CONFLICT';
-  constructor(message: string, details?: unknown) {
-    super('CONFLICT', message, HttpStatus.CONFLICT, details);
+  constructor(codeOrMessage: string = ErrorCode.CONFLICT, details?: unknown, explicitCode?: string) {
+    const { message, code } = resolveMessageAndCode(codeOrMessage, ErrorCode.CONFLICT, explicitCode);
+    super(code, message, HttpStatus.CONFLICT, details);
   }
 }
 
-// 422 — đúng format nhưng vi phạm business rule (cần check DB/service)
 export class UnprocessableAppException extends AppException {
-  readonly code = 'UNPROCESSABLE_ENTITY';
-  constructor(message: string, details?: unknown) {
-    super(
-      'UNPROCESSABLE_ENTITY',
-      message,
-      HttpStatus.UNPROCESSABLE_ENTITY,
-      details,
-    );
+  constructor(codeOrMessage: string = ErrorCode.UNPROCESSABLE_ENTITY, details?: unknown, explicitCode?: string) {
+    const { message, code } = resolveMessageAndCode(codeOrMessage, ErrorCode.UNPROCESSABLE_ENTITY, explicitCode);
+    super(code, message, HttpStatus.UNPROCESSABLE_ENTITY, details);
   }
 }
 
-// 500 — lỗi hệ thống không lường trước
 export class InternalAppException extends AppException {
-  readonly code = 'INTERNAL_ERROR';
-  constructor(message = 'Internal server error') {
-    super('INTERNAL_ERROR', message, HttpStatus.INTERNAL_SERVER_ERROR);
+  constructor(codeOrMessage: string = ErrorCode.INTERNAL_ERROR, explicitCode?: string) {
+    const { message, code } = resolveMessageAndCode(codeOrMessage, ErrorCode.INTERNAL_ERROR, explicitCode);
+    super(code, message, HttpStatus.INTERNAL_SERVER_ERROR);
   }
 }
