@@ -168,6 +168,7 @@ model Invitation {
   invitedById  String @map("invited_by_id")
   expiresAt    DateTime @map("expires_at")
   acceptedAt   DateTime? @map("accepted_at")
+  revokedAt    DateTime? @map("revoked_at")
   createdAt    DateTime       @default(now()) @map("created_at")
 
   tenant    Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
