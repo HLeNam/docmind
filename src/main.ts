@@ -55,7 +55,6 @@ async function bootstrap() {
         },
         'access-token', // tên định danh, dùng lại ở @ApiBearerAuth('access-token')
       )
-      .addTag('users')
       .build();
 
     const documentFactory = () =>
