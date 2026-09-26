@@ -6,6 +6,7 @@ import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
 import { RefreshTokenService } from './refresh-token.service.js';
 import { JwtStrategy } from './strategies/jwt.strategy.js';
+import { GoogleTokenVerifierService } from './google-token-verifier.service.js';
 
 @Module({
   imports: [
@@ -19,6 +20,12 @@ import { JwtStrategy } from './strategies/jwt.strategy.js';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, RefreshTokenService, JwtStrategy],
+  providers: [
+    AuthService,
+    RefreshTokenService,
+    JwtStrategy,
+    GoogleTokenVerifierService,
+  ],
+  exports: [AuthService],
 })
 export class AuthModule {}

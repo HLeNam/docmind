@@ -57,3 +57,7 @@ export const GetMeResponseSchema = z.object({
     status: z.string(),
   }),
 });
+
+export const GoogleLoginSchema = z.object({
+  idToken: z.string().min(1, 'idToken not empty'),
+});
