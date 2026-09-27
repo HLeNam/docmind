@@ -16,78 +16,53 @@ export class PrismaService
   implements OnModuleInit, OnModuleDestroy
 {
   private readonly logger = new Logger(PrismaService.name);
-  private readonly pool: Pool; // Lưu lại reference của Pool để đóng kết nối
+  private readonly pool: Pool;
 
   constructor(configService: ConfigService) {
-    // Khởi tạo connection pool thông qua pg
+    // QUAN TRỌNG: dùng APP_DATABASE_URL (role docmind_app), KHÔNG dùng DATABASE_URL (owner/superuser).
+    // Dùng nhầm DATABASE_URL ở đây là lỗi âm thầm nguy hiểm nhất của cả hệ thống RLS —
+    // mọi query sẽ chạy bằng quyền bypass RLS mà không có dấu hiệu lỗi nào cả.
     const pool = new Pool({
-      connectionString: configService.get<string>('DATABASE_URL', {
+      connectionString: configService.get<string>('APP_DATABASE_URL', {
         infer: true,
       }),
     });
-    // Bọc vào Prisma Adapter (Bắt buộc ở Prisma 7)
     const adapter = new PrismaPg(pool);
 
-    // Bật log ở đây để dễ debug xem Prisma sinh câu SQL như thế nào
-    super({
-      adapter,
-      log: ['error', 'warn'],
-    });
-
+    super({ adapter, log: ['error', 'warn'] });
     this.pool = pool;
   }
 
   async onModuleInit() {
     await this.$connect();
-    this.logger.log('Prisma connected to PostgreSQL');
+    this.logger.log('Prisma connected to PostgreSQL (role: docmind_app)');
   }
 
   async onModuleDestroy() {
     await this.$disconnect();
-    await this.pool.end(); // Chốt chặn: Đóng hẳn connection pool của pg
+    await this.pool.end(); // đóng hẳn pool pg vì ta tự tạo, Prisma không tự đóng connection ta truyền vào
     this.logger.log('Prisma & PG Pool disconnected');
   }
 
   /**
-   * Chạy 1 transaction với RLS context đã set.
-   * MỌI query cần lọc theo tenant phải chạy qua transaction này.
+   * Chạy 1 transaction với RLS context đã set app.current_tenant.
+   * MỌI query cần lọc theo tenant phải chạy qua đây.
    *
-   * Lưu ý bảo mật: `SET LOCAL` không hỗ trợ parameterized query của Postgres,
-   * nên phải tự validate format UUID trước khi interpolate string — tránh SQL injection.
+   * Dùng set_config() (function call) thay vì `SET LOCAL ... = '<interpolated>'` (utility statement)
+   * vì function call hỗ trợ bind parameter thật ($1) — loại bỏ hoàn toàn nguy cơ SQL injection
+   * mà không cần validate UUID thủ công. is_local=true tương đương SET LOCAL: chỉ có hiệu lực
+   * trong transaction hiện tại, tự reset khi transaction kết thúc.
    */
   async runInTenantContext<T>(
     tenantId: string,
     fn: (tx: Prisma.TransactionClient) => Promise<T>,
   ): Promise<T> {
-    if (!this.isValidUuid(tenantId)) {
-      throw new Error(`Invalid tenantId format: ${tenantId}`);
-    }
-
     return this.$transaction(async (tx) => {
       await tx.$executeRawUnsafe(
-        `SET LOCAL app.current_tenant = '${tenantId}'`,
+        `SELECT set_config('app.current_tenant', $1, true)`,
+        tenantId,
       );
       return fn(tx);
     });
-  }
-
-  /**
-   * Chạy 1 transaction bỏ qua RLS (Dành cho các API Global/Auth/Admin).
-   * LƯU Ý: Chỉ dùng khi bắt buộc phải query data xuyên Tenant (ví dụ: Lấy danh sách Workspaces của User).
-   */
-  async runAsSystem<T>(
-    fn: (tx: Prisma.TransactionClient) => Promise<T>,
-  ): Promise<T> {
-    return this.$transaction(async (tx) => {
-      // Vì ta đã dùng cờ FORCE ROW LEVEL SECURITY,
-      // ta cần tắt row_security tạm thời để superuser có thể đọc toàn bộ data.
-      await tx.$executeRawUnsafe(`SET LOCAL row_security = off`);
-
-      return fn(tx);
-    });
-  }
-
-  private isValidUuid(value: string): boolean {
-    return z.string().uuid().safeParse(value).success;
   }
 }

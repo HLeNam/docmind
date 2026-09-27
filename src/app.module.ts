@@ -9,6 +9,10 @@ import {
   envSchema,
 } from './config/index.js';
 import { PrismaModule } from './prisma/prisma.module.js';
+import { AuthModule } from './auth/auth.module.js';
+import { APP_GUARD } from '@nestjs/core';
+import { RolesGuard } from './common/guards/roles.guard.js';
+import { JwtAuthGuard } from './common/guards/jwt-auth.guard.js';
 
 @Module({
   imports: [
@@ -23,8 +27,16 @@ import { PrismaModule } from './prisma/prisma.module.js';
     }),
 
     PrismaModule,
+    AuthModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    // Thứ tự trong mảng LÀ thứ tự chạy: JwtAuthGuard phải chạy trước RolesGuard,
+    // vì RolesGuard cần đọc request.user.role — chỉ có sau khi JwtAuthGuard verify token xong.
+    // Mặc định MỌI route đều bị JwtAuthGuard chặn, trừ route có @Public() (xem mục 4.4/4.5).
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: RolesGuard },
+  ],
 })
 export class AppModule {}
