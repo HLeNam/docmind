@@ -11,27 +11,14 @@ import { BrevoMailProvider } from './providers/brevo.provider.js';
 @Module({
   imports: [ConfigModule],
   providers: [
-    ResendMailProvider,
-    SmtpMailProvider,
-    BrevoMailProvider,
     {
       provide: MAIL_PROVIDER,
-      inject: [
-        ConfigService,
-        ResendMailProvider,
-        SmtpMailProvider,
-        BrevoMailProvider,
-      ],
-      useFactory: (
-        config: ConfigService,
-        resend: ResendMailProvider,
-        smtp: SmtpMailProvider,
-        brevo: BrevoMailProvider,
-      ) => {
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => {
         const provider = config.get<string>('MAIL_PROVIDER', { infer: true });
-        if (provider === 'smtp') return smtp;
-        if (provider === 'resend') return resend;
-        if (provider === 'brevo') return brevo;
+        if (provider === 'smtp') return new SmtpMailProvider(config);
+        if (provider === 'resend') return new ResendMailProvider(config);
+        if (provider === 'brevo') return new BrevoMailProvider(config);
         throw new Error(
           `MAIL_PROVIDER is invalid: "${provider}" (only accept "resend", "smtp", or "brevo")`,
         );
