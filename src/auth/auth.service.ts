@@ -1,13 +1,17 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
 import { PrismaSystemService } from '../prisma/prisma-system.service.js';
-import { RefreshTokenService } from './refresh-token.service.js';
+import { RefreshTokenService, RequestMeta } from './refresh-token.service.js';
 import {
   ConflictAppException,
+  UnauthorizedAppException,
   UnprocessableAppException,
 } from '../common/exceptions/app.exception.js';
+import { ErrorCode } from '../common/exceptions/error-codes.js';
 import type { RegisterDto, LoginDto } from './dtos/auth.dto.js';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { GoogleTokenVerifierService } from './google-token-verifier.service.js';
 
 export interface AccessTokenPayload {
   identityId: string;
@@ -19,18 +23,22 @@ export interface AccessTokenPayload {
 @Injectable()
 export class AuthService {
   constructor(
-    private readonly prisma: PrismaSystemService,
+    private readonly prisma: PrismaService,
+    // BYPASSRLS — CHỈ dùng cho truy vấn cross-tenant hợp lệ trong auth flow (chưa biết tenant cụ thể),
+    // luôn tự lọc theo identityId đã xác thực trước đó, không bao giờ nhận tenantId/filter tuỳ ý từ client.
+    private readonly system: PrismaSystemService,
     private readonly jwtService: JwtService,
+    private readonly googleVerifier: GoogleTokenVerifierService,
     private readonly refreshTokenService: RefreshTokenService,
   ) {}
 
   /** Register luôn tạo Tenant mới + Membership OWNER — khác với accept invitation (chỉ thêm membership vào tenant có sẵn). */
-  async register(dto: RegisterDto) {
+  async register(dto: RegisterDto, meta?: RequestMeta) {
     const existingIdentity = await this.prisma.identity.findUnique({
       where: { email: dto.email },
     });
     if (existingIdentity) {
-      throw new ConflictAppException('Email already used');
+      throw new ConflictAppException(ErrorCode.AUTH_EMAIL_TAKEN);
     }
 
     const passwordHash = await argon2.hash(dto.password);
@@ -39,8 +47,10 @@ export class AuthService {
       '-' +
       Math.random().toString(36).slice(2, 8);
 
-    // 4 bảng liên quan phải tạo cùng lúc hoặc không tạo gì cả -> $transaction
-    const { identity, tenant, membership } = await this.prisma.$transaction(
+    // 4 bảng liên quan phải tạo cùng lúc hoặc không tạo gì cả -> $transaction.
+    // Dùng this.system (BYPASSRLS) ở đây vì Tenant/TenantMembership chưa tồn tại lúc bắt đầu transaction —
+    // chưa có app.current_tenant nào hợp lệ để set, PrismaService thường sẽ bị RLS chặn ngay câu insert đầu tiên.
+    const { identity, tenant, membership } = await this.system.$transaction(
       async (tx) => {
         const identity = await tx.identity.create({
           data: { email: dto.email },
@@ -58,21 +68,24 @@ export class AuthService {
       },
     );
 
-    return this.issueTokens({
-      identityId: identity.id,
-      tenantId: tenant.id,
-      membershipId: membership.id,
-      role: membership.role,
-    });
+    return this.issueTokens(
+      {
+        identityId: identity.id,
+        tenantId: tenant.id,
+        membershipId: membership.id,
+        role: membership.role,
+      },
+      meta,
+    );
   }
 
-  async login(dto: LoginDto) {
+  async login(dto: LoginDto, meta?: RequestMeta) {
     const identity = await this.prisma.identity.findUnique({
       where: { email: dto.email },
-      include: { authProviders: true, memberships: true },
+      include: { authProviders: true }, // KHÔNG include memberships ở đây — bị RLS lọc rỗng, xem cảnh báo phía trên
     });
     if (!identity) {
-      throw new UnauthorizedException('Email or password not valid');
+      throw new UnauthorizedAppException(ErrorCode.AUTH_INVALID_CREDENTIALS);
     }
 
     const passwordProvider = identity.authProviders.find(
@@ -82,26 +95,25 @@ export class AuthService {
       !passwordProvider?.passwordHash ||
       !(await argon2.verify(passwordProvider.passwordHash, dto.password))
     ) {
-      throw new UnauthorizedException('Email or password not valid');
+      throw new UnauthorizedAppException(ErrorCode.AUTH_INVALID_CREDENTIALS);
     }
 
-    const activeMemberships = identity.memberships.filter(
-      (m) => m.status === 'ACTIVE',
-    );
+    // Cross-tenant discovery hợp lệ: đã xác thực password xong mới được phép hỏi "identity này thuộc những tenant nào".
+    const activeMemberships = await this.system.tenantMembership.findMany({
+      where: { identityId: identity.id, status: 'ACTIVE' },
+    });
     if (activeMemberships.length === 0) {
-      throw new UnprocessableAppException(
-        'Account does not belong to any organization',
-      );
+      throw new UnprocessableAppException(ErrorCode.AUTH_NO_TENANT_MEMBERSHIP);
     }
 
     let membership = activeMemberships[0];
     if (dto.tenantSlug) {
-      const tenant = await this.prisma.tenant.findUnique({
+      const tenant = await this.system.tenant.findUnique({
         where: { slug: dto.tenantSlug },
       });
       const match = activeMemberships.find((m) => m.tenantId === tenant?.id);
       if (!match)
-        throw new UnauthorizedException('Not member of this organization');
+        throw new UnauthorizedAppException(ErrorCode.AUTH_TENANT_MISMATCH);
       membership = match;
     } else if (activeMemberships.length > 1) {
       // nhiều tenant, FE chưa chọn -> trả danh sách để FE hiển thị picker, không phát token vội
@@ -114,24 +126,30 @@ export class AuthService {
       };
     }
 
-    return this.issueTokens({
-      identityId: identity.id,
-      tenantId: membership.tenantId,
-      membershipId: membership.id,
-      role: membership.role,
-    });
+    return this.issueTokens(
+      {
+        identityId: identity.id,
+        tenantId: membership.tenantId,
+        membershipId: membership.id,
+        role: membership.role,
+      },
+      meta,
+    );
   }
 
-  async refresh(rawRefreshToken: string) {
-    const { raw, identityId } =
-      await this.refreshTokenService.rotate(rawRefreshToken);
-    // access token mới cần lại đủ tenantId/membershipId/role -> phải tra lại membership hiện tại
-    // (đơn giản nhất: yêu cầu FE cũng gửi kèm tenantId nếu multi-tenant; ở đây lấy membership đầu tiên active)
-    const membership = await this.prisma.tenantMembership.findFirst({
+  async refresh(rawRefreshToken: string, meta?: RequestMeta) {
+    const { raw, identityId } = await this.refreshTokenService.rotate(
+      rawRefreshToken,
+      meta,
+    );
+    // access token mới cần lại đủ tenantId/membershipId/role -> phải tra lại membership hiện tại.
+    // Cross-tenant discovery giống login() — identityId đã được xác thực hợp lệ qua rotate() ở trên,
+    // nên dùng this.system ở đây là an toàn, không phải lỗ hổng.
+    const membership = await this.system.tenantMembership.findFirst({
       where: { identityId, status: 'ACTIVE' },
     });
     if (!membership)
-      throw new UnauthorizedException('Not find valid membership');
+      throw new UnauthorizedAppException(ErrorCode.AUTH_NO_ACTIVE_MEMBERSHIP);
 
     const accessToken = this.signAccessToken({
       identityId,
@@ -142,14 +160,165 @@ export class AuthService {
     return { accessToken, refreshToken: raw };
   }
 
+  /**
+   * Đăng nhập/đăng ký qua Google — verify ID token trước, sau đó link/tạo Identity.
+   * Thứ tự tra cứu: (1) đã từng login Google chưa (theo provider+sub) -> (2) đã có Identity theo
+   * email chưa (từng đăng ký password) -> link thêm AuthProvider GOOGLE -> (3) hoàn toàn mới -> tạo
+   * Identity + Tenant + Membership OWNER, giống hệt register().
+   */
+  async loginWithGoogle(idToken: string, meta?: RequestMeta) {
+    const profile = await this.googleVerifier.verify(idToken);
+
+    const existingProvider = await this.prisma.authProvider.findUnique({
+      where: {
+        provider_providerAccountId: {
+          provider: 'GOOGLE',
+          providerAccountId: profile.sub,
+        },
+      },
+    });
+
+    let identity = existingProvider
+      ? await this.prisma.identity.findUniqueOrThrow({
+          where: { id: existingProvider.identityId },
+        })
+      : await this.prisma.identity.findUnique({
+          where: { email: profile.email },
+        });
+
+    if (!identity) {
+      // Chưa từng có tài khoản nào (chưa Google, chưa password) -> tạo mới toàn bộ, giống register().
+      // Dùng this.system (BYPASSRLS) vì Tenant/TenantMembership chưa tồn tại lúc bắt đầu transaction.
+      // displayName lấy từ Google profile.name (đã verify chữ ký) — field có sẵn trong schema,
+      // register() bằng password không có nguồn nào để điền nên bỏ trống, để user tự cập nhật sau.
+      const tenantName = profile.email.split('@')[0];
+      const slug =
+        this.slugify(tenantName) + '-' + Math.random().toString(36).slice(2, 8);
+
+      const created = await this.system.$transaction(async (tx) => {
+        const newIdentity = await tx.identity.create({
+          data: {
+            email: profile.email,
+            displayName: profile.name,
+            emailVerifiedAt: profile.emailVerified ? new Date() : null,
+          },
+        });
+        await tx.authProvider.create({
+          data: {
+            identityId: newIdentity.id,
+            provider: 'GOOGLE',
+            providerAccountId: profile.sub,
+          },
+        });
+        const tenant = await tx.tenant.create({
+          data: { name: tenantName, slug },
+        });
+        const membership = await tx.tenantMembership.create({
+          data: {
+            tenantId: tenant.id,
+            identityId: newIdentity.id,
+            role: 'OWNER',
+          },
+        });
+        return { identity: newIdentity, tenant, membership };
+      });
+
+      return this.issueTokens(
+        {
+          identityId: created.identity.id,
+          tenantId: created.tenant.id,
+          membershipId: created.membership.id,
+          role: created.membership.role,
+        },
+        meta,
+      );
+    }
+
+    if (!existingProvider) {
+      // Identity đã tồn tại (từng đăng ký bằng password) nhưng chưa link Google -> link thêm, không tạo Identity mới.
+      // Không tin tưởng email trong idToken thay cho việc verify — googleVerifier.verify() ở trên đã verify
+      // chữ ký + audience của Google, nên email này đáng tin, hợp lệ để link account theo email.
+      await this.prisma.authProvider.create({
+        data: {
+          identityId: identity.id,
+          provider: 'GOOGLE',
+          providerAccountId: profile.sub,
+        },
+      });
+    }
+
+    // Cross-tenant discovery giống login() — dùng this.system, lọc theo identityId đã xác định qua Google.
+    const activeMemberships = await this.system.tenantMembership.findMany({
+      where: { identityId: identity.id, status: 'ACTIVE' },
+    });
+    if (activeMemberships.length === 0) {
+      throw new UnprocessableAppException(ErrorCode.AUTH_NO_TENANT_MEMBERSHIP);
+    }
+    // Đơn giản hoá giống login(): lấy tenant đầu tiên. Nếu cần chọn tenant cụ thể, áp dụng lại
+    // logic requiresTenantSelection giống login() khi activeMemberships.length > 1.
+    const membership = activeMemberships[0];
+
+    return this.issueTokens(
+      {
+        identityId: identity.id,
+        tenantId: membership.tenantId,
+        membershipId: membership.id,
+        role: membership.role,
+      },
+      meta,
+    );
+  }
+
+  /**
+   * GET /auth/me — trả data mới nhất từ DB, không chỉ decode lại JWT payload,
+   * vì role/tenant/status có thể đã đổi giữa lúc access token còn hạn (15 phút) và lúc gọi.
+   * payload.tenantId lấy từ JWT đã verify (đáng tin), nên dùng runInTenantContext bình thường,
+   * KHÔNG cần this.system ở đây — khác với login()/refresh() vì ở đây đã biết chính xác tenant nào.
+   */
+  async getMe(payload: AccessTokenPayload) {
+    const identity = await this.prisma.identity.findUniqueOrThrow({
+      where: { id: payload.identityId },
+      select: {
+        id: true,
+        email: true,
+        displayName: true,
+        emailVerifiedAt: true,
+      },
+    });
+
+    const membership = await this.prisma.runInTenantContext(
+      payload.tenantId,
+      (tx) =>
+        tx.tenantMembership.findUniqueOrThrow({
+          where: { id: payload.membershipId },
+          include: {
+            tenant: {
+              select: { id: true, name: true, slug: true, plan: true },
+            },
+          },
+        }),
+    );
+
+    return {
+      identity,
+      tenant: membership.tenant,
+      membership: {
+        id: membership.id,
+        role: membership.role,
+        status: membership.status,
+      },
+    };
+  }
+
   async logout(rawRefreshToken: string) {
     await this.refreshTokenService.revokeOne(rawRefreshToken);
   }
 
-  private async issueTokens(payload: AccessTokenPayload) {
+  async issueTokens(payload: AccessTokenPayload, meta?: RequestMeta) {
     const accessToken = this.signAccessToken(payload);
     const { raw: refreshToken } = await this.refreshTokenService.issue(
       payload.identityId,
+      meta,
     );
     return { accessToken, refreshToken };
   }

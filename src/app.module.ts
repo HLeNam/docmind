@@ -13,6 +13,7 @@ import { AuthModule } from './auth/auth.module.js';
 import { APP_GUARD } from '@nestjs/core';
 import { RolesGuard } from './common/guards/roles.guard.js';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard.js';
+import { InvitationsModule } from './invitations/invitations.module.js';
 import { MailModule } from './mail/mail.module.js';
 
 @Module({
@@ -29,6 +30,7 @@ import { MailModule } from './mail/mail.module.js';
 
     PrismaModule,
     AuthModule,
+    InvitationsModule,
     MailModule,
   ],
   controllers: [AppController],
