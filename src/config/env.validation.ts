@@ -21,7 +21,7 @@ export const envSchema = z.object({
 
   GOOGLE_CLIENT_ID: z.string().min(1),
 
-  MAIL_PROVIDER: z.enum(['resend', 'smtp']),
+  MAIL_PROVIDER: z.enum(['resend', 'smtp', 'brevo']),
   MAIL_FROM: z.string().min(1, 'MAIL_FROM must be provided'), // vd "DocMind <noreply@domain.com>"
   FRONTEND_URL: z.string().url('FRONTEND_URL must be a valid URL'),
 
