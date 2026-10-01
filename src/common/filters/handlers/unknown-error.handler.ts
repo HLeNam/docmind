@@ -25,7 +25,7 @@ export class UnknownErrorHandler implements ExceptionHandler {
         success: false,
         error: {
           code: 'INTERNAL_ERROR',
-          message: 'Đã có lỗi xảy ra, vui lòng thử lại sau',
+          message: 'An error occurred, please try again later',
         },
         meta: ctx,
       },

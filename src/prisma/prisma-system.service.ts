@@ -34,7 +34,7 @@ export class PrismaSystemService
   async onModuleInit() {
     await this.$connect();
     this.logger.warn(
-      'PrismaSystemService connected (role: docmind_system, BYPASSRLS) — chỉ dùng cho truy vấn admin',
+      'PrismaSystemService connected (role: docmind_system, BYPASSRLS) — only used for admin queries',
     );
   }
 

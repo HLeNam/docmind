@@ -81,7 +81,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary:
-      'Đăng nhập/đăng ký qua Google — verify ID token, tự link/tạo account',
+      'Login/register via Google — verify ID token, auto link/create account',
   })
   @ApiZodResponse({
     status: HttpStatus.OK,
