@@ -20,6 +20,16 @@ export interface AccessTokenPayload {
   role: string;
 }
 
+export interface TenantSelectionResult {
+  requiresTenantSelection: true;
+  tenants: Array<{ tenantId: string; role: string }>;
+}
+
+export interface TokenPairResult {
+  accessToken: string;
+  refreshToken: string;
+}
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -98,43 +108,7 @@ export class AuthService {
       throw new UnauthorizedAppException(ErrorCode.AUTH_INVALID_CREDENTIALS);
     }
 
-    // Cross-tenant discovery hợp lệ: đã xác thực password xong mới được phép hỏi "identity này thuộc những tenant nào".
-    const activeMemberships = await this.system.tenantMembership.findMany({
-      where: { identityId: identity.id, status: 'ACTIVE' },
-    });
-    if (activeMemberships.length === 0) {
-      throw new UnprocessableAppException(ErrorCode.AUTH_NO_TENANT_MEMBERSHIP);
-    }
-
-    let membership = activeMemberships[0];
-    if (dto.tenantSlug) {
-      const tenant = await this.system.tenant.findUnique({
-        where: { slug: dto.tenantSlug },
-      });
-      const match = activeMemberships.find((m) => m.tenantId === tenant?.id);
-      if (!match)
-        throw new UnauthorizedAppException(ErrorCode.AUTH_TENANT_MISMATCH);
-      membership = match;
-    } else if (activeMemberships.length > 1) {
-      // nhiều tenant, FE chưa chọn -> trả danh sách để FE hiển thị picker, không phát token vội
-      return {
-        requiresTenantSelection: true,
-        tenants: activeMemberships.map((m) => ({
-          tenantId: m.tenantId,
-          role: m.role,
-        })),
-      };
-    }
-
-    return this.issueTokens(
-      {
-        identityId: identity.id,
-        tenantId: membership.tenantId,
-        membershipId: membership.id,
-        role: membership.role,
-      },
-      meta,
-    );
+    return this.resolveTenantAndIssueTokens(identity.id, dto.tenantSlug, meta);
   }
 
   async refresh(rawRefreshToken: string, meta?: RequestMeta) {
@@ -166,7 +140,11 @@ export class AuthService {
    * email chưa (từng đăng ký password) -> link thêm AuthProvider GOOGLE -> (3) hoàn toàn mới -> tạo
    * Identity + Tenant + Membership OWNER, giống hệt register().
    */
-  async loginWithGoogle(idToken: string, meta?: RequestMeta) {
+  async loginWithGoogle(
+    idToken: string,
+    tenantSlug?: string,
+    meta?: RequestMeta,
+  ) {
     const profile = await this.googleVerifier.verify(idToken);
 
     const existingProvider = await this.prisma.authProvider.findUnique({
@@ -247,26 +225,9 @@ export class AuthService {
       });
     }
 
-    // Cross-tenant discovery giống login() — dùng this.system, lọc theo identityId đã xác định qua Google.
-    const activeMemberships = await this.system.tenantMembership.findMany({
-      where: { identityId: identity.id, status: 'ACTIVE' },
-    });
-    if (activeMemberships.length === 0) {
-      throw new UnprocessableAppException(ErrorCode.AUTH_NO_TENANT_MEMBERSHIP);
-    }
-    // Đơn giản hoá giống login(): lấy tenant đầu tiên. Nếu cần chọn tenant cụ thể, áp dụng lại
-    // logic requiresTenantSelection giống login() khi activeMemberships.length > 1.
-    const membership = activeMemberships[0];
-
-    return this.issueTokens(
-      {
-        identityId: identity.id,
-        tenantId: membership.tenantId,
-        membershipId: membership.id,
-        role: membership.role,
-      },
-      meta,
-    );
+    // Identity đã tồn tại từ trước (có thể có 1 hoặc nhiều membership) -> dùng chung đúng 1 logic
+    // "cross-tenant discovery + chọn tenant" với login() bằng password, không tự viết lại lần nữa.
+    return this.resolveTenantAndIssueTokens(identity.id, tenantSlug, meta);
   }
 
   /**
@@ -333,5 +294,67 @@ export class AuthService {
       .trim()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/(^-|-$)/g, '');
+  }
+
+  /**
+   * Dùng chung cho login() và loginWithGoogle(): identity đã xác thực xong (password hoặc Google),
+   * giờ tra xem thuộc những tenant nào và quyết định phát token thẳng hay yêu cầu FE cho chọn tenant.
+   * - 0 membership active -> lỗi "chưa thuộc tổ chức nào"
+   * - có tenantSlug -> phải khớp đúng 1 trong các membership, sai thì 401
+   * - không có tenantSlug + chỉ 1 membership -> phát token thẳng
+   * - không có tenantSlug + nhiều membership -> trả requiresTenantSelection, KHÔNG phát token vội
+   */
+  private async resolveTenantAndIssueTokens(
+    identityId: string,
+    tenantSlug: string | undefined,
+    meta?: RequestMeta,
+  ): Promise<TokenPairResult | TenantSelectionResult> {
+    // Cross-tenant discovery hợp lệ: identity đã xác thực xong (password hoặc Google) mới được
+    // phép hỏi "identity này thuộc những tenant nào" — luôn qua this.system (BYPASSRLS), vì
+    // app.current_tenant chưa set (chưa biết tenant nào) nên PrismaService thường sẽ bị RLS lọc rỗng.
+    const activeMemberships = await this.system.tenantMembership.findMany({
+      where: { identityId, status: 'ACTIVE' },
+    });
+    if (activeMemberships.length === 0) {
+      throw new UnprocessableAppException(
+        'Account is not a member of any organization',
+        undefined,
+        ErrorCode.AUTH_NO_TENANT_MEMBERSHIP,
+      );
+    }
+
+    let membership = activeMemberships[0]!;
+    if (tenantSlug) {
+      const tenant = await this.system.tenant.findUnique({
+        where: { slug: tenantSlug },
+      });
+      const match = activeMemberships.find((m) => m.tenantId === tenant?.id);
+      if (!match) {
+        throw new UnauthorizedAppException(
+          'Not a member of this organization',
+          ErrorCode.AUTH_TENANT_MISMATCH,
+        );
+      }
+      membership = match;
+    } else if (activeMemberships.length > 1) {
+      // nhiều tenant, chưa chọn -> trả danh sách để FE hiển thị picker, không phát token vội
+      return {
+        requiresTenantSelection: true,
+        tenants: activeMemberships.map((m) => ({
+          tenantId: m.tenantId,
+          role: m.role,
+        })),
+      };
+    }
+
+    return this.issueTokens(
+      {
+        identityId,
+        tenantId: membership.tenantId,
+        membershipId: membership.id,
+        role: membership.role,
+      },
+      meta,
+    );
   }
 }

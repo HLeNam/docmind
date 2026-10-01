@@ -88,12 +88,19 @@ export class AuthController {
     description: 'Google login/registration successful.',
     schema: LoginResponseSchema,
   })
-  @ApiErrorResponse(HttpStatus.UNAUTHORIZED, 'Invalid or expired Google ID token.')
+  @ApiErrorResponse(
+    HttpStatus.UNAUTHORIZED,
+    'Invalid or expired Google ID token.',
+  )
   google(
     @Body({ schema: GoogleLoginSchema }) dto: GoogleLoginDto,
     @Req() req: Request,
   ) {
-    return this.authService.loginWithGoogle(dto.idToken, this.extractMeta(req));
+    return this.authService.loginWithGoogle(
+      dto.idToken,
+      dto.tenantSlug,
+      this.extractMeta(req),
+    );
   }
 
   @Public()

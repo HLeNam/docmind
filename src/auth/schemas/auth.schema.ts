@@ -60,4 +60,8 @@ export const GetMeResponseSchema = z.object({
 
 export const GoogleLoginSchema = z.object({
   idToken: z.string().min(1, 'idToken not empty'),
+  // SỬA: thêm mới — trước đó loginWithGoogle() không nhận tenantSlug, khiến identity có nhiều
+  // membership luôn bị ép vào activeMemberships[0] thay vì được chọn tenant như login() bằng
+  // password đã làm. Giờ đối xứng hoàn toàn với LoginSchema ở trên.
+  tenantSlug: z.string().optional(),
 });
