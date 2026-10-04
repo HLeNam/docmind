@@ -33,6 +33,11 @@ export const ErrorCode = {
   INVITATION_EXPIRED: 'INVITATION_EXPIRED',
   INVITATION_PASSWORD_REQUIRED: 'INVITATION_PASSWORD_REQUIRED',
   INVITATION_ALREADY_MEMBER: 'INVITATION_ALREADY_MEMBER',
+
+  // Storage (S3/MinIO)
+  STORAGE_UPLOAD_FAILED: 'STORAGE_UPLOAD_FAILED',
+  STORAGE_DOWNLOAD_FAILED: 'STORAGE_DOWNLOAD_FAILED',
+  STORAGE_DELETE_FAILED: 'STORAGE_DELETE_FAILED',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
@@ -58,7 +63,8 @@ export const ErrorMessage: Record<ErrorCode, string> = {
   AUTH_REFRESH_TOKEN_REUSED: 'Refresh token has already been used',
   AUTH_REFRESH_TOKEN_EXPIRED: 'Refresh token has expired',
   AUTH_GOOGLE_TOKEN_INVALID: 'Invalid or expired Google ID token',
-  AUTH_GOOGLE_TOKEN_MISSING_CLAIMS: 'Google ID token is missing required claims',
+  AUTH_GOOGLE_TOKEN_MISSING_CLAIMS:
+    'Google ID token is missing required claims',
 
   INVITATION_NOT_FOUND: 'Invitation not found',
   INVITATION_ALREADY_ACCEPTED: 'Invitation has already been accepted',
@@ -66,4 +72,8 @@ export const ErrorMessage: Record<ErrorCode, string> = {
   INVITATION_EXPIRED: 'Invitation has expired',
   INVITATION_PASSWORD_REQUIRED: 'Password is required to create a new account',
   INVITATION_ALREADY_MEMBER: 'You are already a member of this organization',
+
+  STORAGE_UPLOAD_FAILED: 'Failed to upload file to storage',
+  STORAGE_DOWNLOAD_FAILED: 'Failed to download file from storage',
+  STORAGE_DELETE_FAILED: 'Failed to delete file from storage',
 };
