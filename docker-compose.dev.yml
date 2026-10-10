@@ -23,6 +23,14 @@ services:
     volumes:
       - minio_data:/data
 
+  redis:
+    image: redis:7-alpine
+    ports:
+      - '127.0.0.1:6379:6379'
+    volumes:
+      - redis_data:/data
+
 volumes:
   pgdata:
   minio_data:
+  redis_data:

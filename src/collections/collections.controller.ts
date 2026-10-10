@@ -13,8 +13,14 @@ import { CollectionsService } from './collections.service.js';
 import { Roles } from '../common/decorators/roles.decorator.js';
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
 import type { AccessTokenPayload } from '../auth/auth.service.js';
-import { CreateCollectionSchema } from './schemas/collection.schema.js';
+import {
+  CreateCollectionSchema,
+  CollectionResponseSchema,
+} from './schemas/collection.schema.js';
 import type { CreateCollectionDto } from './dtos/collection.dto.js';
+import { ApiZodResponse } from '../common/swagger/api-zod-response.decorator.js';
+import { ApiErrorResponse } from '../common/swagger/api-error-response.decorator.js';
+import { z } from 'zod';
 
 @ApiTags('collections')
 @ApiBearerAuth('access-token')
@@ -27,6 +33,12 @@ export class CollectionsController {
   @Roles('OWNER', 'ADMIN')
   @Post()
   @ApiOperation({ summary: 'Create new collection in current tenant' })
+  @ApiZodResponse({
+    status: HttpStatus.CREATED,
+    description: 'Collection created successfully',
+    schema: CollectionResponseSchema,
+  })
+  @ApiErrorResponse(HttpStatus.FORBIDDEN, 'Access denied.')
   create(
     @CurrentUser() user: AccessTokenPayload,
     @Body({ schema: CreateCollectionSchema }) dto: CreateCollectionDto,
@@ -38,6 +50,11 @@ export class CollectionsController {
   // MEMBER chỉ thấy collection mình được gán — lọc ngay trong CollectionsService.list()).
   @Get()
   @ApiOperation({ summary: 'List collections that caller is allowed to see' })
+  @ApiZodResponse({
+    status: HttpStatus.OK,
+    description: 'List of accessible collections',
+    schema: z.array(CollectionResponseSchema),
+  })
   list(@CurrentUser() user: AccessTokenPayload) {
     return this.collectionsService.list(user);
   }
@@ -50,6 +67,13 @@ export class CollectionsController {
   @ApiOperation({
     summary: 'Delete collection (cascade delete all documents inside)',
   })
+  @ApiZodResponse({
+    status: HttpStatus.NO_CONTENT,
+    description: 'Collection deleted successfully',
+    schema: z.null(),
+  })
+  @ApiErrorResponse(HttpStatus.FORBIDDEN, 'Access denied.')
+  @ApiErrorResponse(HttpStatus.NOT_FOUND, 'Collection not found.')
   delete(@CurrentUser() user: AccessTokenPayload, @Param('id') id: string) {
     return this.collectionsService.delete(user, id);
   }

@@ -8,6 +8,7 @@ import {
   HttpExceptionHandler,
   UnknownErrorHandler,
 } from './handlers/index.js';
+import { MulterErrorHandler } from './handlers/multer-error.handler.js';
 
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
@@ -16,6 +17,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     new PrismaErrorHandler(),
     new AppExceptionHandler(),
     new HttpExceptionHandler(),
+    new MulterErrorHandler(),
     new UnknownErrorHandler(), // fallback — supports() luôn true
   ];
 

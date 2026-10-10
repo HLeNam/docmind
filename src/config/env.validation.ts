@@ -47,6 +47,20 @@ export const envSchema = z.object({
     .enum(['true', 'false'])
     .transform((v) => v === 'true')
     .default(true), // true cho MinIO local; AWS S3 thật thì set false
+
+  REDIS_URL: z.string().url(),
+
+  EMBEDDING_PROVIDER: z
+    .enum(['openai', 'gemini', 'jina', 'ollama'])
+    .default('openai'),
+  JINA_API_KEY: z.string().optional(),
+  JINA_EMBEDDING_MODEL: z.string().default('jina-embeddings-v4'),
+  JINA_EMBEDDING_DIMENSIONS: z.coerce.number().default(1536),
+  GEMINI_API_KEY: z.string().optional(),
+  GEMINI_EMBEDDING_MODEL: z.string().default('gemini-embedding-001'),
+  GEMINI_EMBEDDING_DIMENSIONS: z.coerce.number().default(1536),
+  OLLAMA_BASE_URL: z.string().url().default('http://localhost:11434'),
+  OLLAMA_EMBEDDING_MODEL: z.string().default('nomic-embed-text'),
 });
 
 export type EnvSchema = z.infer<typeof envSchema>;

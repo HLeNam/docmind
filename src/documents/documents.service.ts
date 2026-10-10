@@ -1,0 +1,192 @@
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { StorageService } from '../storage/storage.service.js';
+import { CollectionsService } from '../collections/collections.service.js';
+import { Queue } from 'bullmq';
+import { InjectQueue } from '@nestjs/bullmq';
+import { AccessTokenPayload } from '../auth/auth.service.js';
+import {
+  ALLOWED_MIME_TYPES,
+  getMaxSizeForMimeType,
+} from './schemas/document.schema.js';
+import {
+  NotFoundAppException,
+  UnprocessableAppException,
+} from '../common/exceptions/app.exception.js';
+import { randomUUID } from 'crypto';
+
+export interface UploadedFileLike {
+  originalname: string;
+  mimetype: string;
+  size: number;
+  buffer: Buffer;
+}
+
+const JOB_OPTS = {
+  attempts: 3,
+  backoff: { type: 'exponential' as const, delay: 2000 },
+};
+
+@Injectable()
+export class DocumentsService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storage: StorageService,
+    private readonly collectionsService: CollectionsService,
+    @InjectQueue('document-processing') private readonly queue: Queue,
+  ) {}
+
+  async upload(
+    caller: AccessTokenPayload,
+    collectionId: string,
+    file: UploadedFileLike,
+  ) {
+    if (
+      !ALLOWED_MIME_TYPES.includes(
+        file.mimetype as (typeof ALLOWED_MIME_TYPES)[number],
+      )
+    ) {
+      throw new UnprocessableAppException(
+        `Unsupported file type: ${file.mimetype}`,
+        {
+          allowed: ALLOWED_MIME_TYPES,
+        },
+      );
+    }
+
+    // FileInterceptor ở controller chỉ chặn được 1 ngưỡng TUYỆT ĐỐI chung cho mọi file
+    // (MAX_DOCUMENT_SIZE_BYTES — ngưỡng lớn nhất trong 2 mức), không phân biệt theo mimetype.
+    // CSV/XLSX cần ngưỡng NHỎ HƠN (MAX_TABULAR_SIZE_BYTES) — kiểm tra tinh hơn ở đây, khi đã biết
+    // chính xác mimetype.
+    const maxSize = getMaxSizeForMimeType(file.mimetype);
+    if (file.size > maxSize) {
+      throw new UnprocessableAppException(
+        `File size exceeds limit for type ${file.mimetype} (max ${Math.round(maxSize / 1024 / 1024)}MB)`,
+        { maxBytes: maxSize },
+      );
+    }
+
+    // Check quyền + sự tồn tại của collection TRƯỚC khi đụng tới storage — tránh upload file lên
+    // S3 rồi mới phát hiện không có quyền/collection không tồn tại.
+    await this.collectionsService.assertCollectionAccessible(
+      caller,
+      collectionId,
+    );
+
+    const documentId = randomUUID();
+
+    // Upload lên storage TRƯỚC khi tạo record DB — ngược lại với thứ tự "tạo DB trước" đã cân nhắc:
+    // nếu upload S3 thất bại, không có Document record mồ côi nào phải dọn; nếu tạo DB record
+    // thất bại SAU KHI đã upload, object "mồ côi" trong S3 vô hại (không ai biết tới key đó) và có
+    // thể dọn định kỳ sau — đánh đổi rẻ hơn so với 1 Document PENDING mà file chưa chắc có.
+    const { key } = await this.storage.uploadObject({
+      tenantId: caller.tenantId,
+      documentId,
+      originalFilename: file.originalname,
+      body: file.buffer,
+      contentType: file.mimetype,
+    });
+
+    const document = await this.prisma.runInTenantContext(
+      caller.tenantId,
+      async (tx) => {
+        const collection = await tx.collection.findUnique({
+          where: { id: collectionId },
+        });
+        if (!collection) throw new NotFoundAppException('Collection not found');
+
+        return tx.document.create({
+          data: {
+            id: documentId,
+            tenantId: caller.tenantId,
+            collectionId,
+            filename: file.originalname,
+            fileUrl: key,
+            mimeType: file.mimetype,
+            status: 'PENDING',
+            uploadedById: caller.membershipId,
+          },
+        });
+      },
+    );
+
+    await this.queue.add('process', { documentId: document.id }, JOB_OPTS);
+
+    return document;
+  }
+
+  async list(caller: AccessTokenPayload, collectionId?: string) {
+    const accessibleCollectionIds =
+      await this.collectionsService.listAccessibleCollectionIds(caller);
+    if (collectionId && !accessibleCollectionIds.includes(collectionId)) {
+      // Không lộ "collection này tồn tại nhưng bạn không có quyền" — trả rỗng giống hệt trường hợp
+      // collection rỗng thật, tránh rò rỉ thông tin tồn tại của collection khác.
+      return [];
+    }
+
+    return this.prisma.runInTenantContext(caller.tenantId, (tx) =>
+      tx.document.findMany({
+        where: {
+          collectionId: collectionId
+            ? collectionId
+            : { in: accessibleCollectionIds },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+    );
+  }
+
+  async getStatus(caller: AccessTokenPayload, documentId: string) {
+    return this.prisma.runInTenantContext(caller.tenantId, async (tx) => {
+      const document = await tx.document.findUnique({
+        where: { id: documentId },
+        select: {
+          id: true,
+          status: true,
+          failReason: true,
+          filename: true,
+          collectionId: true,
+        },
+      });
+      if (!document) throw new NotFoundAppException('Document not found');
+      await this.collectionsService.assertCollectionAccessible(
+        caller,
+        document.collectionId,
+      );
+      return document;
+    });
+  }
+
+  // Quyết định MVP: dùng HARD DELETE. Schema hiện tại (Document) KHÔNG có cột deletedAt — spec gốc
+  // nói "soft delete + cascade" nhưng thêm cột là 1 thay đổi schema cần quyết định riêng, không tự
+  // ý thêm ở đây. Cascade xoá DocumentChunk đã có sẵn qua onDelete: Cascade trong schema.prisma.
+  // Muốn soft-delete thật, xem mục "Đã hoãn có chủ đích" trong doc Phase 2.
+  async remove(caller: AccessTokenPayload, documentId: string) {
+    return this.prisma.runInTenantContext(caller.tenantId, async (tx) => {
+      const document = await tx.document.findUnique({
+        where: { id: documentId },
+      });
+      if (!document) throw new NotFoundAppException('Document not found');
+      await this.collectionsService.assertCollectionAccessible(
+        caller,
+        document.collectionId,
+      );
+      await tx.document.delete({ where: { id: documentId } });
+      await this.storage.deleteObject(document.fileUrl);
+      return { id: documentId, deleted: true };
+    });
+  }
+
+  // Re-index: enqueue lại đúng job cũ, worker tự xoá chunks cũ trước khi tạo lại (xem module Worker).
+  async reindex(caller: AccessTokenPayload, documentId: string) {
+    const document = await this.getStatus(caller, documentId); // đã tự check quyền theo collection
+    await this.prisma.runInTenantContext(caller.tenantId, (tx) =>
+      tx.document.update({
+        where: { id: documentId },
+        data: { status: 'PENDING', failReason: null },
+      }),
+    );
+    await this.queue.add('process', { documentId: document.id }, JOB_OPTS);
+    return { id: documentId, status: 'PENDING' };
+  }
+}
