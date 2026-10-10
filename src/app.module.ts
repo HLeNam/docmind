@@ -15,6 +15,7 @@ import { RolesGuard } from './common/guards/roles.guard.js';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard.js';
 import { InvitationsModule } from './invitations/invitations.module.js';
 import { MailModule } from './mail/mail.module.js';
+import { StorageModule } from './storage/storage.module.js';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { MailModule } from './mail/mail.module.js';
     AuthModule,
     InvitationsModule,
     MailModule,
+    StorageModule,
   ],
   controllers: [AppController],
   providers: [
