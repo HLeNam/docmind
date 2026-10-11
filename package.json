@@ -37,7 +37,9 @@
     "@nestjs/jwt": "^12.0.1",
     "@nestjs/passport": "^12.0.0",
     "@nestjs/platform-express": "^12.1.2",
+    "@nestjs/platform-socket.io": "^12.1.2",
     "@nestjs/swagger": "^12.0.1",
+    "@nestjs/websockets": "^12.1.2",
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
     "@react-email/components": "^1.0.12",
@@ -60,6 +62,7 @@
     "reflect-metadata": "^0.2.2",
     "resend": "^6.30.0",
     "rxjs": "^7.8.1",
+    "socket.io": "^4.8.4",
     "tiktoken": "^1.0.22",
     "zod": "^4.5.4"
   },
