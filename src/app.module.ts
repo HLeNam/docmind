@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import {
   appConfig,
   databaseConfig,
@@ -15,6 +15,11 @@ import { RolesGuard } from './common/guards/roles.guard.js';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard.js';
 import { InvitationsModule } from './invitations/invitations.module.js';
 import { MailModule } from './mail/mail.module.js';
+import { StorageModule } from './storage/storage.module.js';
+import { CollectionsModule } from './collections/collections.module.js';
+import { DocumentsModule } from './documents/documents.module.js';
+import { BullModule } from '@nestjs/bullmq';
+import { RetrievalModule } from './retrieval/retrieval.module.js';
 
 @Module({
   imports: [
@@ -28,10 +33,23 @@ import { MailModule } from './mail/mail.module.js';
       validationSchema: envSchema,
     }),
 
+    BullModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        connection: {
+          url: config.getOrThrow<string>('REDIS_URL', { infer: true }),
+        },
+      }),
+    }),
+
     PrismaModule,
     AuthModule,
     InvitationsModule,
     MailModule,
+    StorageModule,
+    CollectionsModule,
+    DocumentsModule,
+    RetrievalModule,
   ],
   controllers: [AppController],
   providers: [
