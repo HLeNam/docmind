@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiBody,
   ApiConsumes,
   ApiOperation,
   ApiTags,
@@ -47,13 +48,31 @@ export class DocumentsController {
   @ApiOperation({
     summary: 'Upload document to a collection, enqueue async processing job',
   })
+  // THIẾU Ở BẢN TRƯỚC — lý do Swagger UI chỉ hiện field collectionId, không hiện ô chọn file:
+  // @ApiConsumes() chỉ khai content-type, không đủ để Swagger suy ra request body có field nào.
+  // @UseInterceptors(FileInterceptor(...)) chỉ xử lý multipart ở BACKEND (Express/Multer), hoàn
+  // toàn không ảnh hưởng gì tới việc sinh OpenAPI schema cho Swagger UI — 2 việc độc lập nhau.
+  // Phải khai tường minh @ApiBody với field 'file' kiểu binary thì Swagger UI mới vẽ nút chọn file.
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['file'],
+      properties: { file: { type: 'string', format: 'binary' } },
+    },
+  })
   @ApiZodResponse({
     status: HttpStatus.CREATED,
     description: 'Document uploaded and queued for processing',
     schema: DocumentResponseSchema,
   })
-  @ApiErrorResponse(HttpStatus.FORBIDDEN, 'You do not have permission to upload to this collection.')
-  @ApiErrorResponse(HttpStatus.UNPROCESSABLE_ENTITY, 'Invalid file type or file size exceeded.')
+  @ApiErrorResponse(
+    HttpStatus.FORBIDDEN,
+    'You do not have permission to upload to this collection.',
+  )
+  @ApiErrorResponse(
+    HttpStatus.UNPROCESSABLE_ENTITY,
+    'Invalid file type or file size exceeded.',
+  )
   // Dùng MAX_DOCUMENT_SIZE_BYTES (ngưỡng tuyệt đối, lớn nhất trong 2 mức) ở đây — Multer chỉ hỗ
   // trợ 1 con số chung, không phân biệt theo mimetype. Ngưỡng nhỏ hơn cho CSV/XLSX được kiểm tra
   // tinh hơn ở DocumentsService.upload() (đã biết chính xác mimetype lúc đó).
@@ -101,14 +120,19 @@ export class DocumentsController {
     description: 'Document status',
     schema: DocumentStatusResponseSchema,
   })
-  @ApiErrorResponse(HttpStatus.NOT_FOUND, 'Document not found or access denied.')
+  @ApiErrorResponse(
+    HttpStatus.NOT_FOUND,
+    'Document not found or access denied.',
+  )
   getStatus(@CurrentUser() user: AccessTokenPayload, @Param('id') id: string) {
     return this.documentsService.getStatus(user, id);
   }
 
   @Roles('OWNER', 'ADMIN')
   @Post(':id/reindex')
-  @ApiOperation({ summary: 'Re-index — delete old chunks, re-enqueue processing job' })
+  @ApiOperation({
+    summary: 'Re-index — delete old chunks, re-enqueue processing job',
+  })
   @ApiZodResponse({
     status: HttpStatus.CREATED,
     description: 'Document re-queued for processing',
