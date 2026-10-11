@@ -19,6 +19,7 @@ import { StorageModule } from './storage/storage.module.js';
 import { CollectionsModule } from './collections/collections.module.js';
 import { DocumentsModule } from './documents/documents.module.js';
 import { BullModule } from '@nestjs/bullmq';
+import { RetrievalModule } from './retrieval/retrieval.module.js';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { BullModule } from '@nestjs/bullmq';
     StorageModule,
     CollectionsModule,
     DocumentsModule,
+    RetrievalModule,
   ],
   controllers: [AppController],
   providers: [
