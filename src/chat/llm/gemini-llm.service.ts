@@ -9,10 +9,11 @@
 // EmbeddingModule) — 2 biến env riêng biệt, đừng nhầm lẫn. GEMINI_API_KEY dùng CHUNG 1 key cho cả 2
 // (cùng 1 project trên Google AI Studio), không cần tạo key riêng.
 //
-// ⚠️ CHƯA XÁC NHẬN bằng request thật — khác với GeminiEmbeddingService (đã confirmed qua test script
-// của bạn). Tên model mặc định (`GEMINI_CHAT_MODEL` default bên dưới) có thể đã đổi tính tới lúc bạn
-// đọc code này — vào https://aistudio.google.com/ kiểm tra model free-tier hiện có trước khi chạy
-// thử, đổi qua env nếu cần, KHÔNG sửa cứng trong code.
+// ✅ ĐÃ XÁC NHẬN bằng request thật (10/2026, qua curl -N streaming thật của bạn): response shape
+// `candidates[0].content.parts[].text` đúng như code xử lý, stream trả về nhiều event `delta` rời
+// rạc đúng thứ tự, câu trả lời trích dẫn đúng theo citation [1] trong systemPrompt. Model mặc định
+// `GEMINI_CHAT_MODEL` (bên dưới) đã xác nhận hoạt động — nếu Google đổi tên model free-tier sau này,
+// đổi qua env, không cần sửa code.
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type {

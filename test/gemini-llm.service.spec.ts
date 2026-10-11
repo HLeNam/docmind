@@ -12,7 +12,7 @@ import {
 function buildConfigService(): ConfigService {
   const values: Record<string, string> = {
     GEMINI_API_KEY: 'test-gemini-key',
-    GEMINI_CHAT_MODEL: 'gemini-2.5-flash',
+    GEMINI_CHAT_MODEL: 'gemini-3.8-flash',
   };
   return {
     getOrThrow: (key: string) => values[key],
@@ -66,7 +66,7 @@ describe('GeminiLlmService', () => {
     }
 
     expect(fetchMock).toHaveBeenCalledWith(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse',
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:streamGenerateContent?alt=sse',
       expect.objectContaining({
         method: 'POST',
         headers: {

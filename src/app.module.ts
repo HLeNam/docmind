@@ -20,6 +20,7 @@ import { CollectionsModule } from './collections/collections.module.js';
 import { DocumentsModule } from './documents/documents.module.js';
 import { BullModule } from '@nestjs/bullmq';
 import { RetrievalModule } from './retrieval/retrieval.module.js';
+import { ChatModule } from './chat/chat.module.js';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { RetrievalModule } from './retrieval/retrieval.module.js';
     CollectionsModule,
     DocumentsModule,
     RetrievalModule,
+    ChatModule,
   ],
   controllers: [AppController],
   providers: [

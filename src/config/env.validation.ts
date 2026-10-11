@@ -63,7 +63,7 @@ export const envSchema = z.object({
   OLLAMA_EMBEDDING_MODEL: z.string().default('nomic-embed-text'),
 
   LLM_PROVIDER: z.enum(['gemini']).default('gemini'),
-  GEMINI_CHAT_MODEL: z.string().default('gemini-2.5-flash'),
+  GEMINI_CHAT_MODEL: z.string().default('gemini-3.8-flash'),
 });
 
 export type EnvSchema = z.infer<typeof envSchema>;
