@@ -1,15 +1,18 @@
-// test/chunk-text.util.spec.ts
-//
 // Pure function, không cần mock gì — test trực tiếp logic chunking.
-import { chunkText } from '../src/documents/processing/chunk-text.util.js';
+import { describe, it, expect } from 'vitest';
+import {
+  chunkText,
+  chunkPagedText,
+} from '../src/documents/processing/chunk-text.util.js';
+import type { PdfPageSegment } from '../src/documents/processing/extract-text.util.js';
 
 describe('chunkText', () => {
-  it('empty text (or only whitespace) -> returns empty array, does not throw', () => {
+  it('returns empty array when text is empty or whitespace only', () => {
     expect(chunkText('')).toEqual([]);
     expect(chunkText('   \n\t  ')).toEqual([]);
   });
 
-  it('short text (under 500 tokens, no heading) -> exactly 1 chunk, chunkIndex = 0', () => {
+  it('creates a single chunk with chunkIndex 0 when text is short (<500 tokens) and has no headings', () => {
     const chunks = chunkText('Đây là một đoạn văn bản ngắn để test chunking.');
     expect(chunks).toHaveLength(1);
     expect(chunks[0]!.chunkIndex).toBe(0);
@@ -17,7 +20,7 @@ describe('chunkText', () => {
     expect(chunks[0]!.content).toContain('đoạn văn bản ngắn');
   });
 
-  it('long text (no heading) -> split into multiple chunks, chunkIndex increments sequentially from 0', () => {
+  it('splits long text into multiple chunks with sequentially incrementing chunkIndex', () => {
     // Lặp lại 1 câu đủ nhiều lần để chắc chắn vượt 500 token.
     const longText =
       'Đây là một câu lặp lại nhiều lần để tạo văn bản dài cho việc kiểm thử. '.repeat(
@@ -29,7 +32,7 @@ describe('chunkText', () => {
     chunks.forEach((chunk, i) => expect(chunk.chunkIndex).toBe(i));
   });
 
-  it('long text (no heading) -> has overlap between 2 consecutive chunks (next chunk contains tail of previous chunk)', () => {
+  it('maintains sliding window overlap between consecutive chunks', () => {
     const longText =
       'token test overlap sliding window chunk boundary check '.repeat(150);
     const chunks = chunkText(longText);
@@ -44,7 +47,7 @@ describe('chunkText', () => {
     expect(totalChunkLength).toBeGreaterThan(longText.trim().length);
   });
 
-  it('text with Markdown heading -> split by section, each chunk keeps the exact headingContext of that section', () => {
+  it('splits Markdown text by sections and preserves headingContext for each chunk', () => {
     const md = [
       '# Giới thiệu',
       'Nội dung phần giới thiệu, ngắn gọn.',
@@ -62,7 +65,7 @@ describe('chunkText', () => {
     expect(chunks[1]!.chunkIndex).toBe(1);
   });
 
-  it('1 Markdown section too long (>500 tokens) -> fallback to sliding window INSIDE section, keeps headingContext', () => {
+  it('falls back to sliding window within a section if it exceeds 500 tokens while preserving headingContext', () => {
     const longSection =
       '# Phần dài\n' +
       'nội dung lặp lại nhiều lần để vượt quá 500 token mỗi chunk. '.repeat(
@@ -77,7 +80,7 @@ describe('chunkText', () => {
     chunks.forEach((c, i) => expect(c.chunkIndex).toBe(i));
   });
 
-  it('multiple short consecutive headings (each section under 500 tokens) -> number of chunks = number of sections, no merging', () => {
+  it('keeps short consecutive Markdown headings as separate chunks without merging', () => {
     const md = [
       '# A',
       'nội dung A',
@@ -89,5 +92,50 @@ describe('chunkText', () => {
     const chunks = chunkText(md);
     expect(chunks).toHaveLength(3);
     expect(chunks.map((c) => c.headingContext)).toEqual(['# A', '# B', '# C']);
+  });
+});
+
+describe('chunkPagedText', () => {
+  it('creates 1 chunk per page for short pages with correct pageNumber and continuous chunkIndex', () => {
+    const pages: PdfPageSegment[] = [
+      { pageNumber: 1, text: 'Nội dung trang một.' },
+      { pageNumber: 2, text: 'Nội dung trang hai.' },
+      { pageNumber: 3, text: 'Nội dung trang ba.' },
+    ];
+    const chunks = chunkPagedText(pages);
+
+    expect(chunks).toHaveLength(3);
+    expect(chunks.map((c) => c.pageNumber)).toEqual([1, 2, 3]);
+    expect(chunks.map((c) => c.chunkIndex)).toEqual([0, 1, 2]); // KHÔNG reset về 0 mỗi trang
+    expect(chunks[0]!.content).toContain('trang một');
+  });
+
+  it('skips empty or whitespace-only pages without creating empty chunks', () => {
+    const pages: PdfPageSegment[] = [
+      { pageNumber: 1, text: '   ' },
+      { pageNumber: 2, text: 'Có nội dung thật ở đây.' },
+    ];
+    const chunks = chunkPagedText(pages);
+
+    expect(chunks).toHaveLength(1);
+    expect(chunks[0]!.pageNumber).toBe(2);
+    expect(chunks[0]!.chunkIndex).toBe(0); // vẫn bắt đầu từ 0, không để lại "lỗ hổng" vì trang 1 bị bỏ
+  });
+
+  it('falls back to sliding window within a long page while preserving the same pageNumber for all sub-chunks', () => {
+    const longPageText =
+      'nội dung lặp lại nhiều lần để vượt quá 500 token mỗi chunk. '.repeat(
+        100,
+      );
+    const pages: PdfPageSegment[] = [{ pageNumber: 5, text: longPageText }];
+    const chunks = chunkPagedText(pages);
+
+    expect(chunks.length).toBeGreaterThan(1);
+    chunks.forEach((c) => expect(c.pageNumber).toBe(5));
+    chunks.forEach((c, i) => expect(c.chunkIndex).toBe(i));
+  });
+
+  it('returns empty array when given an empty list of pages', () => {
+    expect(chunkPagedText([])).toEqual([]);
   });
 });

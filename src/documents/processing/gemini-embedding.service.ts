@@ -1,22 +1,21 @@
-// src/documents/processing/gemini-embedding.service.ts
-//
-// Lựa chọn ĐÁNG CÂN NHẮC NHẤT trong 3 provider thay thế OpenAI (xem so sánh đầy đủ trong
+// Provider chính được chọn dùng (thay OpenAI do chưa có ngân sách — xem so sánh đầy đủ trong
 // EMBEDDING_PROVIDER_NOTES.md): Google Gemini có free tier cho embedding API, VÀ
 // gemini-embedding-001 hỗ trợ output_dimensionality=1536 — ĐÚNG KHỚP cột
 // `embedding Unsupported("vector(1536)")?` đã có sẵn trong schema.prisma, nên KHÔNG CẦN migration
 // đổi số chiều vector như khi dùng Ollama (768 chiều, lệch với cột hiện tại).
 //
-// ⚠️ 1 điểm CHƯA XÁC NHẬN CHẮC CHẮN (khác hẳn rủi ro đã gặp với officeparser/pdf-parse): tài liệu
-// REST chính thức không nêu rõ `outputDimensionality` đặt ở đâu trong 1 item của
-// `batchEmbedContents` (SDK Python/Node dùng `config.output_dimensionality`, REST thuần thì tài
-// liệu chỉ nói field này "deprecated, dùng EmbedContentConfig thay thế" mà không chỉ rõ vị trí
-// tương đương trong batch). Code dưới đặt `outputDimensionality` làm field cùng cấp với
-// `model`/`content` trong mỗi request item (suy luận từ field tương đương ở endpoint
-// `embedContent` đơn lẻ) — BẮT BUỘC gọi thử 1 lần thật và kiểm tra `embedding.length === 1536`
-// trước khi tin cậy, giống cách đã làm với officeparser.
+// ✅ ĐÃ XÁC NHẬN bằng request thật (10/2026): `outputDimensionality` đặt cùng cấp với
+// `model`/`content` trong mỗi request item của `batchEmbedContents` HOẠT ĐỘNG ĐÚNG — vector trả về
+// đúng 1536 chiều (tài liệu REST chính thức không nêu rõ vị trí field này, phải tự test để xác
+// nhận, giống cách đã làm với officeparser/pdf-parse).
+//
+// mode 'document' vs 'query': ĐÃ SỬA (trước đây dùng chung RETRIEVAL_DOCUMENT cho cả 2, ghi là hạn
+// chế cần xem lại trong RETRIEVAL_MODULE_NOTES.md mục 3). Gemini tối ưu riêng cho 2 taskType:
+// RETRIEVAL_DOCUMENT lúc embed chunk tài liệu, RETRIEVAL_QUERY lúc embed câu hỏi user — nay
+// embedBatch() nhận thêm tham số mode để chọn đúng taskType.
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { EmbeddingProvider } from './embedding.service.js';
+import type { EmbeddingMode, EmbeddingProvider } from './embedding.service.js';
 
 interface GeminiBatchEmbedResponse {
   embeddings: Array<{ values: number[] }>;
@@ -43,7 +42,12 @@ export class GeminiEmbeddingService implements EmbeddingProvider {
     );
   }
 
-  async embedBatch(texts: string[]): Promise<number[][]> {
+  async embedBatch(
+    texts: string[],
+    mode: EmbeddingMode = 'document',
+  ): Promise<number[][]> {
+    const taskType =
+      mode === 'query' ? 'RETRIEVAL_QUERY' : 'RETRIEVAL_DOCUMENT';
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:batchEmbedContents`;
     const res = await fetch(url, {
       method: 'POST',
@@ -55,13 +59,7 @@ export class GeminiEmbeddingService implements EmbeddingProvider {
         requests: texts.map((text) => ({
           model: `models/${this.model}`,
           content: { parts: [{ text }] },
-          // task_type mặc định RETRIEVAL_DOCUMENT — đúng cho việc embed CHUNK tài liệu lúc index.
-          // Khi RetrievalService (module sau) dùng provider này để embed CÂU HỎI của user lúc
-          // search, về lý thuyết nên dùng RETRIEVAL_QUERY để chất lượng tốt hơn (Gemini tối ưu
-          // riêng cho từng loại) — nhưng EmbeddingProvider interface hiện tại (embedBatch(texts))
-          // không phân biệt được 2 ngữ cảnh này. Chấp nhận đơn giản hoá ở MVP: dùng chung
-          // RETRIEVAL_DOCUMENT cho cả 2. Nếu đo được retrieval kém, đây là chỗ đầu tiên cần xem lại.
-          taskType: 'RETRIEVAL_DOCUMENT',
+          taskType,
           outputDimensionality: this.outputDimensionality,
         })),
       }),

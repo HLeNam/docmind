@@ -1,5 +1,3 @@
-// test/jina-embedding.service.spec.ts
-//
 // Mock global.fetch — không gọi Jina thật. Xác nhận request đúng shape (model v4, dimensions,
 // task) và response (schema giống OpenAI: data[{embedding, index}]) được sort/parse đúng.
 
@@ -28,7 +26,7 @@ describe('JinaEmbeddingService', () => {
     global.fetch = fetchMock as unknown as typeof fetch;
   });
 
-  it('should send the correct model, dimensions, task, and Authorization header to /v1/embeddings', async () => {
+  it('sends correct model, dimensions, task, and Authorization to /v1/embeddings', async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
       json: async () => ({ data: [{ embedding: [0.1, 0.2], index: 0 }] }),
@@ -56,7 +54,7 @@ describe('JinaEmbeddingService', () => {
     });
   });
 
-  it('should re-sort the results to match the original input order if the response is out of order', async () => {
+  it('sorts response items by index to match original input ordering when unordered', async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
@@ -74,7 +72,19 @@ describe('JinaEmbeddingService', () => {
     ]);
   });
 
-  it('should throw an Error with the original status and body when Jina returns an error (e.g. rate limit exceeded)', async () => {
+  it("uses retrieval.query task when mode is query", async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ data: [{ embedding: [0.5, 0.6], index: 0 }] }),
+    });
+
+    await service.embedBatch(['câu hỏi user'], 'query');
+
+    const body = JSON.parse(fetchMock.mock.calls[0]![1].body);
+    expect(body.task).toBe('retrieval.query');
+  });
+
+  it('throws descriptive Error containing status and response body when Jina returns an error', async () => {
     fetchMock.mockResolvedValue({
       ok: false,
       status: 429,

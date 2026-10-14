@@ -1,5 +1,3 @@
-// src/retrieval/retrieval.service.ts
-//
 // Hybrid search: kết hợp vector similarity (pgvector cosine distance, toán tử `<=>`) với full-text
 // search (cột `content_tsv` có sẵn từ Phase 1 — trigger `tsvectorupdate` tự điền mỗi lần insert
 // chunk, xem migration.sql) bằng Reciprocal Rank Fusion (RRF). RRF được chọn thay vì cộng trực tiếp
@@ -17,7 +15,7 @@ import { CollectionsService } from '../collections/collections.service.js';
 import { EMBEDDING_PROVIDER_TOKEN } from '../documents/processing/embedding.module.js';
 import type { EmbeddingProvider } from '../documents/processing/embedding.service.js';
 import type { AccessTokenPayload } from '../auth/auth.service.js';
-import type { RetrievalSearchDto } from './dtos/retrieval.dto.js';
+import { RetrievalSearchDto } from './dtos/retrieval.dto.js';
 
 const RRF_K = 60;
 // Mỗi nhánh (vector/full-text) lấy rộng hơn topK cuối cùng trước khi fusion — 1 chunk hạng thấp ở
@@ -78,10 +76,10 @@ export class RetrievalService {
       return [];
     }
 
-    // RETRIEVAL_QUERY vs RETRIEVAL_DOCUMENT: đã ghi trong comment của Gemini/Jina embedding service
-    // — interface EmbeddingProvider hiện tại không phân biệt 2 ngữ cảnh, dùng chung embedBatch() ở
-    // MVP. Đây CHÍNH LÀ chỗ gọi cho câu hỏi user lúc search (khác lúc index chunk tài liệu).
-    const [queryVector] = await this.embedding.embedBatch([dto.query]);
+    // mode='query': đây là chỗ embed CÂU HỎI user lúc search, khác ngữ cảnh embed CHUNK tài liệu lúc
+    // index (DocumentProcessingProcessor dùng mode='document') — ĐÃ SỬA, trước đây dùng chung 1 task
+    // type cho cả 2 (xem EmbeddingMode trong embedding.service.ts).
+    const [queryVector] = await this.embedding.embedBatch([dto.query], 'query');
     const vectorLiteral = `[${queryVector.join(',')}]`;
     const candidateLimit = dto.topK * CANDIDATE_MULTIPLIER;
 
