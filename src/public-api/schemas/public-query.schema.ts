@@ -52,5 +52,3 @@ export const PublicQueryResponseSchema = z.object({
     }),
   ),
 });
-
-export type PublicQueryDto = z.infer<typeof PublicQuerySchema>;

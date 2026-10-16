@@ -29,8 +29,8 @@ import { PublicQueryService } from './public-query.service.js';
 import {
   PublicQueryResponseSchema,
   PublicQuerySchema,
-  type PublicQueryDto,
 } from './schemas/public-query.schema.js';
+import type { PublicQueryDto } from './dtos/public-query.dto.js';
 
 const ApiKeyInfoResponseSchema = z.object({
   apiKeyId: z.string().describe('Unique API key identifier'),

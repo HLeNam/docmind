@@ -23,7 +23,7 @@ import {
 } from '../common/exceptions/app.exception.js';
 import { ErrorCode } from '../common/exceptions/error-codes.js';
 import type { ApiKeyPrincipal } from '../api-keys/api-key-principal.js';
-import type { PublicQueryDto } from './schemas/public-query.schema.js';
+import type { PublicQueryDto } from './dtos/public-query.dto.js';
 
 const SNIPPET_MAX_CHARS = 300;
 
