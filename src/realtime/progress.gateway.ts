@@ -22,7 +22,17 @@ import {
 import type { Server, Socket } from 'socket.io';
 
 export type DocumentProcessingPhase =
-  'extracting' | 'chunking' | 'embedding' | 'indexing' | 'completed' | 'failed';
+  | 'extracting'
+  | 'chunking'
+  // PDF scan ảnh, text extract ra quá ít -> đang chạy OCR fallback (ocr.util.ts) — bước này CÓ THỂ
+  // CHẬM hơn đáng kể so với các phase khác (OCR từng trang tuần tự), nên tách phase riêng thay vì
+  // gộp chung 'chunking'/'embedding' để FE (sau này) có thể hiển thị thông báo phù hợp
+  // ("đang nhận dạng chữ trong ảnh scan...") thay vì để progress bar đứng yên khó hiểu.
+  | 'ocr'
+  | 'embedding'
+  | 'indexing'
+  | 'completed'
+  | 'failed';
 
 export interface DocumentProgressPayload {
   documentId: string;
@@ -75,9 +85,6 @@ export class ProgressGateway
       return;
     }
     void client.leave(tenantRoom(payload.tenantId));
-    this.logger.debug(
-      `Client ${client.id} left room ${tenantRoom(payload.tenantId)}`,
-    );
   }
 
   /**

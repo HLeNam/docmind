@@ -1,5 +1,3 @@
-// src/documents/processing/embedding.service.ts
-//
 // Tách interface EmbeddingProvider ngay từ đầu — đúng pattern MailProvider đã dùng ở Phase 1 — để
 // sau này thêm provider khác (Cohere, hoặc local qua Ollama cho tổ chức self-hosted không gọi API
 // ra ngoài, đúng mục tiêu định vị sản phẩm "không phải hộp đen") chỉ cần thêm 1 class, không đụng
@@ -7,8 +5,15 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
+// 'document': embed CHUNK tài liệu lúc index (DocumentProcessingProcessor).
+// 'query': embed CÂU HỎI user lúc search (RetrievalService). Gemini/Jina tối ưu riêng cho 2 ngữ
+// cảnh này (taskType khác nhau) — trước đây dùng chung 1 task type cho cả 2, đã ghi là hạn chế cần
+// sửa trong RETRIEVAL_MODULE_NOTES.md mục 3, giờ sửa ở đây. Mặc định 'document' (giữ nguyên hành vi
+// cũ cho mọi chỗ gọi embedBatch() không truyền mode — chỉ RetrievalService cần đổi sang 'query').
+export type EmbeddingMode = 'document' | 'query';
+
 export interface EmbeddingProvider {
-  embedBatch(texts: string[]): Promise<number[][]>;
+  embedBatch(texts: string[], mode?: EmbeddingMode): Promise<number[][]>;
 }
 
 @Injectable()
@@ -25,7 +30,12 @@ export class OpenAiEmbeddingService implements EmbeddingProvider {
     });
   }
 
-  async embedBatch(texts: string[]): Promise<number[][]> {
+  // OpenAI embedding API không có khái niệm "query vs document" (không có tham số taskType tương
+  // đương Gemini/Jina) -> tham số mode bị bỏ qua, chỉ khai để khớp interface chung.
+  async embedBatch(
+    texts: string[],
+    _mode?: EmbeddingMode,
+  ): Promise<number[][]> {
     const res = await fetch('https://api.openai.com/v1/embeddings', {
       method: 'POST',
       headers: {

@@ -1,8 +1,7 @@
-// src/documents/processing/document-processing.processor.ts
-//
 // Phần nặng nhất Phase 2: BullMQ worker nối toàn bộ pipeline lại — download từ storage -> extract
-// text -> chunk -> embed theo batch -> insert pgvector (raw SQL, Prisma không hỗ trợ insert trực
-// tiếp cột Unsupported("vector(1536)")) -> báo tiến độ qua ProgressGateway -> cập nhật
+// text -> (PDF: tách trang + OCR fallback nếu nghi scan ảnh, xem chunkPdfWithOcrFallback() và
+// ocr.util.ts) -> chunk -> embed theo batch -> insert pgvector (raw SQL, Prisma không hỗ trợ insert
+// trực tiếp cột Unsupported("vector(1536)")) -> báo tiến độ qua ProgressGateway -> cập nhật
 // Document.status cuối cùng (INDEXED/FAILED).
 //
 // Dùng PrismaSystemService (role docmind_system, BYPASSRLS thật — xem docmind-phase1-implementation.md
@@ -16,11 +15,34 @@ import type { Job } from 'bullmq';
 import { randomUUID } from 'node:crypto';
 import { PrismaSystemService } from '../../prisma/prisma-system.service.js';
 import { StorageService } from '../../storage/storage.service.js';
-import { ProgressGateway } from '../../realtime/progress.gateway.js';
+import {
+  ProgressGateway,
+  type DocumentProcessingPhase,
+} from '../../realtime/progress.gateway.js';
 import { EMBEDDING_PROVIDER_TOKEN } from './embedding.module.js';
 import type { EmbeddingProvider } from './embedding.service.js';
-import { extractText } from './extract-text.util.js';
-import { chunkText, type TextChunk } from './chunk-text.util.js';
+import {
+  extractText,
+  getPdfPageCount,
+  splitPdfPagesByMarker,
+  type PdfPageSegment,
+} from './extract-text.util.js';
+import {
+  chunkText,
+  chunkPagedText,
+  type TextChunk,
+} from './chunk-text.util.js';
+import {
+  ocrPdfPages,
+  OCR_EMPTY_DOC_CHARS,
+  OCR_SPARSE_PAGE_CHARS,
+} from './ocr.util.js';
+
+// Đếm ký tự khác khoảng trắng — dùng cho ngưỡng OCR (xem ocr.util.ts), không bị lệch bởi xuống dòng/
+// khoảng trắng layout của text PDF.
+function countNonWhitespace(text: string): number {
+  return text.replace(/\s/g, '').length;
+}
 
 export interface DocumentProcessingJobData {
   documentId: string;
@@ -80,13 +102,29 @@ export class DocumentProcessingProcessor extends WorkerHost {
       const rawText = await extractText(buffer, mimeType);
 
       this.emitProgress(tenantId, documentId, 20, 'chunking');
-      const chunks = chunkText(rawText);
+      // PDF: thử tách theo trang qua marker pageJoiner có sẵn trong rawText (xem
+      // splitPdfPagesByMarker() trong extract-text.util.ts) để chunk gắn được pageNumber đúng, phục
+      // vụ citation trả về đúng trang — ĐỒNG THỜI cũng là bước phát hiện trang nào "gần như rỗng"
+      // (nghi scan ảnh) để quyết định có cần OCR hay không (xem chunkPdfWithOcrFallback() bên dưới).
+      // KHÔNG PHẢI PDF -> fallback chunkText() như cũ, pageNumber null, không OCR (OCR chỉ áp dụng
+      // cho PDF — docx/pptx/xlsx/txt không có khái niệm "trang scan ảnh").
+      const chunks =
+        mimeType === 'application/pdf'
+          ? await this.chunkPdfWithOcrFallback(
+              tenantId,
+              documentId,
+              buffer,
+              rawText,
+            )
+          : chunkText(rawText);
       if (chunks.length === 0) {
-        // Case "0 chunk" đã ghi trong WORKER_MODULE_NOTES.md (vd PDF scan ảnh, extract ra text
-        // rỗng) — coi là lỗi RÕ RÀNG thay vì âm thầm để document ở trạng thái INDEXED mà không có
-        // chunk nào (sẽ không bao giờ xuất hiện trong kết quả search, khó debug vì "trông như ổn").
+        // Case "0 chunk" — PDF đã thử cả text extract thường LẪN OCR fallback mà vẫn không ra được
+        // nội dung nào (vd ảnh quá mờ/nghiêng); định dạng khác (docx/txt/...) thì không áp dụng OCR.
+        // Coi là lỗi RÕ RÀNG thay vì âm thầm để document ở trạng thái INDEXED mà không có chunk nào.
+        const ocrNote =
+          mimeType === 'application/pdf' ? ' (even after attempting OCR)' : '';
         throw new Error(
-          'No content could be extracted from document (possibly scanned PDF without OCR support)',
+          `Failed to extract any content from document${ocrNote}`,
         );
       }
 
@@ -130,8 +168,11 @@ export class DocumentProcessingProcessor extends WorkerHost {
   ): Promise<void> {
     for (let start = 0; start < chunks.length; start += EMBEDDING_BATCH_SIZE) {
       const batch = chunks.slice(start, start + EMBEDDING_BATCH_SIZE);
+      // mode='document': embed CHUNK tài liệu lúc index, khác ngữ cảnh RetrievalService dùng
+      // mode='query' lúc embed câu hỏi user — xem EmbeddingMode trong embedding.service.ts.
       const vectors = await this.embedding.embedBatch(
         batch.map((c) => c.content),
+        'document',
       );
 
       if (vectors.length !== batch.length) {
@@ -151,14 +192,15 @@ export class DocumentProcessingProcessor extends WorkerHost {
       for (const [i, chunk] of batch.entries()) {
         const vectorLiteral = `[${vectors[i]!.join(',')}]`;
         await this.system.$executeRaw`
-          INSERT INTO document_chunks (id, document_id, content, embedding, chunk_index, heading_context)
+          INSERT INTO document_chunks (id, document_id, content, embedding, chunk_index, heading_context, page_number)
           VALUES (
             ${randomUUID()},
             ${documentId},
             ${chunk.content},
             ${vectorLiteral}::vector,
             ${chunk.chunkIndex},
-            ${chunk.headingContext ?? null}
+            ${chunk.headingContext ?? null},
+            ${chunk.pageNumber ?? null}
           )
         `;
       }
@@ -169,17 +211,85 @@ export class DocumentProcessingProcessor extends WorkerHost {
     }
   }
 
+  // Quyết định có cần OCR hay không, VÀ chạy OCR nếu cần, rồi chunk kết quả — tách riêng khỏi
+  // process() chính để dễ đọc (process() đã khá dài). 2 nhánh:
+  // 1. splitPdfPagesByMarker() tách được trang (trường hợp thường gặp): OCR CHỈ những trang có text
+  //    ít hơn OCR_SPARSE_PAGE_CHARS (nội dung có thể nằm trong ảnh: slide sơ đồ, trang scan...) rồi
+  //    GHÉP chữ OCR vào chữ có sẵn của trang đó; các trang đủ chữ giữ nguyên, không OCR — tiết kiệm
+  //    thời gian so với OCR toàn bộ document.
+  // 2. Không tách được trang (rawText không có marker): nếu rawText coi như đủ dùng (không phải vì
+  //    thiếu marker mà vì gần như rỗng) thì fallback chunkText() như cũ; CHỈ khi rawText quá ít mới
+  //    coi cả document là "nghi scan ảnh toàn bộ" và OCR HẾT mọi trang (cần gọi thêm getPdfPageCount()
+  //    vì không có sẵn thông tin tổng số trang từ bước tách marker).
+  private async chunkPdfWithOcrFallback(
+    tenantId: string,
+    documentId: string,
+    buffer: Buffer,
+    rawText: string,
+  ): Promise<TextChunk[]> {
+    const pages = splitPdfPagesByMarker(rawText);
+
+    if (pages === null) {
+      if (countNonWhitespace(rawText) >= OCR_EMPTY_DOC_CHARS) {
+        // Có text dùng được nhưng không tách được trang (vd pdf-parse đổi default pageJoiner sau
+        // này) -> vẫn index bình thường, chỉ là pageNumber sẽ null cho toàn bộ document.
+        return chunkText(rawText);
+      }
+
+      const totalPages = await getPdfPageCount(buffer);
+      this.emitProgress(
+        tenantId,
+        documentId,
+        22,
+        'ocr',
+        `Failed to split pages by marker, extracted text too sparse -> OCR all ${totalPages} pages`,
+      );
+      const ocrResults = await ocrPdfPages(
+        buffer,
+        Array.from({ length: totalPages }, (_, i) => i + 1),
+      );
+      const ocrPages: PdfPageSegment[] = Array.from(ocrResults.entries()).map(
+        ([pageNumber, text]) => ({
+          pageNumber,
+          text,
+        }),
+      );
+      return chunkPagedText(ocrPages);
+    }
+
+    const scanLikePageNumbers = pages
+      .filter((p) => countNonWhitespace(p.text) < OCR_SPARSE_PAGE_CHARS)
+      .map((p) => p.pageNumber);
+
+    if (scanLikePageNumbers.length === 0) {
+      return chunkPagedText(pages); // mọi trang đều đủ chữ, không cần OCR trang nào
+    }
+
+    this.emitProgress(
+      tenantId,
+      documentId,
+      22,
+      'ocr',
+      `Running OCR on ${scanLikePageNumbers.length}/${pages.length} sparse pages (content may be inside images)`,
+    );
+    const ocrResults = await ocrPdfPages(buffer, scanLikePageNumbers);
+
+    // GHÉP chữ OCR vào SAU chữ có sẵn của trang (tiêu đề từ text layer + nội dung đọc từ ảnh), không
+    // thay thế: slide thường có tiêu đề ở text layer còn nội dung nằm trong ảnh, OCR có thể đọc sót
+    // tiêu đề. Tiêu đề có thể bị lặp 1 lần khi OCR cũng đọc được nó — vô hại. Trang OCR không đọc được
+    // gì thì giữ nguyên text gốc.
+    const mergedPages = pages.map((p) => {
+      const ocrText = ocrResults.get(p.pageNumber);
+      return ocrText ? { ...p, text: `${p.text}\n${ocrText}`.trim() } : p;
+    });
+    return chunkPagedText(mergedPages);
+  }
+
   private emitProgress(
     tenantId: string,
     documentId: string,
     percent: number,
-    phase:
-      | 'extracting'
-      | 'chunking'
-      | 'embedding'
-      | 'indexing'
-      | 'completed'
-      | 'failed',
+    phase: DocumentProcessingPhase,
     message?: string,
   ): void {
     this.progressGateway.emitProgress(tenantId, {
@@ -196,7 +306,7 @@ export class DocumentProcessingProcessor extends WorkerHost {
   @OnWorkerEvent('failed')
   onFailed(job: Job<DocumentProcessingJobData>, err: Error): void {
     this.logger.error(
-      `Job processing document ${job.data.documentId} permanently failed after ${job.attemptsMade} attempts: ${err.message}`,
+      `Document processing job ${job.data.documentId} permanently failed after ${job.attemptsMade} attempts: ${err.message}`,
     );
   }
 }

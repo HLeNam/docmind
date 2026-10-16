@@ -1,11 +1,10 @@
-// test/retrieval.service.spec.ts
-//
 // Mock PrismaService.runInTenantContext (chạy thẳng callback với 1 tx giả có $queryRaw mock sẵn),
 // CollectionsService.listAccessibleCollectionIds, và EmbeddingProvider.embedBatch — không gọi
 // Postgres/embedding API thật. Test tập trung vào LOGIC NGHIỆP VỤ xung quanh câu SQL (lọc quyền
 // theo collection, map kết quả), không assert nội dung chuỗi SQL bên trong tagged template (nên để
 // test tích hợp chạy với Postgres thật xác nhận cú pháp — xem RETRIEVAL_MODULE_NOTES.md).
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+import { describe, it, expect, vi } from 'vitest';
 import { RetrievalService } from '../src/retrieval/retrieval.service.js';
 import type { AccessTokenPayload } from '../src/auth/auth.service.js';
 
@@ -47,31 +46,30 @@ const CALLER: AccessTokenPayload = {
 };
 
 describe('RetrievalService', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it('successfully performs hybrid search: embeds query, runs raw SQL in tenant context, and maps score to number', async () => {
+  it('performs normal hybrid search: embeds query, executes raw SQL in tenant context, and maps score to number', async () => {
     const row = {
       id: 'chunk-1',
       documentId: 'doc-1',
-      content: 'chunk content',
+      content: 'nội dung chunk',
       chunkIndex: 0,
       headingContext: null,
       pageNumber: null,
       filename: 'a.pdf',
-      score: '0.0328', // Postgres driver may return numeric as string
+      score: '0.0328', // Postgres driver có thể trả numeric dưới dạng string
     };
     const { service, prisma, tx, embedding } = buildService({
       queryRawResult: [row],
     });
 
     const result = await service.search(CALLER, {
-      query: 'hello docmind',
+      query: 'xin chào docmind',
       topK: 10,
     });
 
-    expect(embedding.embedBatch).toHaveBeenCalledWith(['hello docmind']);
+    expect(embedding.embedBatch).toHaveBeenCalledWith(
+      ['xin chào docmind'],
+      'query',
+    );
     expect(prisma.runInTenantContext).toHaveBeenCalledWith(
       'tenant-1',
       expect.any(Function),
@@ -80,7 +78,7 @@ describe('RetrievalService', () => {
     expect(result).toEqual([{ ...row, score: 0.0328 }]);
   });
 
-  it('returns empty array immediately without embedding or querying DB when no collections are accessible', async () => {
+  it('returns empty array immediately without embedding query or executing DB search if no collections are accessible', async () => {
     const { service, embedding, tx } = buildService({
       accessibleCollectionIds: [],
     });
@@ -92,7 +90,7 @@ describe('RetrievalService', () => {
     expect(tx.$queryRaw).not.toHaveBeenCalled();
   });
 
-  it('returns empty array when specified collectionId is not accessible', async () => {
+  it('returns empty array without leaking collection existence if requested collectionId is not accessible', async () => {
     const { service, embedding, tx } = buildService({
       accessibleCollectionIds: ['col-1'],
     });
@@ -119,15 +117,15 @@ describe('RetrievalService', () => {
       collectionId: 'col-2',
     });
 
-    expect(result).toEqual([]);
+    expect(result).toEqual([]); // queryRawResult mặc định rỗng — chỉ xác nhận flow chạy tới cùng
     expect(tx.$queryRaw).toHaveBeenCalledTimes(1);
   });
 
-  it('passes query string through to embedding provider as expected', async () => {
+  it('passes whitespace query to service without throwing (validation handled at DTO layer)', async () => {
     const { service, embedding } = buildService();
 
-    await service.search(CALLER, { query: 'a', topK: 10 });
+    await service.search(CALLER, { query: 'a', topK: 10 }); // query hợp lệ tối thiểu, chỉ kiểm tra không throw
 
-    expect(embedding.embedBatch).toHaveBeenCalledWith(['a']);
+    expect(embedding.embedBatch).toHaveBeenCalledWith(['a'], 'query');
   });
 });

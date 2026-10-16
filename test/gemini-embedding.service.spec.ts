@@ -1,5 +1,3 @@
-// test/gemini-embedding.service.spec.ts
-//
 // Mock global.fetch — không gọi Gemini thật. Xác nhận request đúng shape (đặc biệt
 // `outputDimensionality` và `taskType`) và xử lý đúng response/lỗi. KHÔNG xác nhận được qua unit
 // test việc `outputDimensionality` có thực sự được Google tôn trọng ở batchEmbedContents hay
@@ -31,7 +29,7 @@ describe('GeminiEmbeddingService', () => {
     global.fetch = fetchMock as unknown as typeof fetch;
   });
 
-  it('should call the correct batchEmbedContents URL with x-goog-api-key header and 1 request item per text', async () => {
+  it('calls batchEmbedContents endpoint with x-goog-api-key header and one request item per input text', async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
@@ -64,7 +62,7 @@ describe('GeminiEmbeddingService', () => {
     ]);
   });
 
-  it('should extract the correct values field from each embeddings element and maintain the returned order', async () => {
+  it('extracts values field from each embeddings element while preserving order', async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
@@ -84,7 +82,19 @@ describe('GeminiEmbeddingService', () => {
     ]);
   });
 
-  it('should throw an Error with the original status and body when Gemini returns an error (e.g. invalid API key, quota exceeded)', async () => {
+  it("uses RETRIEVAL_QUERY taskType when mode is query", async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ embeddings: [{ values: [0.5, 0.6] }] }),
+    });
+
+    await service.embedBatch(['câu hỏi user'], 'query');
+
+    const body = JSON.parse(fetchMock.mock.calls[0]![1].body);
+    expect(body.requests[0].taskType).toBe('RETRIEVAL_QUERY');
+  });
+
+  it('throws descriptive Error containing status and response body when Gemini returns an error', async () => {
     // mockResolvedValue (không phải Once): test gọi embedBatch() 2 lần để assert riêng từng phần
     // của message lỗi.
     fetchMock.mockResolvedValue({
