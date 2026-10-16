@@ -15,6 +15,7 @@ import { LLM_PROVIDER_TOKEN } from './llm/llm-provider.interface.js';
 import type { LlmProvider, ChatMessage } from './llm/llm-provider.interface.js';
 import { NotFoundAppException } from '../common/exceptions/app.exception.js';
 import type { AccessTokenPayload } from '../auth/auth.service.js';
+import { buildContextBlock, buildSystemPrompt } from './rag-prompt.util.js';
 import { SendMessageDto } from './dtos/chat.dto.js';
 
 // Số tin nhắn GẦN NHẤT lấy làm ngữ cảnh hội thoại — hội thoại dài vô hạn mà nhét hết vào mỗi lần
@@ -22,14 +23,6 @@ import { SendMessageDto } from './dtos/chat.dto.js';
 // chấp nhận được cho MVP: hội thoại rất dài sẽ "quên" phần đầu — xem mục "Chưa làm" trong notes.
 const HISTORY_LIMIT = 10;
 const DEFAULT_TOP_K = 5;
-
-function buildSystemPrompt(contextBlock: string): string {
-  return `Bạn là trợ lý AI của DocMind, trả lời câu hỏi CHỈ dựa trên các đoạn trích tài liệu dưới đây. Nếu không tìm thấy thông tin liên quan trong ngữ cảnh, hãy nói rõ là không tìm thấy, KHÔNG tự bịa câu trả lời.
-
-${contextBlock}
-
-Khi trả lời, trích dẫn nguồn bằng ký hiệu [1], [2]... tương ứng với số thứ tự đoạn trích ở trên.`;
-}
 
 export interface ChatCitation {
   index: number; // thứ tự [1],[2]... dùng trong systemPrompt — khớp với citations lưu vào Message
@@ -100,14 +93,7 @@ export class ChatService {
       score: chunk.score,
     }));
 
-    const contextBlock =
-      retrieved.length > 0
-        ? retrieved
-            .map(
-              (chunk, i) => `[${i + 1}] (${chunk.filename}) ${chunk.content}`,
-            )
-            .join('\n\n')
-        : '(Không tìm thấy đoạn trích tài liệu nào liên quan trong phạm vi bạn có quyền truy cập.)';
+    const contextBlock = buildContextBlock(retrieved);
 
     // Lưu user message NGAY, TRƯỚC khi gọi LLM — nếu LLM lỗi/timeout giữa chừng ở bước streamAnswer()
     // (method khác, chạy sau), câu hỏi của user vẫn còn trong lịch sử hội thoại, không bị mất.

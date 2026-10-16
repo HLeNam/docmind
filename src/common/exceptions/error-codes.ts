@@ -46,6 +46,9 @@ export const ErrorCode = {
   API_KEY_MISSING: 'API_KEY_MISSING',
   API_KEY_INVALID: 'API_KEY_INVALID',
   API_KEY_REVOKED: 'API_KEY_REVOKED',
+
+  API_KEY_SCOPE_FORBIDDEN: 'API_KEY_SCOPE_FORBIDDEN',
+  RATE_LIMITED: 'RATE_LIMITED',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
@@ -92,4 +95,7 @@ export const ErrorMessage: Record<ErrorCode, string> = {
   API_KEY_MISSING: 'Missing API key',
   API_KEY_INVALID: 'Invalid API key',
   API_KEY_REVOKED: 'API key has been revoked',
+
+  API_KEY_SCOPE_FORBIDDEN: 'API key does not have access to this collection',
+  RATE_LIMITED: 'Too many requests. Please try again later.',
 };
