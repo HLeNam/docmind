@@ -1,10 +1,8 @@
-// test/chat.service.spec.ts
-//
 // Mock PrismaService.runInTenantContext (chạy thẳng callback với 1 tx giả), RetrievalService.search,
 // và LlmProvider.streamChat (async generator giả) — không gọi DB/API thật. Test 3 method riêng biệt
 // đúng theo ranh giới đã thiết kế: prepare() (có thể throw), streamAnswer() (chỉ delegate), và
 // saveAssistantMessage() (lưu kết quả).
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { ChatService } from '../src/chat/chat.service.js';
 import type { AccessTokenPayload } from '../src/auth/auth.service.js';
 
@@ -22,13 +20,11 @@ function buildService(overrides?: {
 }) {
   const tx = {
     conversation: {
-      create: vi
-        .fn()
-        .mockResolvedValue({
-          id: 'conv-new',
-          tenantId: 'tenant-1',
-          membershipId: 'member-1',
-        }),
+      create: vi.fn().mockResolvedValue({
+        id: 'conv-new',
+        tenantId: 'tenant-1',
+        membershipId: 'member-1',
+      }),
       findUnique: vi
         .fn()
         .mockResolvedValue(
@@ -52,20 +48,18 @@ function buildService(overrides?: {
     ),
   };
   const retrievalService = {
-    search: vi
-      .fn()
-      .mockResolvedValue(
-        overrides?.retrievedChunks ?? [
-          {
-            id: 'chunk-1',
-            documentId: 'doc-1',
-            content: 'nội dung A',
-            chunkIndex: 0,
-            filename: 'a.pdf',
-            score: 0.5,
-          },
-        ],
-      ),
+    search: vi.fn().mockResolvedValue(
+      overrides?.retrievedChunks ?? [
+        {
+          id: 'chunk-1',
+          documentId: 'doc-1',
+          content: 'nội dung A',
+          chunkIndex: 0,
+          filename: 'a.pdf',
+          score: 0.5,
+        },
+      ],
+    ),
   };
   async function* fakeStream() {
     yield 'Xin';
@@ -82,10 +76,6 @@ function buildService(overrides?: {
 }
 
 describe('ChatService.prepare', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
   it('creates a new Conversation bound to caller tenantId and membershipId when conversationId is not provided', async () => {
     const { service, tx } = buildService();
 
@@ -167,6 +157,8 @@ describe('ChatService.prepare', () => {
           content: 'A',
           chunkIndex: 0,
           filename: 'a.pdf',
+          pageNumber: 3,
+          headingContext: null,
           score: 0.9,
         },
         {
@@ -174,7 +166,9 @@ describe('ChatService.prepare', () => {
           documentId: 'doc-2',
           content: 'B',
           chunkIndex: 1,
-          filename: 'b.pdf',
+          filename: 'b.docx',
+          pageNumber: null,
+          headingContext: '## Giới thiệu SCM',
           score: 0.8,
         },
       ],
@@ -182,24 +176,29 @@ describe('ChatService.prepare', () => {
 
     const result = await service.prepare(CALLER, { content: 'x', topK: 5 });
 
+    // pageNumber (PDF) và headingContext (DOCX/Markdown) phải đi hết vào citation để FE "nhảy đúng chỗ".
     expect(result.citations).toEqual([
       {
         index: 1,
         documentId: 'doc-1',
         filename: 'a.pdf',
         chunkIndex: 0,
+        pageNumber: 3,
+        headingContext: null,
         score: 0.9,
       },
       {
         index: 2,
         documentId: 'doc-2',
-        filename: 'b.pdf',
+        filename: 'b.docx',
         chunkIndex: 1,
+        pageNumber: null,
+        headingContext: '## Giới thiệu SCM',
         score: 0.8,
       },
     ]);
     expect(result.systemPrompt).toContain('[1] (a.pdf) A');
-    expect(result.systemPrompt).toContain('[2] (b.pdf) B');
+    expect(result.systemPrompt).toContain('[2] (b.docx) B');
   });
 
   it('returns valid systemPrompt with no context notice when no relevant chunks found', async () => {
@@ -229,10 +228,6 @@ describe('ChatService.prepare', () => {
 });
 
 describe('ChatService.streamAnswer', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
   it('delegates directly to LlmProvider.streamChat with correct systemPrompt and messages', async () => {
     const { service, llm } = buildService();
     const prepared = {
@@ -254,10 +249,6 @@ describe('ChatService.streamAnswer', () => {
 });
 
 describe('ChatService.saveAssistantMessage', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
   it('saves message with role ASSISTANT and citations for the corresponding conversationId', async () => {
     const { service, tx } = buildService();
     const prepared = {
@@ -270,6 +261,8 @@ describe('ChatService.saveAssistantMessage', () => {
           documentId: 'doc-1',
           filename: 'a.pdf',
           chunkIndex: 0,
+          pageNumber: 2,
+          headingContext: null,
           score: 0.5,
         },
       ],

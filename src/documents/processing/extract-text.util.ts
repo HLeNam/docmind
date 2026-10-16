@@ -149,7 +149,7 @@ export async function extractText(
 // ✅ OCR cho PDF scan ảnh: ĐÃ xử lý — xem ocr.util.ts (ocrPdfPages(), dùng tesseract.js) và nhánh
 // chunkPdfWithOcrFallback() trong document-processing.processor.ts. extractText() ở TRÊN KHÔNG đổi
 // gì — vẫn chỉ gọi getText() thường; OCR là bước FALLBACK RIÊNG chạy SAU, chỉ khi text thường extract
-// ra quá ít (xem OCR_MIN_CHARS_PER_PAGE trong ocr.util.ts), không làm chậm case PDF text bình thường.
+// ra quá ít (xem OCR_SPARSE_PAGE_CHARS trong ocr.util.ts), không làm chậm case PDF text bình thường.
 //
 // ✅ headingContext cho DOCX ("nhảy đúng đoạn" như pageNumber của PDF): ĐÃ xử lý — xem case DOCX ở
 // trên (mammoth.convertToHtml() + turndown thay vì extractRawText()). PPTX/XLSX CHƯA làm (đơn vị tự

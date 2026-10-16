@@ -1,5 +1,3 @@
-// src/chat/chat.service.ts
-//
 // Tách làm 3 method riêng biệt (prepare -> streamAnswer -> saveAssistantMessage) thay vì gộp thành
 // 1 async generator duy nhất — lý do nằm ở ranh giới HTTP: SSE bắt buộc set header "200 OK,
 // text/event-stream" NGAY TRƯỚC khi ghi byte đầu tiên, và KHÔNG THỂ đổi status code sau đó nữa. Mọi
@@ -38,6 +36,11 @@ export interface ChatCitation {
   documentId: string;
   filename: string;
   chunkIndex: number;
+  // Vị trí trong tài liệu để FE "nhảy đúng chỗ": pageNumber có với PDF (tách được trang), headingContext
+  // có với DOCX/Markdown có heading. Cả hai có thể null (vd txt/csv, hoặc PDF/DOCX không tách được cấu
+  // trúc) — FE cần xử lý trường hợp null, chỉ hiển thị tên file như trước.
+  pageNumber: number | null;
+  headingContext: string | null;
   score: number;
 }
 
@@ -92,6 +95,8 @@ export class ChatService {
       documentId: chunk.documentId,
       filename: chunk.filename,
       chunkIndex: chunk.chunkIndex,
+      pageNumber: chunk.pageNumber,
+      headingContext: chunk.headingContext,
       score: chunk.score,
     }));
 

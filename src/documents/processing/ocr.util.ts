@@ -4,8 +4,8 @@
 // đen" của sản phẩm (self-hosted hoàn toàn, không phụ thuộc Google Vision/AWS Textract...).
 //
 // ⚠️ CHƯA XÁC NHẬN bằng PDF scan ảnh THẬT — code viết theo README/docs chính thức của pdf-parse
-// (getScreenshot({partial, scale}) trả {pages: [{data: Uint8Array PNG}]}) và tesseract.js
-// (createWorker(langs) + worker.recognize(Buffer.from(pageImage))), nhưng CHƯA tự chạy thử với 1 file PDF scan thật.
+// (getScreenshot({partial, scale}) trả {pages: [{data: Buffer PNG}]}) và tesseract.js
+// (createWorker(langs) + worker.recognize(buffer)), nhưng CHƯA tự chạy thử với 1 file PDF scan thật.
 // PHẢI tự test trước khi tin cậy, giống mọi provider khác trong dự án (xem cảnh báo tương tự ở
 // gemini-embedding.service.ts, extract-text.util.ts phần PDF).
 //
@@ -23,11 +23,17 @@ const OCR_LANGUAGES = 'eng+vie';
 // OCR chậm hơn đáng kể so với 1 trang scale=1. Chưa đo thời gian thực tế, có thể cần chỉnh lại.
 const SCREENSHOT_SCALE = 2;
 
-// Ngưỡng coi 1 trang là "có khả năng là ảnh scan, cần OCR" — text thường (không OCR) của 1 trang
-// thực sự có nội dung hiếm khi dưới ngưỡng này (vd trang bìa chỉ có vài chữ vẫn thường > 20 ký tự).
-// Cố ý để THẤP (an toàn false-negative hơn false-positive): thà bỏ sót 1 trang scan hiếm gặp còn hơn
-// OCR nhầm hàng loạt trang đã có text tốt (OCR chậm hơn đọc text trực tiếp rất nhiều).
-export const OCR_MIN_CHARS_PER_PAGE = 20;
+// Ngưỡng "trang ít chữ" (đếm ký tự KHÁC khoảng trắng): trang có text layer dưới ngưỡng này bị coi là
+// nội dung có thể nằm trong ảnh (slide chỉ có tiêu đề + sơ đồ/ảnh, trang scan...) -> OCR rồi GHÉP chữ OCR
+// vào chữ có sẵn. Đo trên PDF slide thật (2023-Lecture10-BasicML.pdf): slide sơ đồ "Types of machine
+// learning" chỉ có 85-108 ký tự (tiêu đề + dòng nguồn), trong khi slide toàn chữ thường 300+ ký tự ->
+// 200 tách được hai nhóm. Đánh đổi: slide ít chữ nhưng không có ảnh cũng bị OCR thừa (chậm hơn một
+// chút, không sai kết quả). Chưa đo thời gian OCR thực tế, có thể cần chỉnh ngưỡng.
+export const OCR_SPARSE_PAGE_CHARS = 200;
+
+// Ngưỡng "cả document gần như không có chữ" khi KHÔNG tách được trang qua marker (xem
+// chunkPdfWithOcrFallback): dưới ngưỡng này coi là PDF scan hoàn toàn và OCR hết mọi trang.
+export const OCR_EMPTY_DOC_CHARS = 20;
 
 // OCR các trang trong `pageNumbers` của 1 PDF (dùng LẠI buffer đã tải từ storage ở processor, KHÔNG
 // tải lại file). Trả Map<pageNumber, text> — trang nào render/OCR lỗi thì KHÔNG có mặt trong Map

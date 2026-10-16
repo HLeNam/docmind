@@ -69,7 +69,13 @@ function chunkByHeading(text: string): Array<Omit<TextChunk, 'chunkIndex'>> {
 
   for (const section of sections) {
     const headingMatch = section.match(/^(#{1,6}\s.+)$/m);
-    const headingContext = headingMatch?.[1]?.trim();
+    // turndown (DOCX -> markdown) escape ký tự đặc biệt bằng backslash, vd heading "1. Khái niệm" ra
+    // "### 1\. Khái niệm" (tránh bị hiểu thành danh sách đánh số). Bỏ backslash ở headingContext để
+    // FE hiển thị đúng chữ gốc; nội dung chunk giữ nguyên, không đụng. File .md thật không có
+    // escape kiểu này nên không bị ảnh hưởng.
+    const headingContext = headingMatch?.[1]
+      ?.trim()
+      .replace(/\\([\\`*_{}[\]()#+\-.!])/g, '$1');
     const sectionTokens = encoding.encode(section).length;
 
     if (sectionTokens <= CHUNK_SIZE_TOKENS) {

@@ -8,6 +8,7 @@
 // bộ dependency là jest mock, để test chạy được ngay cả khi chưa có hạ tầng (không cần docker compose
 // up, không cần GOOGLE_CLIENT_ID thật). Test DB-dependent (RLS, migration...) vẫn nằm ở các file khác.
 
+import { describe, it, expect, vi } from 'vitest';
 import { AuthService } from '../src/auth/auth.service.js';
 import { ErrorCode } from '../src/common/exceptions/error-codes.js';
 
