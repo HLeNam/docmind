@@ -55,6 +55,7 @@ async function bootstrap() {
         },
         'access-token', // tên định danh, dùng lại ở @ApiBearerAuth('access-token')
       )
+      .addBearerAuth({ type: 'http', scheme: 'bearer' }, 'api-key')
       .build();
 
     const documentFactory = () =>

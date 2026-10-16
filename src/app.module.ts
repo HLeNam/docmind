@@ -22,6 +22,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { RetrievalModule } from './retrieval/retrieval.module.js';
 import { ChatModule } from './chat/chat.module.js';
 import { ApiKeysModule } from './api-keys/api-keys.module.js';
+import { PublicApiModule } from './public-api/public-api.module.js';
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { ApiKeysModule } from './api-keys/api-keys.module.js';
     RetrievalModule,
     ChatModule,
     ApiKeysModule,
+    PublicApiModule,
   ],
   controllers: [AppController],
   providers: [
