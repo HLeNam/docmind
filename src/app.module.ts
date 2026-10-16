@@ -21,6 +21,7 @@ import { DocumentsModule } from './documents/documents.module.js';
 import { BullModule } from '@nestjs/bullmq';
 import { RetrievalModule } from './retrieval/retrieval.module.js';
 import { ChatModule } from './chat/chat.module.js';
+import { ApiKeysModule } from './api-keys/api-keys.module.js';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { ChatModule } from './chat/chat.module.js';
     DocumentsModule,
     RetrievalModule,
     ChatModule,
+    ApiKeysModule,
   ],
   controllers: [AppController],
   providers: [

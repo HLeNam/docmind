@@ -38,6 +38,10 @@ export const ErrorCode = {
   STORAGE_UPLOAD_FAILED: 'STORAGE_UPLOAD_FAILED',
   STORAGE_DOWNLOAD_FAILED: 'STORAGE_DOWNLOAD_FAILED',
   STORAGE_DELETE_FAILED: 'STORAGE_DELETE_FAILED',
+
+  COLLECTION_NOT_FOUND: 'COLLECTION_NOT_FOUND',
+  API_KEY_NOT_FOUND: 'API_KEY_NOT_FOUND',
+  API_KEY_ALREADY_REVOKED: 'API_KEY_ALREADY_REVOKED',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
@@ -76,4 +80,8 @@ export const ErrorMessage: Record<ErrorCode, string> = {
   STORAGE_UPLOAD_FAILED: 'Failed to upload file to storage',
   STORAGE_DOWNLOAD_FAILED: 'Failed to download file from storage',
   STORAGE_DELETE_FAILED: 'Failed to delete file from storage',
+
+  COLLECTION_NOT_FOUND: 'Collection not found',
+  API_KEY_NOT_FOUND: 'API key not found',
+  API_KEY_ALREADY_REVOKED: 'API key already revoked',
 };
