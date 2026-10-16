@@ -139,4 +139,31 @@ describe('PublicQueryService', () => {
     expect(searchInCollections).not.toHaveBeenCalled();
     expect(streamChat).not.toHaveBeenCalled();
   });
+
+  describe('prepare / streamAnswer (dùng cho /v1/query/stream)', () => {
+    it('prepare chỉ retrieval, KHÔNG gọi LLM', async () => {
+      const prepared = await service.prepare(key(), { query: 'q', topK: 5 });
+      expect(searchInCollections).toHaveBeenCalledTimes(1);
+      expect(streamChat).not.toHaveBeenCalled();
+      expect(prepared.citations).toHaveLength(1);
+      expect(prepared.messages).toEqual([{ role: 'user', content: 'q' }]);
+    });
+
+    it('prepare ném lỗi scope trước khi có gì để stream', async () => {
+      await expect(
+        service.prepare(key({ collectionId: 'c1' }), {
+          query: 'q',
+          topK: 5,
+          collectionId: 'c2',
+        }),
+      ).rejects.toBeInstanceOf(ForbiddenAppException);
+    });
+
+    it('streamAnswer yield từng mẩu theo thứ tự LLM trả', async () => {
+      const prepared = await service.prepare(key(), { query: 'q', topK: 5 });
+      const deltas: string[] = [];
+      for await (const d of service.streamAnswer(prepared)) deltas.push(d);
+      expect(deltas).toEqual(['Trả lời ', '[1]']);
+    });
+  });
 });

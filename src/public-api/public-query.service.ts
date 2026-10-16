@@ -1,11 +1,18 @@
-// POST /v1/query — RAG stateless cho API key: không tạo Conversation/Message, không có lịch sử hội thoại
-// (mỗi lần gọi độc lập). Khác ChatService ở 2 điểm: (1) quyền theo SCOPE CỦA KEY chứ không theo membership,
-// (2) trả JSON 1 lần thay vì SSE.
+// RAG stateless cho API key (POST /v1/query và /v1/query/stream): không tạo Conversation/Message, không
+// có lịch sử hội thoại (mỗi lần gọi độc lập). Khác ChatService ở 2 điểm: (1) quyền theo SCOPE CỦA KEY chứ
+// không theo membership, (2) không lưu gì vào DB.
+//
+// Tách prepare() / streamAnswer() giống ChatService vì cùng lý do ranh giới HTTP (xem chat.service.ts):
+// mọi lỗi nghiệp vụ (403 scope, 404 collection...) phải throw TRONG prepare(), TRƯỚC khi route SSE set
+// header; lỗi LLM giữa chừng mới là lỗi trong luồng stream.
 import { Inject, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { RetrievalService } from '../retrieval/retrieval.service.js';
 import { LLM_PROVIDER_TOKEN } from '../chat/llm/llm-provider.interface.js';
-import type { LlmProvider } from '../chat/llm/llm-provider.interface.js';
+import type {
+  ChatMessage,
+  LlmProvider,
+} from '../chat/llm/llm-provider.interface.js';
 import {
   buildContextBlock,
   buildSystemPrompt,
@@ -16,7 +23,7 @@ import {
 } from '../common/exceptions/app.exception.js';
 import { ErrorCode } from '../common/exceptions/error-codes.js';
 import type { ApiKeyPrincipal } from '../api-keys/api-key-principal.js';
-import { PublicQueryDto } from './dtos/public-query.dto.js';
+import type { PublicQueryDto } from './schemas/public-query.schema.js';
 
 const SNIPPET_MAX_CHARS = 300;
 
@@ -36,6 +43,12 @@ export interface PublicQueryResult {
   citations: PublicQueryCitation[];
 }
 
+export interface PreparedPublicQuery {
+  citations: PublicQueryCitation[];
+  systemPrompt: string;
+  messages: ChatMessage[];
+}
+
 @Injectable()
 export class PublicQueryService {
   constructor(
@@ -44,10 +57,14 @@ export class PublicQueryService {
     @Inject(LLM_PROVIDER_TOKEN) private readonly llm: LlmProvider,
   ) {}
 
-  async query(
+  /**
+   * Phần CÓ THỂ throw lỗi nghiệp vụ bình thường + tốn embedding (retrieval), chưa gọi LLM.
+   * Route SSE PHẢI await xong hàm này trước khi set header.
+   */
+  async prepare(
     key: ApiKeyPrincipal,
     dto: PublicQueryDto,
-  ): Promise<PublicQueryResult> {
+  ): Promise<PreparedPublicQuery> {
     const collectionIds = await this.resolveCollectionIds(
       key,
       dto.collectionId,
@@ -60,18 +77,7 @@ export class PublicQueryService {
       dto.topK,
     );
 
-    // Gom hết các mẩu stream thành 1 chuỗi: API này trả JSON 1 lần. (Streaming cho /v1/query để dành sau
-    // nếu có client thật cần — Slack ở 4.5 cần trọn câu trả lời để post vào thread nên không cần stream.)
-    let answer = '';
-    for await (const delta of this.llm.streamChat({
-      systemPrompt: buildSystemPrompt(buildContextBlock(retrieved)),
-      messages: [{ role: 'user', content: dto.query }],
-    })) {
-      answer += delta;
-    }
-
     return {
-      answer,
       citations: retrieved.map((chunk, i) => ({
         index: i + 1,
         documentId: chunk.documentId,
@@ -82,7 +88,31 @@ export class PublicQueryService {
         snippet: chunk.content.slice(0, SNIPPET_MAX_CHARS),
         score: chunk.score,
       })),
+      systemPrompt: buildSystemPrompt(buildContextBlock(retrieved)),
+      messages: [{ role: 'user', content: dto.query }],
     };
+  }
+
+  /** Sinh câu trả lời từng mẩu — lỗi ở đây là lỗi GIỮA CHỪNG (route SSE tự bắt bằng try/catch). */
+  async *streamAnswer(prepared: PreparedPublicQuery): AsyncGenerator<string> {
+    yield* this.llm.streamChat({
+      systemPrompt: prepared.systemPrompt,
+      messages: prepared.messages,
+    });
+  }
+
+  /** Bản không stream (POST /v1/query): gom hết các mẩu thành 1 chuỗi, trả JSON 1 lần. */
+  async query(
+    key: ApiKeyPrincipal,
+    dto: PublicQueryDto,
+  ): Promise<PublicQueryResult> {
+    const prepared = await this.prepare(key, dto);
+
+    let answer = '';
+    for await (const delta of this.streamAnswer(prepared)) {
+      answer += delta;
+    }
+    return { answer, citations: prepared.citations };
   }
 
   /**
