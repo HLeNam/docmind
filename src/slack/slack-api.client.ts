@@ -27,6 +27,14 @@ export interface SlackPostMessageResponse {
   channel?: string;
 }
 
+export interface SlackPostEphemeralParams {
+  channel: string;
+  /** Slack user id duy nhất được thấy tin nhắn. */
+  user: string;
+  text: string;
+  thread_ts?: string;
+}
+
 @Injectable()
 export class SlackApiClient {
   /** Đổi `code` (từ callback) lấy bot token — https://api.slack.com/methods/oauth.v2.access */
@@ -77,6 +85,25 @@ export class SlackApiClient {
         unfurl_links: false,
         unfurl_media: false,
       }),
+    });
+    return (await response.json()) as SlackPostMessageResponse;
+  }
+
+  /**
+   * Tin nhắn "chỉ mình bạn thấy" gửi bằng token bot — dùng cho sự kiện @mention (không có response_url như
+   * slash command) — https://api.slack.com/methods/chat.postEphemeral
+   */
+  async postEphemeral(
+    token: string,
+    params: SlackPostEphemeralParams,
+  ): Promise<SlackPostMessageResponse> {
+    const response = await fetch('https://slack.com/api/chat.postEphemeral', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json; charset=utf-8',
+      },
+      body: JSON.stringify(params),
     });
     return (await response.json()) as SlackPostMessageResponse;
   }
