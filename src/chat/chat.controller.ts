@@ -19,16 +19,25 @@ import {
 } from '@nestjs/swagger';
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
 import type { AccessTokenPayload } from '../auth/auth.service.js';
+import { RateLimitService } from '../common/rate-limit/rate-limit.service.js';
 import { ChatService } from './chat.service.js';
 import { SendMessageSchema } from './schemas/chat.schema.js';
 import { type SendMessageDto } from './dtos/chat.dto.js';
 import { ApiErrorResponse } from '../common/swagger/api-error-response.decorator.js';
 
+// Mỗi tin nhắn tốn 1 lần embedding + 1 lần LLM (quota Gemini). Giới hạn theo THÀNH VIÊN (membership), không
+// theo tenant, để 1 người spam không làm cả công ty hết quota; số liệu hào phóng cho người dùng thật.
+export const CHAT_RATE_LIMIT_PER_WINDOW = 20;
+export const CHAT_RATE_LIMIT_WINDOW_MS = 60_000;
+
 @ApiTags('chat')
 @ApiBearerAuth('access-token')
 @Controller('chat')
 export class ChatController {
-  constructor(private readonly chatService: ChatService) {}
+  constructor(
+    private readonly chatService: ChatService,
+    private readonly rateLimit: RateLimitService,
+  ) {}
 
   @Post('messages')
   @ApiProduces('text/event-stream')
@@ -44,11 +53,24 @@ export class ChatController {
     HttpStatus.UNPROCESSABLE_ENTITY,
     'Invalid message payload or collection ID.',
   )
+  @ApiErrorResponse(
+    HttpStatus.TOO_MANY_REQUESTS,
+    'Rate limit exceeded (20 requests/minute per member)',
+  )
   async sendMessage(
     @CurrentUser() user: AccessTokenPayload,
     @Body({ schema: SendMessageSchema }) dto: SendMessageDto,
     @Res() res: Response,
   ): Promise<void> {
+    // Kiểm tra giới hạn TRƯỚC mọi việc tốn kém (embedding/LLM) và trước khi set header SSE, nên vượt giới hạn
+    // trả 429 JSON chuẩn (kèm X-RateLimit-* và Retry-After) như mọi route khác.
+    await this.rateLimit.enforce(
+      `chat:${user.membershipId}`,
+      CHAT_RATE_LIMIT_PER_WINDOW,
+      CHAT_RATE_LIMIT_WINDOW_MS,
+      res,
+    );
+
     // Chạy TRƯỚC khi set header SSE — nếu throw (vd conversationId không thuộc về caller),
     // GlobalExceptionFilter xử lý bình thường như mọi route khác, trả đúng status code + JSON error.
     const prepared = await this.chatService.prepare(user, dto);

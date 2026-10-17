@@ -24,6 +24,7 @@ import { ChatModule } from './chat/chat.module.js';
 import { ApiKeysModule } from './api-keys/api-keys.module.js';
 import { PublicApiModule } from './public-api/public-api.module.js';
 import { SlackModule } from './slack/slack.module.js';
+import { RateLimitModule } from './common/rate-limit/rate-limit.module.js';
 
 @Module({
   imports: [
@@ -58,6 +59,7 @@ import { SlackModule } from './slack/slack.module.js';
     ApiKeysModule,
     PublicApiModule,
     SlackModule,
+    RateLimitModule,
   ],
   controllers: [AppController],
   providers: [
