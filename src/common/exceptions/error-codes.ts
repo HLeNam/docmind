@@ -49,6 +49,13 @@ export const ErrorCode = {
 
   API_KEY_SCOPE_FORBIDDEN: 'API_KEY_SCOPE_FORBIDDEN',
   RATE_LIMITED: 'RATE_LIMITED',
+
+  // ---- Slack ----
+  SLACK_NOT_CONFIGURED: 'SLACK_NOT_CONFIGURED',
+  SLACK_STATE_INVALID: 'SLACK_STATE_INVALID',
+  SLACK_OAUTH_FAILED: 'SLACK_OAUTH_FAILED',
+  SLACK_WORKSPACE_TAKEN: 'SLACK_WORKSPACE_TAKEN',
+  SLACK_NOT_CONNECTED: 'SLACK_NOT_CONNECTED',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
@@ -98,4 +105,11 @@ export const ErrorMessage: Record<ErrorCode, string> = {
 
   API_KEY_SCOPE_FORBIDDEN: 'API key does not have access to this collection',
   RATE_LIMITED: 'Too many requests. Please try again later.',
+
+  SLACK_NOT_CONFIGURED: 'Slack integration is not configured',
+  SLACK_STATE_INVALID: 'Invalid or expired Slack state',
+  SLACK_OAUTH_FAILED: 'Slack OAuth failed',
+  SLACK_WORKSPACE_TAKEN:
+    'Slack workspace is already connected to another tenant',
+  SLACK_NOT_CONNECTED: 'Slack is not connected',
 };

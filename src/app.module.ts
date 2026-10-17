@@ -23,6 +23,7 @@ import { RetrievalModule } from './retrieval/retrieval.module.js';
 import { ChatModule } from './chat/chat.module.js';
 import { ApiKeysModule } from './api-keys/api-keys.module.js';
 import { PublicApiModule } from './public-api/public-api.module.js';
+import { SlackModule } from './slack/slack.module.js';
 
 @Module({
   imports: [
@@ -56,6 +57,7 @@ import { PublicApiModule } from './public-api/public-api.module.js';
     ChatModule,
     ApiKeysModule,
     PublicApiModule,
+    SlackModule,
   ],
   controllers: [AppController],
   providers: [

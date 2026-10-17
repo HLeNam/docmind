@@ -64,6 +64,12 @@ export const envSchema = z.object({
 
   LLM_PROVIDER: z.enum(['gemini']).default('gemini'),
   GEMINI_CHAT_MODEL: z.string().default('gemini-3.8-flash'),
+
+  SLACK_CLIENT_ID: z.string().optional(),
+  SLACK_CLIENT_SECRET: z.string().optional(),
+  SLACK_SIGNING_SECRET: z.string().optional(), // dùng ở 4.5
+  SLACK_REDIRECT_URI: z.string().url().optional(),
+  SLACK_TOKEN_ENCRYPTION_KEY: z.string().optional(), // base64 của 32 byte: openssl rand -base64 32
 });
 
 export type EnvSchema = z.infer<typeof envSchema>;
