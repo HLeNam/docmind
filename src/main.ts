@@ -11,7 +11,8 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { zodSwaggerDocumentOptions } from './common/swagger/zod-schema-converter.js';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  // rawBody: true để lưu buffer gốc vào req.rawBody, phục vụ xác thực chữ ký webhook (Slack...)
+  const app = await NestFactory.create(AppModule, { rawBody: true });
   const configService = app.get(ConfigService);
 
   app.useGlobalPipes(

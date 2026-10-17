@@ -58,6 +58,9 @@ export const ErrorCode = {
   SLACK_NOT_CONNECTED: 'SLACK_NOT_CONNECTED',
   SLACK_CHANNEL_ID_INVALID: 'SLACK_CHANNEL_ID_INVALID',
   SLACK_CHANNEL_NOT_MAPPED: 'SLACK_CHANNEL_NOT_MAPPED',
+
+  SLACK_SIGNATURE_INVALID: 'SLACK_SIGNATURE_INVALID',
+  SLACK_RAW_BODY_MISSING: 'SLACK_RAW_BODY_MISSING',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
@@ -116,4 +119,7 @@ export const ErrorMessage: Record<ErrorCode, string> = {
   SLACK_NOT_CONNECTED: 'Slack is not connected',
   SLACK_CHANNEL_ID_INVALID: 'Invalid Slack channel ID',
   SLACK_CHANNEL_NOT_MAPPED: 'Slack channel is not mapped',
+
+  SLACK_RAW_BODY_MISSING: 'Slack raw body missing',
+  SLACK_SIGNATURE_INVALID: 'Slack signature invalid',
 };

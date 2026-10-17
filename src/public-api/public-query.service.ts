@@ -22,8 +22,17 @@ import {
   NotFoundAppException,
 } from '../common/exceptions/app.exception.js';
 import { ErrorCode } from '../common/exceptions/error-codes.js';
-import type { ApiKeyPrincipal } from '../api-keys/api-key-principal.js';
-import type { PublicQueryDto } from './dtos/public-query.dto.js';
+import { PublicQueryDto } from './dtos/public-query.dto.js';
+
+/**
+ * Phạm vi được phép đọc của bên gọi. ApiKeyPrincipal (API key) thoả kiểu này; Slack /ask cũng dùng chung
+ * với tenant của workspace + collection của channel đã map (collectionId null = toàn tenant, Slack luôn
+ * truyền collection cụ thể nên không bao giờ null).
+ */
+export interface QueryScope {
+  tenantId: string;
+  collectionId: string | null;
+}
 
 const SNIPPET_MAX_CHARS = 300;
 
@@ -62,7 +71,7 @@ export class PublicQueryService {
    * Route SSE PHẢI await xong hàm này trước khi set header.
    */
   async prepare(
-    key: ApiKeyPrincipal,
+    key: QueryScope,
     dto: PublicQueryDto,
   ): Promise<PreparedPublicQuery> {
     const collectionIds = await this.resolveCollectionIds(
@@ -103,7 +112,7 @@ export class PublicQueryService {
 
   /** Bản không stream (POST /v1/query): gom hết các mẩu thành 1 chuỗi, trả JSON 1 lần. */
   async query(
-    key: ApiKeyPrincipal,
+    key: QueryScope,
     dto: PublicQueryDto,
   ): Promise<PublicQueryResult> {
     const prepared = await this.prepare(key, dto);
@@ -124,7 +133,7 @@ export class PublicQueryService {
    *    về 1 collection nếu client xin — collection đó phải tồn tại trong tenant, không thì 404.
    */
   private async resolveCollectionIds(
-    key: ApiKeyPrincipal,
+    key: QueryScope,
     requested?: string,
   ): Promise<string[]> {
     if (key.collectionId) {
