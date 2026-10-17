@@ -66,7 +66,7 @@ describe('SlackService', () => {
       );
       expect(parsed.searchParams.get('client_id')).toBe('cid');
       expect(parsed.searchParams.get('scope')).toBe(
-        'commands,chat:write,chat:write.public,app_mentions:read',
+        'commands,chat:write,chat:write.public,app_mentions:read,channels:history,groups:history',
       );
       expect(parsed.searchParams.get('redirect_uri')).toBe(
         CONFIG.SLACK_REDIRECT_URI,

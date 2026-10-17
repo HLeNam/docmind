@@ -35,6 +35,21 @@ export interface SlackPostEphemeralParams {
   thread_ts?: string;
 }
 
+/** Một tin trong thread (chỉ các field ta dùng) — https://api.slack.com/methods/conversations.replies */
+export interface SlackThreadMessage {
+  ts: string;
+  user?: string;
+  bot_id?: string;
+  text?: string;
+  blocks?: unknown[];
+}
+
+export interface SlackThreadRepliesResponse {
+  ok: boolean;
+  error?: string;
+  messages?: SlackThreadMessage[];
+}
+
 @Injectable()
 export class SlackApiClient {
   /** Đổi `code` (từ callback) lấy bot token — https://api.slack.com/methods/oauth.v2.access */
@@ -87,6 +102,25 @@ export class SlackApiClient {
       }),
     });
     return (await response.json()) as SlackPostMessageResponse;
+  }
+
+  /**
+   * Đọc các tin trong 1 thread (tin gốc + trả lời, cũ -> mới) — dùng để dựng ngữ cảnh cho câu hỏi tiếp theo.
+   * Cần scope channels:history (channel công khai) / groups:history (channel riêng tư).
+   */
+  async getThreadReplies(
+    token: string,
+    channel: string,
+    threadTs: string,
+  ): Promise<SlackThreadRepliesResponse> {
+    const url = new URL('https://slack.com/api/conversations.replies');
+    url.searchParams.set('channel', channel);
+    url.searchParams.set('ts', threadTs);
+    url.searchParams.set('limit', '200');
+    const response = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return (await response.json()) as SlackThreadRepliesResponse;
   }
 
   /**

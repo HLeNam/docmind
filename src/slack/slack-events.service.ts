@@ -4,17 +4,25 @@
 // trong thread của tin nhắn đó (thread_ts = thread hiện có, hoặc chính tin nhắn mention nếu là tin gốc).
 // Lỗi/hướng dẫn gửi dạng ephemeral (chat.postEphemeral) vì sự kiện không có response_url.
 //
-// 4.6a: mỗi mention là một câu hỏi độc lập (chưa nhớ lượt trước) — nhớ thread làm ở 4.6b.
+// 4.6b: mention TRONG thread có sẵn -> đọc lịch sử thread từ Slack (conversations.replies), viết lại câu hỏi
+// thành câu độc lập (QuestionCondenserService) rồi mới tìm kiếm. Mention ở tin gốc -> câu hỏi đầu, không tốn
+// thêm lượt LLM. Không đọc được thread (thiếu scope, lỗi mạng...) -> rơi về câu hỏi gốc, vẫn trả lời bình thường.
 // Quyền truy cập dữ liệu: giống /ask — chỉ do mapping channel -> collection quyết định.
 import { Injectable, Logger } from '@nestjs/common';
 import { z } from 'zod';
 import { PrismaSystemService } from '../prisma/prisma-system.service.js';
 import { PublicQueryService } from '../public-api/public-query.service.js';
+import { QuestionCondenserService } from '../public-api/question-condenser.service.js';
 import { SlackApiClient } from './slack-api.client.js';
 import { SlackCryptoService } from './slack-crypto.service.js';
 import { EventDeduper } from './slack-event-dedupe.js';
 import { FixedWindowRateLimiter } from './slack-rate-limiter.js';
-import { buildAnswerBlocks } from './slack-mrkdwn.util.js';
+import { buildAnswerBlocks, escapeSlackText } from './slack-mrkdwn.util.js';
+import { extractQuestion } from './slack-text.util.js';
+import { buildThreadHistory } from './slack-thread-history.util.js';
+
+// Giữ export cũ để import từ file này (test 4.6a) vẫn chạy.
+export { extractQuestion };
 
 const EventCallbackSchema = z.object({
   type: z.literal('event_callback'),
@@ -47,25 +55,6 @@ const MSG_TOO_LONG = `Câu hỏi quá dài (tối đa ${MAX_QUESTION_CHARS} ký 
 const MSG_ANSWER_ERROR =
   'Xin lỗi, DocMind gặp lỗi khi tìm câu trả lời. Vui lòng thử lại sau.';
 
-/**
- * Lấy câu hỏi từ text của sự kiện: bỏ mention bot, giải mã ký tự Slack đã escape (&amp; &lt; &gt;).
- * Không có botUserId thì chỉ bỏ các mention nằm ở ĐẦU câu.
- */
-export function extractQuestion(rawText: string, botUserId?: string): string {
-  let text = rawText;
-  if (botUserId && /^[A-Z0-9]+$/.test(botUserId)) {
-    text = text.replace(new RegExp(`<@${botUserId}(\\|[^>]*)?>`, 'g'), ' ');
-  } else {
-    text = text.replace(/^(\s*<@[A-Z0-9]+(\|[^>]*)?>)+/, ' ');
-  }
-  // Giải mã SAU khi bỏ mention: "&lt;@U1&gt;" người dùng gõ chữ thường chỉ là văn bản, không phải mention.
-  text = text
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&amp;/g, '&');
-  return text.replace(/[ \t]+/g, ' ').trim();
-}
-
 @Injectable()
 export class SlackEventsService {
   private readonly logger = new Logger(SlackEventsService.name);
@@ -80,6 +69,7 @@ export class SlackEventsService {
     private readonly crypto: SlackCryptoService,
     private readonly api: SlackApiClient,
     private readonly publicQuery: PublicQueryService,
+    private readonly condenser: QuestionCondenserService,
   ) {}
 
   /** Không bao giờ throw — chạy nền sau khi controller đã ack. */
@@ -145,11 +135,23 @@ export class SlackEventsService {
       );
     }
 
+    const isFollowUp = Boolean(event.thread_ts) && event.thread_ts !== event.ts;
+    const searchQuery = isFollowUp
+      ? await this.resolveFollowUp(
+          token,
+          event.channel,
+          event.thread_ts!,
+          event.ts,
+          authorizations?.[0]?.user_id,
+          question,
+        )
+      : question;
+
     let result;
     try {
       result = await this.publicQuery.query(
         { tenantId: integration.tenantId, collectionId: mapping.collectionId },
-        { query: question, topK: QUESTION_TOP_K },
+        { query: searchQuery, topK: QUESTION_TOP_K },
       );
     } catch (err) {
       this.logger.error(`RAG failed for app_mention (team ${teamId})`, err);
@@ -162,6 +164,18 @@ export class SlackEventsService {
     }
 
     const { text, blocks } = buildAnswerBlocks(result.answer, result.citations);
+    if (searchQuery !== question) {
+      // Cho người dùng thấy bot đã hiểu câu hỏi nối tiếp thế nào — sai thì họ biết cách diễn đạt lại.
+      blocks.unshift({
+        type: 'context',
+        elements: [
+          {
+            type: 'mrkdwn',
+            text: `_Hiểu câu hỏi là: ${escapeSlackText(searchQuery)}_`,
+          },
+        ],
+      });
+    }
     const reply = await this.api.postMessage(token, {
       channel: event.channel,
       thread_ts: threadTs,
@@ -172,6 +186,38 @@ export class SlackEventsService {
       this.logger.error(
         `Posting answer failed: ${reply.error ?? 'unknown'} (team ${teamId})`,
       );
+    }
+  }
+
+  /**
+   * Đọc lịch sử thread và viết lại câu hỏi nối tiếp thành câu độc lập. Không bao giờ throw: mọi sự cố
+   * (thiếu scope channels:history, Slack lỗi, LLM lỗi) đều trả về câu hỏi gốc.
+   */
+  private async resolveFollowUp(
+    token: string,
+    channel: string,
+    threadTs: string,
+    currentTs: string,
+    botUserId: string | undefined,
+    question: string,
+  ): Promise<string> {
+    try {
+      const replies = await this.api.getThreadReplies(token, channel, threadTs);
+      if (!replies.ok || !replies.messages) {
+        this.logger.warn(
+          `conversations.replies failed (${replies.error ?? 'unknown'}) — answering without thread context. ` +
+            `Nếu là missing_scope: thêm channels:history/groups:history rồi reinstall app.`,
+        );
+        return question;
+      }
+      const history = buildThreadHistory(replies.messages, {
+        botUserId,
+        currentTs,
+      });
+      return await this.condenser.condense(history, question);
+    } catch (err) {
+      this.logger.warn(`Could not build thread context: ${String(err)}`);
+      return question;
     }
   }
 

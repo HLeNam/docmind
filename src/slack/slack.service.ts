@@ -26,6 +26,8 @@ const BOT_SCOPES = [
   'chat:write',
   'chat:write.public',
   'app_mentions:read',
+  'channels:history',
+  'groups:history',
 ];
 
 interface SlackConfig {
