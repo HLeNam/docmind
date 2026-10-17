@@ -56,6 +56,8 @@ export const ErrorCode = {
   SLACK_OAUTH_FAILED: 'SLACK_OAUTH_FAILED',
   SLACK_WORKSPACE_TAKEN: 'SLACK_WORKSPACE_TAKEN',
   SLACK_NOT_CONNECTED: 'SLACK_NOT_CONNECTED',
+  SLACK_CHANNEL_ID_INVALID: 'SLACK_CHANNEL_ID_INVALID',
+  SLACK_CHANNEL_NOT_MAPPED: 'SLACK_CHANNEL_NOT_MAPPED',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
@@ -112,4 +114,6 @@ export const ErrorMessage: Record<ErrorCode, string> = {
   SLACK_WORKSPACE_TAKEN:
     'Slack workspace is already connected to another tenant',
   SLACK_NOT_CONNECTED: 'Slack is not connected',
+  SLACK_CHANNEL_ID_INVALID: 'Invalid Slack channel ID',
+  SLACK_CHANNEL_NOT_MAPPED: 'Slack channel is not mapped',
 };

@@ -19,8 +19,9 @@ import { SlackCryptoService } from './slack-crypto.service.js';
 import { signSlackState, verifySlackState } from './slack-state.util.js';
 
 // Scope phải KHỚP với scope đã khai trong Slack App (OAuth & Permissions) — thiếu/thừa thì Slack từ chối
-// hoặc cấp không đủ quyền. `commands` cho /ask, `chat:write` để bot đăng trả lời.
-const BOT_SCOPES = ['commands', 'chat:write'];
+// hoặc cấp không đủ quyền. `commands` cho /ask, `chat:write` để bot đăng trả lời, `chat:write.public`
+// để bot đăng vào channel công khai mà KHÔNG cần được mời vào trước (/ask đăng câu hỏi rồi trả lời trong thread).
+const BOT_SCOPES = ['commands', 'chat:write', 'chat:write.public'];
 
 interface SlackConfig {
   clientId: string;

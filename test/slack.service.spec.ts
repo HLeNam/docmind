@@ -65,7 +65,9 @@ describe('SlackService', () => {
         'https://slack.com/oauth/v2/authorize',
       );
       expect(parsed.searchParams.get('client_id')).toBe('cid');
-      expect(parsed.searchParams.get('scope')).toBe('commands,chat:write');
+      expect(parsed.searchParams.get('scope')).toBe(
+        'commands,chat:write,chat:write.public',
+      );
       expect(parsed.searchParams.get('redirect_uri')).toBe(
         CONFIG.SLACK_REDIRECT_URI,
       );
