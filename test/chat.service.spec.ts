@@ -87,7 +87,11 @@ describe('ChatService.prepare', () => {
     });
 
     expect(tx.conversation.create).toHaveBeenCalledWith({
-      data: { tenantId: 'tenant-1', membershipId: 'member-1' },
+      data: {
+        tenantId: 'tenant-1',
+        membershipId: 'member-1',
+        title: 'câu hỏi',
+      },
     });
     expect(result.conversationId).toBe('conv-new');
   });
@@ -241,9 +245,7 @@ describe('ChatService.streamAnswer', () => {
     };
 
     const out: string[] = [];
-    for await (const chunk of service.streamAnswer(prepared)) {
-      out.push(chunk);
-    }
+    for await (const delta of service.streamAnswer(prepared)) out.push(delta);
 
     expect(llm.streamChat).toHaveBeenCalledWith({
       systemPrompt: 'system prompt',

@@ -17,6 +17,7 @@ import { NotFoundAppException } from '../common/exceptions/app.exception.js';
 import type { AccessTokenPayload } from '../auth/auth.service.js';
 import { buildContextBlock, buildSystemPrompt } from './rag-prompt.util.js';
 import { UsageService } from '../usage/usage.service.js';
+import { deriveConversationTitle } from './conversation-title.util.js';
 import { SendMessageDto } from './dtos/chat.dto.js';
 
 // Số tin nhắn GẦN NHẤT lấy làm ngữ cảnh hội thoại — hội thoại dài vô hạn mà nhét hết vào mỗi lần
@@ -67,6 +68,7 @@ export class ChatService {
     const conversation = await this.resolveConversation(
       caller,
       dto.conversationId,
+      dto.content,
     );
 
     const recentHistory = await this.prisma.runInTenantContext(
@@ -176,14 +178,17 @@ export class ChatService {
 
   private async resolveConversation(
     caller: AccessTokenPayload,
-    conversationId?: string,
+    conversationId: string | undefined,
+    firstMessage: string,
   ) {
     if (!conversationId) {
       return this.prisma.runInTenantContext(caller.tenantId, (tx) =>
         tx.conversation.create({
+          // Tiêu đề mặc định = câu hỏi đầu tiên (gọn lại) để sidebar lịch sử có chữ hiển thị; đổi tên bằng PATCH.
           data: {
             tenantId: caller.tenantId,
             membershipId: caller.membershipId,
+            title: deriveConversationTitle(firstMessage),
           },
         }),
       );
