@@ -13,11 +13,17 @@ import {
 import {
   chunkText,
   chunkPagedText,
+  chunkSpreadsheet,
 } from '../src/documents/processing/chunk-text.util.js';
 import { ocrPdfPages } from '../src/documents/processing/ocr.util.js';
+import {
+  extractPptxSlides,
+  extractXlsxSheets,
+} from '../src/documents/processing/office-structure.util.js';
 
 vi.mock('../src/documents/processing/extract-text.util.js');
 vi.mock('../src/documents/processing/chunk-text.util.js');
+vi.mock('../src/documents/processing/office-structure.util.js');
 vi.mock('../src/documents/processing/ocr.util.js', async (importOriginal) => {
   const actual =
     await importOriginal<
@@ -37,6 +43,9 @@ const mockSplitPdfPagesByMarker = splitPdfPagesByMarker as unknown as Mock;
 const mockChunkPagedText = chunkPagedText as unknown as Mock;
 const mockGetPdfPageCount = getPdfPageCount as unknown as Mock;
 const mockOcrPdfPages = ocrPdfPages as unknown as Mock;
+const mockExtractPptxSlides = extractPptxSlides as unknown as Mock;
+const mockExtractXlsxSheets = extractXlsxSheets as unknown as Mock;
+const mockChunkSpreadsheet = chunkSpreadsheet as unknown as Mock;
 
 function buildProcessor() {
   const system = {
@@ -522,6 +531,91 @@ describe('DocumentProcessingProcessor', () => {
         where: { id: 'doc-1' },
         data: { status: 'FAILED', failReason: 'S3 down' },
       });
+    });
+  });
+
+  describe('structured PPTX / XLSX processing (slide / sheet+row citations)', () => {
+    const PPTX =
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+    const XLSX =
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+    function lastArg(call: unknown[]) {
+      return call[call.length - 1];
+    }
+
+    it('processes PPTX via chunkPagedText per slide without flat extractText, setting page_number to slide number', async () => {
+      const { processor, system, storage, embedding } = buildProcessor();
+      system.document.findUnique.mockResolvedValue({
+        ...BASE_DOCUMENT,
+        mimeType: PPTX,
+      });
+      storage.getObjectBuffer.mockResolvedValue(Buffer.from('pptx'));
+      const slides = [
+        { pageNumber: 1, text: 'Slide một' },
+        { pageNumber: 3, text: 'Slide ba' },
+      ];
+      mockExtractPptxSlides.mockResolvedValue(slides);
+      mockChunkPagedText.mockReturnValue([
+        { content: 'Slide một', chunkIndex: 0, pageNumber: 1 },
+        { content: 'Slide ba', chunkIndex: 1, pageNumber: 3 },
+      ]);
+      embedding.embedBatch.mockResolvedValue([[0.1], [0.2]]);
+
+      await processor.process({ data: { documentId: 'doc-1' } } as never);
+
+      expect(mockChunkPagedText).toHaveBeenCalledWith(slides);
+      expect(mockExtractText).not.toHaveBeenCalled();
+      expect(mockChunkText).not.toHaveBeenCalled();
+      expect(lastArg(system.$executeRaw.mock.calls[0]!)).toBe(1);
+      expect(lastArg(system.$executeRaw.mock.calls[1]!)).toBe(3);
+    });
+
+    it('processes XLSX via chunkSpreadsheet, inserting headingContext with sheet and row ranges', async () => {
+      const { processor, system, storage, embedding } = buildProcessor();
+      system.document.findUnique.mockResolvedValue({
+        ...BASE_DOCUMENT,
+        mimeType: XLSX,
+      });
+      storage.getObjectBuffer.mockResolvedValue(Buffer.from('xlsx'));
+      const sheets = [
+        { name: 'Doanh thu', rows: [{ rowNumber: 1, cells: ['A'] }] },
+      ];
+      mockExtractXlsxSheets.mockResolvedValue(sheets);
+      mockChunkSpreadsheet.mockReturnValue([
+        {
+          content: '[Sheet: Doanh thu]\nA',
+          chunkIndex: 0,
+          headingContext: 'Sheet "Doanh thu" · hàng 2–8',
+        },
+      ]);
+      embedding.embedBatch.mockResolvedValue([[0.1]]);
+
+      await processor.process({ data: { documentId: 'doc-1' } } as never);
+
+      expect(mockChunkSpreadsheet).toHaveBeenCalledWith(sheets);
+      expect(mockExtractText).not.toHaveBeenCalled();
+      const args = system.$executeRaw.mock.calls[0]!;
+      expect(args).toContain('Sheet "Doanh thu" · hàng 2–8');
+    });
+
+    it('falls back to flat extractText and chunkText when PPTX yields 0 slides with text', async () => {
+      const { processor, system, storage, embedding } = buildProcessor();
+      system.document.findUnique.mockResolvedValue({
+        ...BASE_DOCUMENT,
+        mimeType: PPTX,
+      });
+      storage.getObjectBuffer.mockResolvedValue(Buffer.from('pptx'));
+      mockExtractPptxSlides.mockResolvedValue([]);
+      mockChunkPagedText.mockReturnValue([]);
+      mockExtractText.mockResolvedValue('text phẳng');
+      mockChunkText.mockReturnValue([{ content: 'text phẳng', chunkIndex: 0 }]);
+      embedding.embedBatch.mockResolvedValue([[0.1]]);
+
+      await processor.process({ data: { documentId: 'doc-1' } } as never);
+
+      expect(mockExtractText).toHaveBeenCalledWith(expect.anything(), PPTX);
+      expect(mockChunkText).toHaveBeenCalledWith('text phẳng');
     });
   });
 });

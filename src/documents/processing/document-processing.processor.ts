@@ -31,8 +31,13 @@ import {
 import {
   chunkText,
   chunkPagedText,
+  chunkSpreadsheet,
   type TextChunk,
 } from './chunk-text.util.js';
+import {
+  extractPptxSlides,
+  extractXlsxSheets,
+} from './office-structure.util.js';
 import {
   ocrPdfPages,
   OCR_EMPTY_DOC_CHARS,
@@ -44,6 +49,11 @@ import {
 function countNonWhitespace(text: string): number {
   return text.replace(/\s/g, '').length;
 }
+
+const PPTX_MIME =
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+const XLSX_MIME =
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
 export interface DocumentProcessingJobData {
   documentId: string;
@@ -110,7 +120,15 @@ export class DocumentProcessingProcessor extends WorkerHost {
         throw new Error('Document has no mimeType, cannot extract text');
       }
       const buffer = await this.storage.getObjectBuffer(fileUrl);
-      const rawText = await extractText(buffer, mimeType);
+      // PPTX/XLSX: lấy cấu trúc (slide / sheet+hàng) để citation trỏ đúng vị trí. null = không phải 2 loại này, hoặc
+      // không lấy được cấu trúc nào -> rơi về luồng text phẳng như cũ (không bao giờ tệ hơn trước).
+      const structuredChunks = await this.extractStructuredOfficeChunks(
+        buffer,
+        mimeType,
+      );
+      const rawText = structuredChunks
+        ? ''
+        : await extractText(buffer, mimeType);
       // Điểm kiểm tra huỷ: đã tốn công tải + extract; chunk/OCR/embedding phía sau còn đắt hơn nhiều.
       await this.assertDocumentAlive(documentId);
 
@@ -122,14 +140,15 @@ export class DocumentProcessingProcessor extends WorkerHost {
       // KHÔNG PHẢI PDF -> fallback chunkText() như cũ, pageNumber null, không OCR (OCR chỉ áp dụng
       // cho PDF — docx/pptx/xlsx/txt không có khái niệm "trang scan ảnh").
       const chunks =
-        mimeType === 'application/pdf'
+        structuredChunks ??
+        (mimeType === 'application/pdf'
           ? await this.chunkPdfWithOcrFallback(
               tenantId,
               documentId,
               buffer,
               rawText,
             )
-          : chunkText(rawText);
+          : chunkText(rawText));
       if (chunks.length === 0) {
         // Case "0 chunk" — PDF đã thử cả text extract thường LẪN OCR fallback mà vẫn không ra được
         // nội dung nào (vd ảnh quá mờ/nghiêng); định dạng khác (docx/txt/...) thì không áp dụng OCR.
@@ -323,6 +342,19 @@ export class DocumentProcessingProcessor extends WorkerHost {
       return ocrText ? { ...p, text: `${p.text}\n${ocrText}`.trim() } : p;
     });
     return chunkPagedText(mergedPages);
+  }
+
+  private async extractStructuredOfficeChunks(
+    buffer: Buffer,
+    mimeType: string,
+  ): Promise<TextChunk[] | null> {
+    let chunks: TextChunk[] = [];
+    if (mimeType === PPTX_MIME)
+      chunks = chunkPagedText(await extractPptxSlides(buffer));
+    else if (mimeType === XLSX_MIME)
+      chunks = chunkSpreadsheet(await extractXlsxSheets(buffer));
+    else return null;
+    return chunks.length > 0 ? chunks : null;
   }
 
   /** OCR là bước lâu nhất (vài giây/trang): kiểm tra document còn tồn tại trước mỗi trang. */
