@@ -270,6 +270,10 @@ model Conversation {
   tenantId     String @map("tenant_id")
   membershipId String @map("membership_id")
   title        String?
+   // Tóm tắt luỹ tiến phần ĐẦU hội thoại (ngoài cửa sổ HISTORY_WINDOW tin gần nhất) — xem ConversationSummarizerService.
+  summary          String?
+  // Số tin nhắn đầu tiên (theo thứ tự thời gian) đã được gộp vào `summary`.
+  summarizedCount  Int      @default(0) @map("summarized_count")
   createdAt    DateTime @default(now()) @map("created_at")
 
   tenant     Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)

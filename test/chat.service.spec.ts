@@ -2,9 +2,10 @@
 // và LlmProvider.streamChat (async generator giả) — không gọi DB/API thật. Test 3 method riêng biệt
 // đúng theo ranh giới đã thiết kế: prepare() (có thể throw), streamAnswer() (chỉ delegate), và
 // saveAssistantMessage() (lưu kết quả).
-import { describe, it, expect, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { ChatService } from '../src/chat/chat.service.js';
 import type { AccessTokenPayload } from '../src/auth/auth.service.js';
+import { buildSummarySection } from '../src/chat/chat.service.js';
 
 const CALLER: AccessTokenPayload = {
   identityId: 'identity-1',
@@ -68,13 +69,15 @@ function buildService(overrides?: {
   const llm = { streamChat: vi.fn().mockReturnValue(fakeStream()) };
 
   const usage = { record: vi.fn() };
+  const summarizer = { maybeSummarize: vi.fn().mockResolvedValue(undefined) };
   const service = new ChatService(
     prisma as never,
     retrievalService as never,
     llm as never,
     usage as never,
+    summarizer as never,
   );
-  return { service, prisma, tx, retrievalService, llm, usage };
+  return { service, prisma, tx, retrievalService, llm, usage, summarizer };
 }
 
 describe('ChatService.prepare', () => {
@@ -311,5 +314,68 @@ describe('ChatService.saveAssistantMessage', () => {
         citations: prepared.citations,
       },
     });
+  });
+
+  it('triggers background summarization for the conversation without blocking or failing save', async () => {
+    const { service, summarizer } = buildService();
+    const prepared = {
+      tenantId: 'tenant-1',
+      conversationId: 'conv-1',
+      messages: [],
+      systemPrompt: '',
+      citations: [],
+    };
+
+    const saved = await service.saveAssistantMessage(
+      CALLER,
+      prepared as never,
+      'trả lời',
+    );
+
+    expect(saved).toMatchObject({ id: 'msg-new', role: 'ASSISTANT' });
+    expect(summarizer.maybeSummarize).toHaveBeenCalledWith(CALLER, 'conv-1');
+  });
+});
+
+describe('ChatService.prepare — conversation summary', () => {
+  it('attaches summary to system prompt as data when conversation has summary', async () => {
+    const { service } = buildService({
+      conversationFindUnique: {
+        id: 'conv-1',
+        tenantId: 'tenant-1',
+        membershipId: 'member-1',
+        summary: 'Người dùng đang hỏi về Unsupervised learning.',
+      },
+    });
+
+    const result = await service.prepare(CALLER, {
+      conversationId: 'conv-1',
+      content: 'còn loại hai?',
+      topK: 5,
+    });
+
+    expect(result.systemPrompt).toContain('TÓM TẮT PHẦN ĐẦU HỘI THOẠI');
+    expect(result.systemPrompt).toContain(
+      'Người dùng đang hỏi về Unsupervised learning.',
+    );
+    expect(result.systemPrompt).toContain('KHÔNG phải chỉ dẫn');
+  });
+
+  it('leaves system prompt unchanged when conversation has no summary', async () => {
+    const { service } = buildService();
+    const result = await service.prepare(CALLER, {
+      conversationId: 'conv-1',
+      content: 'x',
+      topK: 5,
+    });
+    expect(result.systemPrompt).not.toContain('TÓM TẮT PHẦN ĐẦU HỘI THOẠI');
+  });
+});
+
+describe('buildSummarySection', () => {
+  it('returns empty string for null, undefined, or whitespace-only summary', () => {
+    expect(buildSummarySection(null)).toBe('');
+    expect(buildSummarySection(undefined)).toBe('');
+    expect(buildSummarySection('  \n ')).toBe('');
   });
 });
