@@ -49,6 +49,15 @@ export interface DocumentProcessingJobData {
   documentId: string;
 }
 
+// Document bị xoá GIỮA LÚC job đang chạy. Không phải lỗi: process() bắt riêng, kết thúc job êm (không FAILED, không
+// rethrow nên BullMQ không retry) — xem assertDocumentAlive().
+export class DocumentGoneError extends Error {
+  constructor(documentId: string) {
+    super(`Document ${documentId} was deleted while being processed`);
+    this.name = 'DocumentGoneError';
+  }
+}
+
 // Số chunk gửi trong 1 lần gọi embedBatch(). KHÔNG gửi toàn bộ chunk của document cùng lúc:
 // - Request quá lớn dễ timeout/bị provider từ chối (Gemini/Jina đều có giới hạn payload).
 // - Giới hạn blast radius: 1 batch lỗi không làm mất progress của các batch trước đó.
@@ -102,6 +111,8 @@ export class DocumentProcessingProcessor extends WorkerHost {
       }
       const buffer = await this.storage.getObjectBuffer(fileUrl);
       const rawText = await extractText(buffer, mimeType);
+      // Điểm kiểm tra huỷ: đã tốn công tải + extract; chunk/OCR/embedding phía sau còn đắt hơn nhiều.
+      await this.assertDocumentAlive(documentId);
 
       this.emitProgress(tenantId, documentId, 20, 'chunking');
       // PDF: thử tách theo trang qua marker pageJoiner có sẵn trong rawText (xem
@@ -140,6 +151,19 @@ export class DocumentProcessingProcessor extends WorkerHost {
       });
       this.emitProgress(tenantId, documentId, 100, 'completed');
     } catch (err) {
+      // Document bị xoá giữa chừng (user bấm xoá lúc đang index): dừng êm, KHÔNG đánh dấu FAILED (không còn gì để
+      // cập nhật) và KHÔNG rethrow (retry vô ích). Kiểm tra cả lỗi "lạ" (vd FK violation khi insert chunk cho document
+      // vừa bị xoá) bằng cách hỏi lại DB; nếu chính việc kiểm tra lỗi thì coi như document còn, đi tiếp nhánh FAILED.
+      if (
+        err instanceof DocumentGoneError ||
+        !(await this.documentExists(documentId).catch(() => true))
+      ) {
+        this.logger.log(
+          `Document ${documentId} was deleted while being processed — stopping job, no retry`,
+        );
+        return;
+      }
+
       const failReason =
         err instanceof Error
           ? err.message
@@ -169,6 +193,8 @@ export class DocumentProcessingProcessor extends WorkerHost {
     chunks: TextChunk[],
   ): Promise<void> {
     for (let start = 0; start < chunks.length; start += EMBEDDING_BATCH_SIZE) {
+      // Mỗi batch = 1 lần gọi embedding tốn quota/tiền: document đã bị xoá thì dừng ngay, khỏi embed các batch còn lại.
+      await this.assertDocumentAlive(documentId);
       const batch = chunks.slice(start, start + EMBEDDING_BATCH_SIZE);
       // mode='document': embed CHUNK tài liệu lúc index, khác ngữ cảnh RetrievalService dùng
       // mode='query' lúc embed câu hỏi user — xem EmbeddingMode trong embedding.service.ts.
@@ -256,6 +282,7 @@ export class DocumentProcessingProcessor extends WorkerHost {
       const ocrResults = await ocrPdfPages(
         buffer,
         Array.from({ length: totalPages }, (_, i) => i + 1),
+        this.ocrOptions(documentId),
       );
       const ocrPages: PdfPageSegment[] = Array.from(ocrResults.entries()).map(
         ([pageNumber, text]) => ({
@@ -281,7 +308,11 @@ export class DocumentProcessingProcessor extends WorkerHost {
       'ocr',
       `Running OCR on ${scanLikePageNumbers.length}/${pages.length} sparse pages (content may be inside images)`,
     );
-    const ocrResults = await ocrPdfPages(buffer, scanLikePageNumbers);
+    const ocrResults = await ocrPdfPages(
+      buffer,
+      scanLikePageNumbers,
+      this.ocrOptions(documentId),
+    );
 
     // GHÉP chữ OCR vào SAU chữ có sẵn của trang (tiêu đề từ text layer + nội dung đọc từ ảnh), không
     // thay thế: slide thường có tiêu đề ở text layer còn nội dung nằm trong ảnh, OCR có thể đọc sót
@@ -292,6 +323,24 @@ export class DocumentProcessingProcessor extends WorkerHost {
       return ocrText ? { ...p, text: `${p.text}\n${ocrText}`.trim() } : p;
     });
     return chunkPagedText(mergedPages);
+  }
+
+  /** OCR là bước lâu nhất (vài giây/trang): kiểm tra document còn tồn tại trước mỗi trang. */
+  private ocrOptions(documentId: string) {
+    return { beforePage: () => this.assertDocumentAlive(documentId) };
+  }
+
+  private async documentExists(documentId: string): Promise<boolean> {
+    const found = await this.system.document.findUnique({
+      where: { id: documentId },
+      select: { id: true },
+    });
+    return found !== null;
+  }
+
+  private async assertDocumentAlive(documentId: string): Promise<void> {
+    if (!(await this.documentExists(documentId)))
+      throw new DocumentGoneError(documentId);
   }
 
   private emitProgress(

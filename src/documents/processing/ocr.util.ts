@@ -4,8 +4,8 @@
 // đen" của sản phẩm (self-hosted hoàn toàn, không phụ thuộc Google Vision/AWS Textract...).
 //
 // ⚠️ CHƯA XÁC NHẬN bằng PDF scan ảnh THẬT — code viết theo README/docs chính thức của pdf-parse
-// (getScreenshot({partial, scale}) trả {pages: [{data: Uint8Array PNG}]}) và tesseract.js
-// (createWorker(langs) + worker.recognize(Buffer.from(pageImage))), nhưng CHƯA tự chạy thử với 1 file PDF scan thật.
+// (getScreenshot({partial, scale}) trả {pages: [{data: Buffer PNG}]}) và tesseract.js
+// (createWorker(langs) + worker.recognize(buffer)), nhưng CHƯA tự chạy thử với 1 file PDF scan thật.
 // PHẢI tự test trước khi tin cậy, giống mọi provider khác trong dự án (xem cảnh báo tương tự ở
 // gemini-embedding.service.ts, extract-text.util.ts phần PDF).
 //
@@ -40,9 +40,18 @@ export const OCR_EMPTY_DOC_CHARS = 20;
 // OCR các trang trong `pageNumbers` của 1 PDF (dùng LẠI buffer đã tải từ storage ở processor, KHÔNG
 // tải lại file). Trả Map<pageNumber, text> — trang nào render/OCR lỗi thì KHÔNG có mặt trong Map
 // (bị bỏ qua, không throw làm hỏng cả document chỉ vì 1 trang lỗi).
+export interface OcrPdfPagesOptions {
+  /**
+   * Gọi TRƯỚC khi OCR mỗi trang. Throw để dừng ngay (vd document đã bị xoá giữa chừng) — lỗi lan ra cho caller,
+   * worker tesseract và parser vẫn được dọn trong `finally`.
+   */
+  beforePage?: () => Promise<void>;
+}
+
 export async function ocrPdfPages(
   buffer: Buffer,
   pageNumbers: number[],
+  options: OcrPdfPagesOptions = {},
 ): Promise<Map<number, string>> {
   const results = new Map<number, string>();
   if (pageNumbers.length === 0) return results;
@@ -59,6 +68,7 @@ export async function ocrPdfPages(
     // bộ nhớ giữ nhiều ảnh cùng lúc. Tạo nhiều worker song song là tối ưu hoá có thể làm sau nếu đo
     // được OCR là bottleneck thật của pipeline.
     for (const pageNumber of pageNumbers) {
+      await options.beforePage?.();
       const screenshot = await parser.getScreenshot({
         partial: [pageNumber],
         scale: SCREENSHOT_SCALE,

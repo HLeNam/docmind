@@ -207,7 +207,7 @@ describe('DocumentProcessingProcessor', () => {
     storage.getObjectBuffer.mockResolvedValue(Buffer.from('x'));
     mockExtractText.mockResolvedValue('hello');
     mockChunkText.mockReturnValue([{ content: 'chunk 1', chunkIndex: 0 }]);
-    embedding.embedBatch.mockResolvedValue([]); // thiếu vector so với 1 chunk đầu vào
+    embedding.embedBatch.mockResolvedValue([]); // missing vector compared to 1 chunk input
 
     await expect(
       processor.process({ data: { documentId: 'doc-1' } } as never),
@@ -255,7 +255,7 @@ describe('DocumentProcessingProcessor', () => {
     const pdfDocument = { ...BASE_DOCUMENT, mimeType: 'application/pdf' };
     system.document.findUnique.mockResolvedValue(pdfDocument);
     storage.getObjectBuffer.mockResolvedValue(Buffer.from('%PDF-...'));
-    // Text mỗi trang PHẢI đủ dài (>= OCR_SPARSE_PAGE_CHARS) để không bị coi là "ít chữ, cần OCR".
+    // Page text MUST be long enough (>= OCR_SPARSE_PAGE_CHARS) to avoid being marked sparse/OCR.
     const rawText = `${LONG_PAGE_TEXT}\n-- 1 of 2 --\n${LONG_PAGE_TEXT}\n-- 2 of 2 --`;
     mockExtractText.mockResolvedValue(rawText);
     const pages = [
@@ -274,20 +274,18 @@ describe('DocumentProcessingProcessor', () => {
 
     await processor.process({ data: { documentId: 'doc-1' } } as never);
 
-    // chunkText (fallback thường) KHÔNG được gọi khi đã tách trang thành công — đúng nhánh PDF.
+    // chunkText (standard fallback) is not called when page split succeeds.
     expect(mockChunkText).not.toHaveBeenCalled();
     expect(mockSplitPdfPagesByMarker).toHaveBeenCalledWith(rawText);
-    expect(mockChunkPagedText).toHaveBeenCalledWith(pages); // KHÔNG bị OCR ghi đè, dùng đúng pages gốc
-    expect(mockOcrPdfPages).not.toHaveBeenCalled(); // text mỗi trang đủ dài -> không nghi scan ảnh
+    expect(mockChunkPagedText).toHaveBeenCalledWith(pages);
+    expect(mockOcrPdfPages).not.toHaveBeenCalled();
 
-    // Mỗi lệnh INSERT raw SQL nhận đúng pageNumber theo thứ tự chunk tương ứng (tham số cuối cùng
-    // truyền vào $executeRaw sau templateStrings, randomUUID, documentId, content, vectorLiteral,
-    // chunkIndex, headingContext).
+    // Raw SQL INSERT gets correct pageNumber in chunk order.
     expect(system.$executeRaw).toHaveBeenCalledTimes(2);
     const firstCallArgs = system.$executeRaw.mock.calls[0]!;
     const secondCallArgs = system.$executeRaw.mock.calls[1]!;
-    expect(firstCallArgs[firstCallArgs.length - 1]).toBe(1); // pageNumber trang 1
-    expect(secondCallArgs[secondCallArgs.length - 1]).toBe(2); // pageNumber trang 2
+    expect(firstCallArgs[firstCallArgs.length - 1]).toBe(1);
+    expect(secondCallArgs[secondCallArgs.length - 1]).toBe(2);
   });
 
   it('falls back to standard chunkText without OCR and sets pageNumber to null when PDF marker splitting fails but text is sufficient', async () => {
@@ -297,7 +295,7 @@ describe('DocumentProcessingProcessor', () => {
     storage.getObjectBuffer.mockResolvedValue(Buffer.from('%PDF-...'));
     mockExtractText.mockResolvedValue('text PDF không có marker (vd 1 trang)'); // >= OCR_EMPTY_DOC_CHARS (20)
     mockSplitPdfPagesByMarker.mockReturnValue(null);
-    mockChunkText.mockReturnValue([{ content: 'nội dung', chunkIndex: 0 }]); // không có pageNumber
+    mockChunkText.mockReturnValue([{ content: 'nội dung', chunkIndex: 0 }]);
     embedding.embedBatch.mockResolvedValue([[0.1, 0.2]]);
 
     await processor.process({ data: { documentId: 'doc-1' } } as never);
@@ -309,7 +307,7 @@ describe('DocumentProcessingProcessor', () => {
     expect(mockOcrPdfPages).not.toHaveBeenCalled();
     expect(mockGetPdfPageCount).not.toHaveBeenCalled();
     const callArgs = system.$executeRaw.mock.calls[0]!;
-    expect(callArgs[callArgs.length - 1]).toBeNull(); // pageNumber null khi không tách được trang
+    expect(callArgs[callArgs.length - 1]).toBeNull();
   });
 
   it('runs OCR only on sparse pages and merges OCR text into existing page text when PDF has sparse pages', async () => {
@@ -324,7 +322,7 @@ describe('DocumentProcessingProcessor', () => {
     );
     mockSplitPdfPagesByMarker.mockReturnValue([
       { pageNumber: 1, text: LONG_PAGE_TEXT },
-      { pageNumber: 2, text: 'Tiêu đề slide' }, // chỉ có tiêu đề, nội dung nằm trong ảnh
+      { pageNumber: 2, text: 'Tiêu đề slide' },
     ]);
     mockOcrPdfPages.mockResolvedValue(
       new Map([[2, 'Nội dung OCR được từ ảnh trang 2.']]),
@@ -344,11 +342,13 @@ describe('DocumentProcessingProcessor', () => {
 
     await processor.process({ data: { documentId: 'doc-1' } } as never);
 
-    // CHỈ gọi OCR cho trang 2 (trang 1 có text đủ dài, không cần OCR).
-    expect(mockOcrPdfPages).toHaveBeenCalledWith(buffer, [2]);
-    expect(mockGetPdfPageCount).not.toHaveBeenCalled(); // đã biết tổng số trang qua splitPdfPagesByMarker, không cần gọi thêm
+    expect(mockOcrPdfPages).toHaveBeenCalledWith(
+      buffer,
+      [2],
+      expect.objectContaining({ beforePage: expect.any(Function) }),
+    );
+    expect(mockGetPdfPageCount).not.toHaveBeenCalled();
 
-    // chunkPagedText() nhận pages đã MERGE: trang 1 giữ nguyên, trang 2 = chữ có sẵn + chữ OCR.
     expect(mockChunkPagedText).toHaveBeenCalledWith([
       { pageNumber: 1, text: LONG_PAGE_TEXT },
       {
@@ -369,8 +369,8 @@ describe('DocumentProcessingProcessor', () => {
     system.document.findUnique.mockResolvedValue(pdfDocument);
     const buffer = Buffer.from('%PDF-...');
     storage.getObjectBuffer.mockResolvedValue(buffer);
-    mockExtractText.mockResolvedValue('  '); // gần như rỗng -> < OCR_EMPTY_DOC_CHARS
-    mockSplitPdfPagesByMarker.mockReturnValue(null); // không có marker nào (PDF scan hoàn toàn)
+    mockExtractText.mockResolvedValue('  ');
+    mockSplitPdfPagesByMarker.mockReturnValue(null);
     mockGetPdfPageCount.mockResolvedValue(2);
     mockOcrPdfPages.mockResolvedValue(
       new Map([
@@ -390,8 +390,12 @@ describe('DocumentProcessingProcessor', () => {
     await processor.process({ data: { documentId: 'doc-1' } } as never);
 
     expect(mockGetPdfPageCount).toHaveBeenCalledWith(buffer);
-    expect(mockOcrPdfPages).toHaveBeenCalledWith(buffer, [1, 2]); // OCR HẾT mọi trang (1..totalPages)
-    expect(mockChunkText).not.toHaveBeenCalled(); // không dùng fallback chunkText() thường ở nhánh này
+    expect(mockOcrPdfPages).toHaveBeenCalledWith(
+      buffer,
+      [1, 2],
+      expect.objectContaining({ beforePage: expect.any(Function) }),
+    );
+    expect(mockChunkText).not.toHaveBeenCalled();
     expect(mockChunkPagedText).toHaveBeenCalledWith([
       { pageNumber: 1, text: 'OCR trang 1.' },
       { pageNumber: 2, text: 'OCR trang 2.' },
@@ -410,8 +414,8 @@ describe('DocumentProcessingProcessor', () => {
     mockExtractText.mockResolvedValue('');
     mockSplitPdfPagesByMarker.mockReturnValue(null);
     mockGetPdfPageCount.mockResolvedValue(1);
-    mockOcrPdfPages.mockResolvedValue(new Map()); // OCR chạy nhưng không đọc được chữ nào
-    mockChunkPagedText.mockReturnValue([]); // không trang nào có text -> 0 chunk
+    mockOcrPdfPages.mockResolvedValue(new Map());
+    mockChunkPagedText.mockReturnValue([]);
 
     await expect(
       processor.process({ data: { documentId: 'doc-1' } } as never),
@@ -422,6 +426,102 @@ describe('DocumentProcessingProcessor', () => {
         status: 'FAILED',
         failReason: expect.stringMatching(/even after attempting OCR/i),
       },
+    });
+  });
+
+  describe('document deletion during processing', () => {
+    function setupMidRunDelete(aliveAnswers: Array<object | null>) {
+      const ctx = buildProcessor();
+      // First call: initial fetch at beginning of process(); remaining calls: cancellation checkpoints.
+      const [first, ...rest] = aliveAnswers;
+      ctx.system.document.findUnique.mockResolvedValueOnce(first);
+      for (const a of rest)
+        ctx.system.document.findUnique.mockResolvedValueOnce(a);
+      ctx.system.document.findUnique.mockResolvedValue(null);
+      ctx.storage.getObjectBuffer.mockResolvedValue(Buffer.from('x'));
+      mockExtractText.mockResolvedValue('hello');
+      return ctx;
+    }
+
+    it('stops gracefully without chunking, embedding, marking FAILED, or throwing when document deleted right after extraction', async () => {
+      const { processor, system, embedding } = setupMidRunDelete([
+        BASE_DOCUMENT,
+        null,
+      ]);
+
+      await expect(
+        processor.process({ data: { documentId: 'doc-1' } } as never),
+      ).resolves.toBeUndefined();
+
+      expect(mockChunkText).not.toHaveBeenCalled();
+      expect(embedding.embedBatch).not.toHaveBeenCalled();
+      expect(system.document.update).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: 'FAILED' }),
+        }),
+      );
+    });
+
+    it('does not embed second batch when document is deleted after first embedding batch', async () => {
+      // findUnique: [start of process, after extract, before batch 1] alive; before batch 2 deleted.
+      const { processor, embedding } = setupMidRunDelete([
+        BASE_DOCUMENT,
+        { id: 'doc-1' },
+        { id: 'doc-1' },
+      ]);
+      mockChunkText.mockReturnValue(
+        Array.from({ length: 25 }, (_, i) => ({
+          content: `c${i}`,
+          chunkIndex: i,
+        })),
+      );
+      embedding.embedBatch.mockImplementation(async (texts: string[]) =>
+        texts.map(() => [0.1, 0.2]),
+      );
+
+      await expect(
+        processor.process({ data: { documentId: 'doc-1' } } as never),
+      ).resolves.toBeUndefined();
+
+      expect(embedding.embedBatch).toHaveBeenCalledTimes(1); // 25 chunks = 2 batches (20 + 5), only first batch runs
+    });
+
+    it('treats unexpected error as deleted document without marking FAILED or rethrowing when document no longer exists', async () => {
+      const { processor, system, storage, embedding } = buildProcessor();
+      system.document.findUnique
+        .mockResolvedValueOnce(BASE_DOCUMENT) // start of process
+        .mockResolvedValueOnce({ id: 'doc-1' }) // after extract
+        .mockResolvedValueOnce({ id: 'doc-1' }) // before batch 1
+        .mockResolvedValueOnce(null); // catch: recheck -> deleted
+      storage.getObjectBuffer.mockResolvedValue(Buffer.from('x'));
+      mockExtractText.mockResolvedValue('hello');
+      mockChunkText.mockReturnValue([{ content: 'c0', chunkIndex: 0 }]);
+      embedding.embedBatch.mockResolvedValue([[0.1, 0.2]]);
+      system.$executeRaw.mockRejectedValue(new Error('FK violation'));
+
+      await expect(
+        processor.process({ data: { documentId: 'doc-1' } } as never),
+      ).resolves.toBeUndefined();
+
+      expect(system.document.update).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: 'FAILED' }),
+        }),
+      );
+    });
+
+    it('marks FAILED and rethrows when real error occurs and document still exists', async () => {
+      const { processor, system, storage } = buildProcessor();
+      system.document.findUnique.mockResolvedValue(BASE_DOCUMENT);
+      storage.getObjectBuffer.mockRejectedValue(new Error('S3 down'));
+
+      await expect(
+        processor.process({ data: { documentId: 'doc-1' } } as never),
+      ).rejects.toThrow('S3 down');
+      expect(system.document.update).toHaveBeenCalledWith({
+        where: { id: 'doc-1' },
+        data: { status: 'FAILED', failReason: 'S3 down' },
+      });
     });
   });
 });
