@@ -67,12 +67,14 @@ function buildService(overrides?: {
   }
   const llm = { streamChat: vi.fn().mockReturnValue(fakeStream()) };
 
+  const usage = { record: vi.fn() };
   const service = new ChatService(
     prisma as never,
     retrievalService as never,
     llm as never,
+    usage as never,
   );
-  return { service, prisma, tx, retrievalService, llm };
+  return { service, prisma, tx, retrievalService, llm, usage };
 }
 
 describe('ChatService.prepare', () => {
@@ -92,7 +94,7 @@ describe('ChatService.prepare', () => {
 
   it('reuses existing conversation and loads history when valid conversationId belonging to caller is provided', async () => {
     const { service, tx, retrievalService } = buildService({
-      // DB trả về DESC (tin mới nhất trước), prepare() sẽ reverse lại thành thứ tự thời gian
+      // DB returns DESC (newest first); prepare() will reverse to chronological order
       messageFindMany: [
         { role: 'ASSISTANT', content: 'trả lời trước' },
         { role: 'USER', content: 'câu trước' },
@@ -231,6 +233,7 @@ describe('ChatService.streamAnswer', () => {
   it('delegates directly to LlmProvider.streamChat with correct systemPrompt and messages', async () => {
     const { service, llm } = buildService();
     const prepared = {
+      tenantId: 'tenant-1',
       conversationId: 'conv-1',
       messages: [{ role: 'user' as const, content: 'hi' }],
       systemPrompt: 'system prompt',
@@ -238,13 +241,40 @@ describe('ChatService.streamAnswer', () => {
     };
 
     const out: string[] = [];
-    for await (const delta of service.streamAnswer(prepared)) out.push(delta);
+    for await (const chunk of service.streamAnswer(prepared)) {
+      out.push(chunk);
+    }
 
     expect(llm.streamChat).toHaveBeenCalledWith({
       systemPrompt: 'system prompt',
       messages: prepared.messages,
+      onUsage: expect.any(Function),
     });
     expect(out).toEqual(['Xin', ' chào']);
+  });
+
+  it('records GENERATION usage for caller tenant when provider reports tokens via onUsage', async () => {
+    const { service, llm, usage } = buildService();
+    const prepared = {
+      tenantId: 'tenant-1',
+      conversationId: 'conv-1',
+      messages: [{ role: 'user' as const, content: 'hi' }],
+      systemPrompt: 's',
+      citations: [],
+    };
+    llm.streamChat.mockImplementation(async function* (params: any) {
+      yield 'ok';
+      params.onUsage({ inputTokens: 120, outputTokens: 30 });
+    });
+
+    for await (const _ of service.streamAnswer(prepared)) void _;
+
+    expect(usage.record).toHaveBeenCalledWith({
+      tenantId: 'tenant-1',
+      type: 'GENERATION',
+      inputTokens: 120,
+      outputTokens: 30,
+    });
   });
 });
 
@@ -252,6 +282,7 @@ describe('ChatService.saveAssistantMessage', () => {
   it('saves message with role ASSISTANT and citations for the corresponding conversationId', async () => {
     const { service, tx } = buildService();
     const prepared = {
+      tenantId: 'tenant-1',
       conversationId: 'conv-1',
       messages: [],
       systemPrompt: '',

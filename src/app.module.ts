@@ -25,6 +25,7 @@ import { ApiKeysModule } from './api-keys/api-keys.module.js';
 import { PublicApiModule } from './public-api/public-api.module.js';
 import { SlackModule } from './slack/slack.module.js';
 import { RateLimitModule } from './common/rate-limit/rate-limit.module.js';
+import { UsageModule } from './usage/usage.module.js';
 
 @Module({
   imports: [
@@ -60,6 +61,7 @@ import { RateLimitModule } from './common/rate-limit/rate-limit.module.js';
     PublicApiModule,
     SlackModule,
     RateLimitModule,
+    UsageModule,
   ],
   controllers: [AppController],
   providers: [

@@ -10,6 +10,7 @@ import type {
   ChatMessage,
   LlmProvider,
 } from '../chat/llm/llm-provider.interface.js';
+import { UsageService } from '../usage/usage.service.js';
 
 const MAX_CONDENSED_CHARS = 1000;
 
@@ -25,10 +26,17 @@ Quy tắc:
 export class QuestionCondenserService {
   private readonly logger = new Logger(QuestionCondenserService.name);
 
-  constructor(@Inject(LLM_PROVIDER_TOKEN) private readonly llm: LlmProvider) {}
+  constructor(
+    @Inject(LLM_PROVIDER_TOKEN) private readonly llm: LlmProvider,
+    private readonly usage: UsageService,
+  ) {}
 
   /** Trả về câu hỏi độc lập. Không bao giờ throw: lỗi -> trả lại `question` gốc. */
-  async condense(history: ChatMessage[], question: string): Promise<string> {
+  async condense(
+    history: ChatMessage[],
+    question: string,
+    tenantId: string,
+  ): Promise<string> {
     if (history.length === 0) return question;
 
     const transcript = history
@@ -44,6 +52,14 @@ export class QuestionCondenserService {
       for await (const delta of this.llm.streamChat({
         systemPrompt: CONDENSE_SYSTEM_PROMPT,
         messages: [{ role: 'user', content: prompt }],
+        // Lượt LLM viết lại câu hỏi cũng tốn quota/tiền -> tính vào tenant như mọi lượt sinh khác.
+        onUsage: (u) =>
+          this.usage.record({
+            tenantId,
+            type: 'GENERATION',
+            inputTokens: u.inputTokens,
+            outputTokens: u.outputTokens,
+          }),
       })) {
         out += delta;
       }

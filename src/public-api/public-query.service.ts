@@ -22,6 +22,7 @@ import {
   NotFoundAppException,
 } from '../common/exceptions/app.exception.js';
 import { ErrorCode } from '../common/exceptions/error-codes.js';
+import { UsageService } from '../usage/usage.service.js';
 import { PublicQueryDto } from './dtos/public-query.dto.js';
 
 /**
@@ -53,6 +54,7 @@ export interface PublicQueryResult {
 }
 
 export interface PreparedPublicQuery {
+  tenantId: string; // để ghi UsageLog đúng tenant
   citations: PublicQueryCitation[];
   systemPrompt: string;
   messages: ChatMessage[];
@@ -64,6 +66,7 @@ export class PublicQueryService {
     private readonly prisma: PrismaService,
     private readonly retrievalService: RetrievalService,
     @Inject(LLM_PROVIDER_TOKEN) private readonly llm: LlmProvider,
+    private readonly usage: UsageService,
   ) {}
 
   /**
@@ -87,6 +90,7 @@ export class PublicQueryService {
     );
 
     return {
+      tenantId: key.tenantId,
       citations: retrieved.map((chunk, i) => ({
         index: i + 1,
         documentId: chunk.documentId,
@@ -107,6 +111,13 @@ export class PublicQueryService {
     yield* this.llm.streamChat({
       systemPrompt: prepared.systemPrompt,
       messages: prepared.messages,
+      onUsage: (u) =>
+        this.usage.record({
+          tenantId: prepared.tenantId,
+          type: 'GENERATION',
+          inputTokens: u.inputTokens,
+          outputTokens: u.outputTokens,
+        }),
     });
   }
 

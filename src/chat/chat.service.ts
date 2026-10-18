@@ -16,6 +16,7 @@ import type { LlmProvider, ChatMessage } from './llm/llm-provider.interface.js';
 import { NotFoundAppException } from '../common/exceptions/app.exception.js';
 import type { AccessTokenPayload } from '../auth/auth.service.js';
 import { buildContextBlock, buildSystemPrompt } from './rag-prompt.util.js';
+import { UsageService } from '../usage/usage.service.js';
 import { SendMessageDto } from './dtos/chat.dto.js';
 
 // Số tin nhắn GẦN NHẤT lấy làm ngữ cảnh hội thoại — hội thoại dài vô hạn mà nhét hết vào mỗi lần
@@ -38,6 +39,7 @@ export interface ChatCitation {
 }
 
 export interface PreparedChat {
+  tenantId: string; // để ghi UsageLog đúng tenant khi stream xong
   conversationId: string;
   messages: ChatMessage[]; // history + user message mới, sẵn sàng gửi thẳng cho LlmProvider
   systemPrompt: string;
@@ -51,6 +53,7 @@ export class ChatService {
     private readonly retrievalService: RetrievalService,
     // Inject qua token (xem CHAT_MODULE_NOTES.md) — đổi provider chỉ cần đổi env LLM_PROVIDER.
     @Inject(LLM_PROVIDER_TOKEN) private readonly llm: LlmProvider,
+    private readonly usage: UsageService,
   ) {}
 
   /**
@@ -116,6 +119,7 @@ export class ChatService {
     ];
 
     return {
+      tenantId: caller.tenantId,
       conversationId: conversation.id,
       messages,
       systemPrompt: buildSystemPrompt(contextBlock),
@@ -132,6 +136,13 @@ export class ChatService {
     yield* this.llm.streamChat({
       systemPrompt: prepared.systemPrompt,
       messages: prepared.messages,
+      onUsage: (u) =>
+        this.usage.record({
+          tenantId: prepared.tenantId,
+          type: 'GENERATION',
+          inputTokens: u.inputTokens,
+          outputTokens: u.outputTokens,
+        }),
     });
   }
 

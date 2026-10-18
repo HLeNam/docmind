@@ -9,28 +9,30 @@ function llmReturning(chunks: string[]) {
   };
 }
 
+const usage = { record: vi.fn() };
+
 const HISTORY = [
   { role: 'user' as const, content: 'Có những loại ML nào?' },
   { role: 'assistant' as const, content: 'Có Supervised và Unsupervised.' },
 ];
 
 describe('QuestionCondenserService', () => {
-  it('empty history -> returns original question and does not call LLM', async () => {
+  it('returns original question without calling LLM when history is empty', async () => {
     const llm = llmReturning(['x']);
-    const out = await new QuestionCondenserService(llm as any).condense(
-      [],
-      'ML là gì?',
-    );
+    const out = await new QuestionCondenserService(
+      llm as any,
+      usage as any,
+    ).condense([], 'ML là gì?', 't1');
     expect(out).toBe('ML là gì?');
     expect(llm.streamChat).not.toHaveBeenCalled();
   });
 
-  it('with history -> sends transcript and new question, returns condensed question (joins chunks, trims quotes)', async () => {
+  it('sends transcript and new question and returns rewritten question without quotes when history exists', async () => {
     const llm = llmReturning(['"Unsuper', 'vised learning là gì?"\n']);
-    const out = await new QuestionCondenserService(llm as any).condense(
-      HISTORY,
-      'còn loại thứ hai?',
-    );
+    const out = await new QuestionCondenserService(
+      llm as any,
+      usage as any,
+    ).condense(HISTORY, 'còn loại thứ hai?', 't1');
 
     expect(out).toBe('Unsupervised learning là gì?');
     const params = (llm.streamChat as Mock).mock.calls[0]![0] as any;
@@ -41,31 +43,53 @@ describe('QuestionCondenserService', () => {
     expect(prompt).toContain('Câu hỏi mới: còn loại thứ hai?');
   });
 
-  it('LLM returns empty -> falls back to original question', async () => {
+  it('falls back to original question when LLM returns empty content', async () => {
     const out = await new QuestionCondenserService(
       llmReturning(['  \n']) as any,
-    ).condense(HISTORY, 'còn loại hai?');
+      usage as any,
+    ).condense(HISTORY, 'còn loại hai?', 't1');
     expect(out).toBe('còn loại hai?');
   });
 
-  it('LLM output exceeds length limit -> falls back to original question', async () => {
+  it('falls back to original question when LLM response is excessively long', async () => {
     const out = await new QuestionCondenserService(
       llmReturning(['x'.repeat(1500)]) as any,
-    ).condense(HISTORY, 'còn loại hai?');
+      usage as any,
+    ).condense(HISTORY, 'còn loại hai?', 't1');
     expect(out).toBe('còn loại hai?');
   });
 
-  it('LLM error -> does not throw, falls back to original question', async () => {
+  it('does not throw and falls back to original question when LLM fails', async () => {
     const llm = {
       streamChat: vi.fn(async function* () {
-        if (true as boolean) throw new Error('quota');
-        yield '';
+        yield await Promise.reject(new Error('quota'));
       }),
     };
-    const out = await new QuestionCondenserService(llm as any).condense(
+    const out = await new QuestionCondenserService(
+      llm as any,
+      usage as any,
+    ).condense(HISTORY, 'còn loại hai?', 't1');
+    expect(out).toBe('còn loại hai?');
+  });
+
+  it('records GENERATION usage for specified tenant when provider reports tokens with history', async () => {
+    const record = vi.fn();
+    const llm = {
+      streamChat: vi.fn(async function* (params: any) {
+        yield 'Unsupervised là gì?';
+        params.onUsage({ inputTokens: 90, outputTokens: 8 });
+      }),
+    };
+    await new QuestionCondenserService(llm as any, { record } as any).condense(
       HISTORY,
       'còn loại hai?',
+      'tenant-9',
     );
-    expect(out).toBe('còn loại hai?');
+    expect(record).toHaveBeenCalledWith({
+      tenantId: 'tenant-9',
+      type: 'GENERATION',
+      inputTokens: 90,
+      outputTokens: 8,
+    });
   });
 });

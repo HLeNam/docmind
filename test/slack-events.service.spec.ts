@@ -25,7 +25,7 @@ function payload(
     event: {
       type: 'app_mention',
       user: 'U1',
-      text: `<@${BOT}> What types of ML exist?`,
+      text: `<@${BOT}> Có những loại ML nào?`,
       channel: 'C0123ABCDEF',
       ts: '1700000000.000100',
       ...eventOver,
@@ -35,39 +35,39 @@ function payload(
 }
 
 describe('extractQuestion', () => {
-  it('removes bot mention at start, middle, or end of sentence', () => {
-    expect(extractQuestion(`<@${BOT}> What is ML?`, BOT)).toBe('What is ML?');
-    expect(extractQuestion(`Hey <@${BOT}> what is ML?`, BOT)).toBe(
-      'Hey what is ML?',
+  it('strips bot mention at beginning, middle, or end of text', () => {
+    expect(extractQuestion(`<@${BOT}> ML là gì?`, BOT)).toBe('ML là gì?');
+    expect(extractQuestion(`Này <@${BOT}> ML là gì?`, BOT)).toBe(
+      'Này ML là gì?',
     );
-    expect(extractQuestion(`What is ML? <@${BOT}>`, BOT)).toBe('What is ML?');
+    expect(extractQuestion(`ML là gì? <@${BOT}>`, BOT)).toBe('ML là gì?');
   });
 
-  it('preserves other mentions, only removes bot mention', () => {
-    expect(extractQuestion(`<@${BOT}> what does <@U9> do?`, BOT)).toBe(
-      'what does <@U9> do?',
-    );
-  });
-
-  it('when bot id is unknown: only removes mention at the start', () => {
-    expect(extractQuestion('<@U0BOT123> What is ML <@U9>?')).toBe(
-      'What is ML <@U9>?',
+  it('preserves other user mentions and only strips bot mention', () => {
+    expect(extractQuestion(`<@${BOT}> <@U9> làm gì?`, BOT)).toBe(
+      '<@U9> làm gì?',
     );
   });
 
-  it('decodes &amp; &lt; &gt; without converting plain text to mention', () => {
+  it('strips leading mention when bot id is unknown', () => {
+    expect(extractQuestion('<@U0BOT123> ML là gì <@U9>?')).toBe(
+      'ML là gì <@U9>?',
+    );
+  });
+
+  it('decodes HTML entities (&amp;, &lt;, &gt;) without altering normal mentions', () => {
     expect(extractQuestion(`<@${BOT}> A &amp; B &lt;@U9&gt;`, BOT)).toBe(
       'A & B <@U9>',
     );
   });
 
-  it('preserves newlines, collapses extra whitespace', () => {
-    expect(extractQuestion(`<@${BOT}>   line 1\nline   2`, BOT)).toBe(
-      'line 1\nline 2',
+  it('preserves newlines and collapses redundant spaces', () => {
+    expect(extractQuestion(`<@${BOT}>   dòng 1\ndòng   2`, BOT)).toBe(
+      'dòng 1\ndòng 2',
     );
   });
 
-  it('mention only -> returns empty string', () => {
+  it('returns empty string when text contains only bot mention', () => {
     expect(extractQuestion(`<@${BOT}>`, BOT)).toBe('');
   });
 });
@@ -105,7 +105,7 @@ describe('SlackEventsService', () => {
     condenser = { condense: vi.fn(async (_h: unknown, q: string) => q) };
     publicQuery = {
       query: vi.fn(async () => ({
-        answer: 'There are **3 types** [1]',
+        answer: 'Có **3 loại** [1]',
         citations: [
           { index: 1, filename: 'a.pdf', pageNumber: 7, headingContext: null },
         ],
@@ -128,12 +128,12 @@ describe('SlackEventsService', () => {
       thread_ts: string;
     };
 
-  it('root mention: runs RAG in mapped collection, replies in thread of the mention message', async () => {
+  it('performs RAG for mapped tenant and collection and replies in mention thread for top-level mention', async () => {
     await service.handle(payload());
 
     expect(publicQuery.query).toHaveBeenCalledWith(
       { tenantId: 't1', collectionId: 'c1' },
-      { query: 'What types of ML exist?', topK: 5 },
+      { query: 'Có những loại ML nào?', topK: 5 },
     );
     expect(api.postMessage).toHaveBeenCalledTimes(1);
     const [token, msg] = api.postMessage.mock.calls[0]!;
@@ -143,27 +143,27 @@ describe('SlackEventsService', () => {
     expect(msg.blocks.length).toBeGreaterThan(0);
   });
 
-  it('mention inside existing thread: replies into that thread (thread_ts), does not open new thread', async () => {
+  it('replies in existing thread (thread_ts) without opening a new thread for thread mentions', async () => {
     await service.handle(payload({ thread_ts: '1699999999.000001' }));
     expect(api.postMessage.mock.calls[0]![1].thread_ts).toBe(
       '1699999999.000001',
     );
   });
 
-  it('root mention (initial question): does not fetch thread replies or call condenser', async () => {
+  it('does not fetch thread replies or call condenser for top-level mention', async () => {
     await service.handle(payload());
     expect(api.getThreadReplies).not.toHaveBeenCalled();
     expect(condenser.condense).not.toHaveBeenCalled();
   });
 
-  it('mention in thread: fetches thread history, condenses question, queries RAG with condensed question, adds context block', async () => {
+  it('fetches history, rewrites question, searches with rewritten query, and displays query context for thread mention', async () => {
     api.getThreadReplies.mockResolvedValue({
       ok: true,
       messages: [
         {
           ts: '1699999999.000001',
           user: 'U1',
-          text: `<@${BOT}> What types of ML exist?`,
+          text: `<@${BOT}> Có những loại ML nào?`,
         },
         {
           ts: '1699999999.000002',
@@ -173,22 +173,22 @@ describe('SlackEventsService', () => {
           blocks: [
             {
               type: 'section',
-              text: { type: 'mrkdwn', text: 'Supervised and Unsupervised.' },
+              text: { type: 'mrkdwn', text: 'Có Supervised và Unsupervised.' },
             },
           ],
         },
         {
           ts: '1700000000.000100',
           user: 'U1',
-          text: `<@${BOT}> and the second type?`,
+          text: `<@${BOT}> còn loại thứ hai?`,
         },
       ],
     });
-    condenser.condense.mockResolvedValue('What is unsupervised learning?');
+    condenser.condense.mockResolvedValue('Unsupervised learning là gì?');
 
     await service.handle(
       payload({
-        text: `<@${BOT}> and the second type?`,
+        text: `<@${BOT}> còn loại thứ hai?`,
         thread_ts: '1699999999.000001',
       }),
     );
@@ -200,30 +200,31 @@ describe('SlackEventsService', () => {
     );
     expect(condenser.condense).toHaveBeenCalledWith(
       [
-        { role: 'user', content: 'What types of ML exist?' },
-        { role: 'assistant', content: 'Supervised and Unsupervised.' },
+        { role: 'user', content: 'Có những loại ML nào?' },
+        { role: 'assistant', content: 'Có Supervised và Unsupervised.' },
       ],
-      'and the second type?',
+      'còn loại thứ hai?',
+      't1',
     );
     expect(publicQuery.query).toHaveBeenCalledWith(
       { tenantId: 't1', collectionId: 'c1' },
-      { query: 'What is unsupervised learning?', topK: 5 },
+      { query: 'Unsupervised learning là gì?', topK: 5 },
     );
     const [, msg] = api.postMessage.mock.calls[0]!;
     expect(msg.thread_ts).toBe('1699999999.000001');
     expect(msg.blocks[0].type).toBe('context');
     expect(msg.blocks[0].elements[0].text).toContain(
-      'What is unsupervised learning?',
+      'Unsupervised learning là gì?',
     );
   });
 
-  it('condensed question identical to original question -> does not insert context block', async () => {
+  it('does not insert query context block when rewritten query matches original', async () => {
     await service.handle(payload({ thread_ts: '1699999999.000001' }));
     const [, msg] = api.postMessage.mock.calls[0]!;
     expect(msg.blocks[0].type).toBe('section');
   });
 
-  it('failed to fetch thread replies (missing scope) -> answers using original question', async () => {
+  it('falls back to original question when fetching thread replies fails with missing scope', async () => {
     api.getThreadReplies.mockResolvedValue({
       ok: false,
       error: 'missing_scope',
@@ -232,21 +233,21 @@ describe('SlackEventsService', () => {
     expect(condenser.condense).not.toHaveBeenCalled();
     expect(publicQuery.query).toHaveBeenCalledWith(
       { tenantId: 't1', collectionId: 'c1' },
-      { query: 'What types of ML exist?', topK: 5 },
+      { query: 'Có những loại ML nào?', topK: 5 },
     );
     expect(api.postMessage).toHaveBeenCalledTimes(1);
   });
 
-  it('fetching thread throws network error -> answers using original question', async () => {
+  it('falls back to original question when fetching thread replies encounters network error', async () => {
     api.getThreadReplies.mockRejectedValue(new Error('network'));
     await service.handle(payload({ thread_ts: '1699999999.000001' }));
     expect(publicQuery.query).toHaveBeenCalledWith(
       { tenantId: 't1', collectionId: 'c1' },
-      { query: 'What types of ML exist?', topK: 5 },
+      { query: 'Có những loại ML nào?', topK: 5 },
     );
   });
 
-  it('same event_id sent again (retry/duplicate) -> processed only once', async () => {
+  it('processes identical event_id only once to prevent duplicate handling', async () => {
     const p = payload();
     await service.handle(p);
     await service.handle(p);
@@ -254,29 +255,29 @@ describe('SlackEventsService', () => {
     expect(api.postMessage).toHaveBeenCalledTimes(1);
   });
 
-  it('bot message (bot_id) -> ignored to avoid reply loop', async () => {
+  it('ignores bot messages (bot_id) to prevent infinite reply loops', async () => {
     await service.handle(payload({ bot_id: 'B1' }));
     expect(system.slackIntegration.findUnique).not.toHaveBeenCalled();
     expect(api.postMessage).not.toHaveBeenCalled();
   });
 
-  it('non app_mention event or invalid payload -> silently ignored', async () => {
+  it('silently ignores events that are not app_mention or invalid payloads', async () => {
     await service.handle(payload({ type: 'message' }));
     await service.handle({ type: 'event_callback' });
     await service.handle(null);
-    await service.handle('invalid');
+    await service.handle('rác');
     expect(system.slackIntegration.findUnique).not.toHaveBeenCalled();
     expect(api.postMessage).not.toHaveBeenCalled();
   });
 
-  it('workspace not connected -> does nothing (no token to reply)', async () => {
+  it('does nothing when workspace is not connected', async () => {
     system.slackIntegration.findUnique.mockResolvedValue(null);
     await service.handle(payload());
     expect(api.postMessage).not.toHaveBeenCalled();
     expect(api.postEphemeral).not.toHaveBeenCalled();
   });
 
-  it('mention only without question -> ephemeral usage guidance to correct user and thread', async () => {
+  it('sends ephemeral guidance to user in thread when mention has no question', async () => {
     await service.handle(payload({ text: `<@${BOT}>` }));
     expect(lastEphemeral().text).toContain('@DocMind');
     expect(lastEphemeral().user).toBe('U1');
@@ -284,13 +285,13 @@ describe('SlackEventsService', () => {
     expect(publicQuery.query).not.toHaveBeenCalled();
   });
 
-  it('question too long -> ephemeral, does not call RAG', async () => {
+  it('sends ephemeral error without running RAG when question is too long', async () => {
     await service.handle(payload({ text: `<@${BOT}> ${'x'.repeat(2001)}` }));
     expect(lastEphemeral().text).toContain('quá dài');
     expect(publicQuery.query).not.toHaveBeenCalled();
   });
 
-  it('channel not mapped to collection -> ephemeral with channel id, does not call RAG', async () => {
+  it('sends ephemeral error with channel ID without running RAG when channel is unmapped', async () => {
     system.slackChannelMapping.findUnique.mockResolvedValue(null);
     await service.handle(payload());
     expect(lastEphemeral().text).toContain('PUT /slack/channels/C0123ABCDEF');
@@ -298,7 +299,7 @@ describe('SlackEventsService', () => {
     expect(api.postMessage).not.toHaveBeenCalled();
   });
 
-  it('RAG failure -> polite error in thread without leaking details', async () => {
+  it('posts polite error message in thread without leaking internal details when RAG fails', async () => {
     publicQuery.query.mockRejectedValue(
       new Error('Gemini quota exceeded: secret detail'),
     );
@@ -309,7 +310,7 @@ describe('SlackEventsService', () => {
     expect(msg.text).not.toContain('secret detail');
   });
 
-  it('workspace rate limit exceeded -> ephemeral with retry-after seconds', async () => {
+  it('sends ephemeral rate limit warning with retry delay when workspace rate limit is exceeded', async () => {
     for (let i = 0; i < SLACK_MENTION_LIMIT_PER_MINUTE; i++)
       await service.handle(payload());
     publicQuery.query.mockClear();
@@ -319,12 +320,12 @@ describe('SlackEventsService', () => {
     expect(publicQuery.query).not.toHaveBeenCalled();
   });
 
-  it('handle() never throws', async () => {
+  it('never throws an error from handle()', async () => {
     system.slackIntegration.findUnique.mockRejectedValue(new Error('db down'));
     await expect(service.handle(payload())).resolves.toBeUndefined();
   });
 
-  it('ephemeral failure does not cause handle() to throw', async () => {
+  it('does not throw when sending ephemeral message fails', async () => {
     api.postEphemeral.mockRejectedValue(new Error('network'));
     await expect(
       service.handle(payload({ text: `<@${BOT}>` })),

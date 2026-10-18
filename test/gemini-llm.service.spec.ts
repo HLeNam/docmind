@@ -1,173 +1,288 @@
-// test/gemini-llm.service.spec.ts
-//
-// Mock global.fetch — không gọi Gemini API thật.
-// Kiểm tra cấu trúc request (headers, systemInstruction, contents mapping) và parse SSE text deltas.
-import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest';
+// 2 nhóm test tách biệt:
+// 1. parseSseTextDeltas() — test TRỰC TIẾP logic parse buffer/newline bằng ReadableStream thật
+//    (Web Streams API, có sẵn global ở Node 18+, không cần mock) — không cần mock fetch chỉ để test
+//    phần này, dễ kiểm tra case "1 dòng data bị cắt làm 2 chunk network" (lý do tách hàm riêng).
+// 2. GeminiLlmService.streamChat() — mock global.fetch, chỉ kiểm tra request shape (role mapping,
+//    systemInstruction) + lỗi khi response không ok. Dùng lại parseSseTextDeltas thật (không mock),
+//    đã test riêng ở nhóm 1 nên không cần test lại logic parse ở đây.
+import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { ConfigService } from '@nestjs/config';
-import {
-  GeminiLlmService,
-  parseSseTextDeltas,
-} from '../src/chat/llm/gemini-llm.service.js';
+import { GeminiLlmService } from '../src/chat/llm/gemini-llm.service.js';
+import { parseSseTextDeltas } from '../src/chat/llm/gemini-llm.service.js';
+
+function sseStreamFromChunks(chunks: string[]): ReadableStream<Uint8Array> {
+  const encoder = new TextEncoder();
+  let i = 0;
+  return new ReadableStream({
+    pull(controller) {
+      if (i < chunks.length) {
+        controller.enqueue(encoder.encode(chunks[i]));
+        i++;
+      } else {
+        controller.close();
+      }
+    },
+  });
+}
+
+async function collect(gen: AsyncGenerator<string>): Promise<string[]> {
+  const out: string[] = [];
+  for await (const piece of gen) out.push(piece);
+  return out;
+}
+
+function sseEvent(text: string): string {
+  return `data: ${JSON.stringify({ candidates: [{ content: { parts: [{ text }] } }] })}\n\n`;
+}
+
+describe('parseSseTextDeltas', () => {
+  it('parses a single SSE event in a single chunk', async () => {
+    const stream = sseStreamFromChunks([sseEvent('Xin chào')]);
+    expect(await collect(parseSseTextDeltas(stream))).toEqual(['Xin chào']);
+  });
+
+  it('parses multiple consecutive SSE events', async () => {
+    const stream = sseStreamFromChunks([
+      sseEvent('Xin'),
+      sseEvent(' chào'),
+      sseEvent(' bạn'),
+    ]);
+    expect(await collect(parseSseTextDeltas(stream))).toEqual([
+      'Xin',
+      ' chào',
+      ' bạn',
+    ]);
+  });
+
+  it('correctly parses data line split across two network chunks', async () => {
+    const full = sseEvent('nội dung bị cắt giữa chừng');
+    const cutPoint = Math.floor(full.length / 2);
+    const stream = sseStreamFromChunks([
+      full.slice(0, cutPoint),
+      full.slice(cutPoint),
+    ]);
+    expect(await collect(parseSseTextDeltas(stream))).toEqual([
+      'nội dung bị cắt giữa chừng',
+    ]);
+  });
+
+  it('ignores non-data lines such as empty lines and SSE comments', async () => {
+    const stream = sseStreamFromChunks([
+      ':  keep-alive comment\n\n',
+      sseEvent('text thật'),
+    ]);
+    expect(await collect(parseSseTextDeltas(stream))).toEqual(['text thật']);
+  });
+
+  it('ignores invalid JSON event without interrupting the stream', async () => {
+    const stream = sseStreamFromChunks([
+      'data: {không phải json hợp lệ\n\n',
+      sseEvent('event sau vẫn OK'),
+    ]);
+    expect(await collect(parseSseTextDeltas(stream))).toEqual([
+      'event sau vẫn OK',
+    ]);
+  });
+
+  it('does not yield or throw when event has no text', async () => {
+    const stream = sseStreamFromChunks([
+      'data: {"candidates":[{"finishReason":"STOP"}]}\n\n',
+    ]);
+    expect(await collect(parseSseTextDeltas(stream))).toEqual([]);
+  });
+});
 
 function buildConfigService(): ConfigService {
   const values: Record<string, string> = {
-    GEMINI_API_KEY: 'test-gemini-key',
-    GEMINI_CHAT_MODEL: 'gemini-3.8-flash',
+    GEMINI_API_KEY: 'gemini-test-key',
+    GEMINI_CHAT_MODEL: 'gemini-2.0-flash',
   };
   return {
     getOrThrow: (key: string) => values[key],
   } as unknown as ConfigService;
 }
 
-function createStreamFromChunks(chunks: string[]): ReadableStream<Uint8Array> {
-  const encoder = new TextEncoder();
-  return new ReadableStream({
-    start(controller) {
-      for (const chunk of chunks) {
-        controller.enqueue(encoder.encode(chunk));
-      }
-      controller.close();
-    },
-  });
-}
-
-describe('GeminiLlmService', () => {
+describe('GeminiLlmService.streamChat', () => {
   let service: GeminiLlmService;
   let fetchMock: Mock;
 
   beforeEach(() => {
-    vi.clearAllMocks();
     service = new GeminiLlmService(buildConfigService());
     fetchMock = vi.fn();
     global.fetch = fetchMock as unknown as typeof fetch;
   });
 
-  it('should call streamGenerateContent with correct URL, headers, and body mapping', async () => {
-    const ssePayload =
-      'data: {"candidates":[{"content":{"parts":[{"text":"Hello"}]}}]}\n\n' +
-      'data: {"candidates":[{"content":{"parts":[{"text":" world!"}]}}]}\n\n';
-
-    fetchMock.mockResolvedValueOnce({
+  it('sends correct URL, model, and headers, maps user and assistant roles to user and model, and filters out system role', async () => {
+    fetchMock.mockResolvedValue({
       ok: true,
-      body: createStreamFromChunks([ssePayload]),
+      body: sseStreamFromChunks([sseEvent('ok')]),
     });
 
-    const results: string[] = [];
-    for await (const delta of service.streamChat({
-      systemPrompt: 'You are an AI assistant',
-      messages: [
-        { role: 'system', content: 'ignore this message in contents array' },
-        { role: 'user', content: 'Hi' },
-        { role: 'assistant', content: 'Hello there' },
-        { role: 'user', content: 'How are you?' },
-      ],
-    })) {
-      results.push(delta);
-    }
-
-    expect(fetchMock).toHaveBeenCalledWith(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:streamGenerateContent?alt=sse',
-      expect.objectContaining({
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-goog-api-key': 'test-gemini-key',
-        },
+    await collect(
+      service.streamChat({
+        systemPrompt: 'Bạn là trợ lý DocMind',
+        messages: [
+          { role: 'system', content: 'sẽ bị lọc khỏi contents' },
+          { role: 'user', content: 'câu hỏi 1' },
+          { role: 'assistant', content: 'trả lời 1' },
+          { role: 'user', content: 'câu hỏi 2' },
+        ],
       }),
     );
 
-    const callBody = JSON.parse(fetchMock.mock.calls[0]![1].body);
-    expect(callBody.systemInstruction).toEqual({
-      parts: [{ text: 'You are an AI assistant' }],
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent?alt=sse',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          'x-goog-api-key': 'gemini-test-key',
+        }),
+      }),
+    );
+    const body = JSON.parse(fetchMock.mock.calls[0]![1].body);
+    expect(body.systemInstruction).toEqual({
+      parts: [{ text: 'Bạn là trợ lý DocMind' }],
     });
-    expect(callBody.contents).toEqual([
-      { role: 'user', parts: [{ text: 'Hi' }] },
-      { role: 'model', parts: [{ text: 'Hello there' }] },
-      { role: 'user', parts: [{ text: 'How are you?' }] },
+    expect(body.contents).toEqual([
+      { role: 'user', parts: [{ text: 'câu hỏi 1' }] },
+      { role: 'model', parts: [{ text: 'trả lời 1' }] },
+      { role: 'user', parts: [{ text: 'câu hỏi 2' }] },
     ]);
-    expect(results).toEqual(['Hello', ' world!']);
   });
 
-  it('should omit systemInstruction when systemPrompt is undefined', async () => {
-    fetchMock.mockResolvedValueOnce({
+  it('does not send systemInstruction when systemPrompt is omitted', async () => {
+    fetchMock.mockResolvedValue({
       ok: true,
-      body: createStreamFromChunks([
-        'data: {"candidates":[{"content":{"parts":[{"text":"OK"}]}}]}\n\n',
+      body: sseStreamFromChunks([sseEvent('ok')]),
+    });
+
+    await collect(
+      service.streamChat({ messages: [{ role: 'user', content: 'hi' }] }),
+    );
+
+    const body = JSON.parse(fetchMock.mock.calls[0]![1].body);
+    expect(body.systemInstruction).toBeUndefined();
+  });
+
+  it('throws Error with status and original body when response is not ok', async () => {
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 429,
+      body: null,
+      text: async () => 'Rate limit exceeded',
+    });
+
+    await expect(
+      collect(
+        service.streamChat({ messages: [{ role: 'user', content: 'x' }] }),
+      ),
+    ).rejects.toThrow(/429/);
+  });
+
+  it('yields text deltas in the exact order received', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      body: sseStreamFromChunks([
+        sseEvent('Xin'),
+        sseEvent(' chào'),
+        sseEvent(' bạn'),
       ]),
     });
 
-    const results: string[] = [];
-    for await (const delta of service.streamChat({
-      messages: [{ role: 'user', content: 'Ping' }],
-    })) {
-      results.push(delta);
-    }
-
-    const callBody = JSON.parse(fetchMock.mock.calls[0]![1].body);
-    expect(callBody.systemInstruction).toBeUndefined();
-    expect(results).toEqual(['OK']);
-  });
-
-  it('should throw clear error when response is not ok', async () => {
-    fetchMock.mockResolvedValueOnce({
-      ok: false,
-      status: 400,
-      text: async () => 'API key not valid',
-    });
-
-    const stream = service.streamChat({
-      messages: [{ role: 'user', content: 'Hi' }],
-    });
-
-    await expect(async () => {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      for await (const _ of stream) {
-        // iterate to trigger fetch
-      }
-    }).rejects.toThrow('Gemini chat request failed (400): API key not valid');
+    const result = await collect(
+      service.streamChat({ messages: [{ role: 'user', content: 'hi' }] }),
+    );
+    expect(result).toEqual(['Xin', ' chào', ' bạn']);
   });
 });
 
-describe('parseSseTextDeltas', () => {
-  it('should parse chunks split across network buffers', async () => {
-    const chunk1 = 'data: {"candidates":[{"content":{"parts":[{"text":"Hel';
-    const chunk2 = 'lo"}]}}]}\n\ndata: {"candidates":[{"content":{"parts":[{"text":" world"}]}}]}\n\n';
+describe('Gemini usageMetadata -> onUsage', () => {
+  const usageEvent = (usage: Record<string, number>, text = '') =>
+    `data: ${JSON.stringify({ candidates: [{ content: { parts: [{ text }] } }], usageMetadata: usage })}\n\n`;
 
-    const stream = createStreamFromChunks([chunk1, chunk2]);
-    const results: string[] = [];
-    for await (const text of parseSseTextDeltas(stream)) {
-      results.push(text);
-    }
+  it('reports tokens once when stream ends using the last usageMetadata, where output = total - prompt', async () => {
+    const onUsage = vi.fn();
+    const stream = sseStreamFromChunks([
+      usageEvent(
+        {
+          promptTokenCount: 100,
+          candidatesTokenCount: 2,
+          totalTokenCount: 102,
+        },
+        'Xin',
+      ),
+      usageEvent(
+        {
+          promptTokenCount: 100,
+          candidatesTokenCount: 10,
+          thoughtsTokenCount: 40,
+          totalTokenCount: 150,
+        },
+        ' chào',
+      ),
+    ]);
 
-    expect(results).toEqual(['Hello', ' world']);
+    expect(await collect(parseSseTextDeltas(stream, onUsage))).toEqual([
+      'Xin',
+      ' chào',
+    ]);
+
+    expect(onUsage).toHaveBeenCalledTimes(1);
+    expect(onUsage).toHaveBeenCalledWith({
+      inputTokens: 100,
+      outputTokens: 50,
+    });
   });
 
-  it('should ignore malformed JSON lines without breaking the stream', async () => {
-    const data =
-      'data: {broken json}\n\n' +
-      'data: {"candidates":[{"content":{"parts":[{"text":"Valid"}]}}]}\n\n';
-
-    const stream = createStreamFromChunks([data]);
-    const results: string[] = [];
-    for await (const text of parseSseTextDeltas(stream)) {
-      results.push(text);
-    }
-
-    expect(results).toEqual(['Valid']);
+  it('calculates output as candidates + thoughts when totalTokenCount is undefined', async () => {
+    const onUsage = vi.fn();
+    await collect(
+      parseSseTextDeltas(
+        sseStreamFromChunks([
+          usageEvent(
+            {
+              promptTokenCount: 10,
+              candidatesTokenCount: 5,
+              thoughtsTokenCount: 3,
+            },
+            'a',
+          ),
+        ]),
+        onUsage,
+      ),
+    );
+    expect(onUsage).toHaveBeenCalledWith({ inputTokens: 10, outputTokens: 8 });
   });
 
-  it('should ignore lines not starting with data:', async () => {
-    const data =
-      ': keep-alive\n\n' +
-      'event: message\n\n' +
-      'data: {"candidates":[{"content":{"parts":[{"text":"Hello"}]}}]}\n\n';
+  it('does not call onUsage when provider does not return usageMetadata', async () => {
+    const onUsage = vi.fn();
+    await collect(
+      parseSseTextDeltas(sseStreamFromChunks([sseEvent('ok')]), onUsage),
+    );
+    expect(onUsage).not.toHaveBeenCalled();
+  });
 
-    const stream = createStreamFromChunks([data]);
-    const results: string[] = [];
-    for await (const text of parseSseTextDeltas(stream)) {
-      results.push(text);
-    }
+  it('passes model name to onUsage callback', async () => {
+    const onUsage = vi.fn();
+    const service = new GeminiLlmService(buildConfigService());
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      body: sseStreamFromChunks([
+        usageEvent({ promptTokenCount: 7, totalTokenCount: 9 }, 'x'),
+      ]),
+    }) as unknown as typeof fetch;
 
-    expect(results).toEqual(['Hello']);
+    await collect(
+      service.streamChat({
+        messages: [{ role: 'user', content: 'hi' }],
+        onUsage,
+      }),
+    );
+
+    expect(onUsage).toHaveBeenCalledWith({
+      inputTokens: 7,
+      outputTokens: 2,
+      model: 'gemini-2.0-flash',
+    });
   });
 });

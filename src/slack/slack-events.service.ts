@@ -151,6 +151,7 @@ export class SlackEventsService {
     const searchQuery = isFollowUp
       ? await this.resolveFollowUp(
           token,
+          integration.tenantId,
           event.channel,
           event.thread_ts!,
           event.ts,
@@ -207,6 +208,7 @@ export class SlackEventsService {
    */
   private async resolveFollowUp(
     token: string,
+    tenantId: string,
     channel: string,
     threadTs: string,
     currentTs: string,
@@ -226,7 +228,7 @@ export class SlackEventsService {
         botUserId,
         currentTs,
       });
-      return await this.condenser.condense(history, question);
+      return await this.condenser.condense(history, question, tenantId);
     } catch (err) {
       this.logger.warn(`Could not build thread context: ${String(err)}`);
       return question;
