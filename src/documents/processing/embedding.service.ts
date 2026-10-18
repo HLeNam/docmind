@@ -13,7 +13,13 @@ import { ConfigService } from '@nestjs/config';
 export type EmbeddingMode = 'document' | 'query';
 
 export interface EmbeddingProvider {
-  embedBatch(texts: string[], mode?: EmbeddingMode): Promise<number[][]>;
+  // onUsage (tuỳ chọn): provider GỌI 1 LẦN với số token thật nếu API có trả (OpenAI/Jina/Ollama có, Gemini không).
+  // Không gọi = provider không biết -> nơi gọi tự ước lượng (UsageService.recordEmbedding).
+  embedBatch(
+    texts: string[],
+    mode?: EmbeddingMode,
+    onUsage?: (tokens: number) => void,
+  ): Promise<number[][]>;
 }
 
 @Injectable()
@@ -35,6 +41,7 @@ export class OpenAiEmbeddingService implements EmbeddingProvider {
   async embedBatch(
     texts: string[],
     _mode?: EmbeddingMode,
+    onUsage?: (tokens: number) => void,
   ): Promise<number[][]> {
     const res = await fetch('https://api.openai.com/v1/embeddings', {
       method: 'POST',
@@ -52,7 +59,10 @@ export class OpenAiEmbeddingService implements EmbeddingProvider {
     }
     const data = (await res.json()) as {
       data: Array<{ embedding: number[]; index: number }>;
+      usage?: { total_tokens?: number };
     };
+    if (typeof data.usage?.total_tokens === 'number')
+      onUsage?.(data.usage.total_tokens);
     // API trả về có thể không giữ nguyên thứ tự -> sort lại theo index cho chắc, để chunk thứ i
     // trong input luôn khớp đúng embedding thứ i trong kết quả trả về.
     return data.data.sort((a, b) => a.index - b.index).map((d) => d.embedding);

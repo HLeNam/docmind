@@ -1,5 +1,3 @@
-// src/retrieval/retrieval.service.ts
-//
 // Hybrid search: kết hợp vector similarity (pgvector cosine distance, toán tử `<=>`) với full-text
 // search (cột `content_tsv` có sẵn từ Phase 1 — trigger `tsvectorupdate` tự điền mỗi lần insert
 // chunk, xem migration.sql) bằng Reciprocal Rank Fusion (RRF). RRF được chọn thay vì cộng trực tiếp
@@ -17,6 +15,7 @@ import { CollectionsService } from '../collections/collections.service.js';
 import { EMBEDDING_PROVIDER_TOKEN } from '../documents/processing/embedding.module.js';
 import type { EmbeddingProvider } from '../documents/processing/embedding.service.js';
 import type { AccessTokenPayload } from '../auth/auth.service.js';
+import { UsageService } from '../usage/usage.service.js';
 import { RetrievalSearchDto } from './dtos/retrieval.dto.js';
 
 const RRF_K = 60;
@@ -57,6 +56,7 @@ export class RetrievalService {
     // GeminiEmbeddingService/JinaEmbeddingService — đổi provider chỉ cần đổi env.
     @Inject(EMBEDDING_PROVIDER_TOKEN)
     private readonly embedding: EmbeddingProvider,
+    private readonly usage: UsageService,
   ) {}
 
   async search(
@@ -102,7 +102,15 @@ export class RetrievalService {
     // mode='query': đây là chỗ embed CÂU HỎI user lúc search, khác ngữ cảnh embed CHUNK tài liệu lúc
     // index (DocumentProcessingProcessor dùng mode='document') — ĐÃ SỬA, trước đây dùng chung 1 task
     // type cho cả 2 (xem EmbeddingMode trong embedding.service.ts).
-    const [queryVector] = await this.embedding.embedBatch([query], 'query');
+    let reportedTokens: number | undefined;
+    const [queryVector] = await this.embedding.embedBatch(
+      [query],
+      'query',
+      (t) => {
+        reportedTokens = t;
+      },
+    );
+    this.usage.recordEmbedding({ tenantId, texts: [query], reportedTokens });
     const vectorLiteral = `[${queryVector.join(',')}]`;
     const candidateLimit = topK * CANDIDATE_MULTIPLIER;
 

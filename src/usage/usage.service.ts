@@ -25,6 +25,16 @@ export interface RecordUsageInput {
 
 const PER_MILLION = 1_000_000;
 
+// Provider không báo token (Gemini embedding) -> ước lượng theo số ký tự. Tiếng Việt có dấu tách token "vụn" hơn
+// tiếng Anh (~4 ký tự/token) nên dùng 3 ký tự/token cho an toàn. Đây là ƯỚC LƯỢNG: dùng cho analytics/dự báo chi phí,
+// không phải số liệu đối soát hoá đơn của nhà cung cấp.
+export const ESTIMATED_CHARS_PER_TOKEN = 3;
+
+export function estimateTokens(texts: string[]): number {
+  const chars = texts.reduce((sum, t) => sum + t.length, 0);
+  return Math.ceil(chars / ESTIMATED_CHARS_PER_TOKEN);
+}
+
 function price(config: ConfigService, key: string): number {
   const n = Number(config.get<string | number>(key) ?? 0);
   return Number.isFinite(n) && n >= 0 ? n : 0;
@@ -49,6 +59,22 @@ export class UsageService {
   /** Fire-and-forget: gọi không cần await, không bao giờ làm hỏng luồng gọi. */
   record(input: RecordUsageInput): void {
     void this.recordNow(input);
+  }
+
+  /**
+   * Ghi token embedding: dùng số token THẬT do provider báo (`reportedTokens`) nếu có, không thì ước lượng từ `texts`.
+   * Fire-and-forget như record().
+   */
+  recordEmbedding(input: {
+    tenantId: string;
+    texts: string[];
+    reportedTokens?: number;
+  }): void {
+    const inputTokens =
+      input.reportedTokens !== undefined
+        ? input.reportedTokens
+        : estimateTokens(input.texts);
+    this.record({ tenantId: input.tenantId, type: 'EMBEDDING', inputTokens });
   }
 
   async recordNow(input: RecordUsageInput): Promise<void> {

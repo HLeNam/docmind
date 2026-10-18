@@ -3,7 +3,6 @@
 // Postgres/embedding API thật. Test tập trung vào LOGIC NGHIỆP VỤ xung quanh câu SQL (lọc quyền
 // theo collection, map kết quả), không assert nội dung chuỗi SQL bên trong tagged template (nên để
 // test tích hợp chạy với Postgres thật xác nhận cú pháp — xem RETRIEVAL_MODULE_NOTES.md).
-
 import { describe, it, expect, vi } from 'vitest';
 import { RetrievalService } from '../src/retrieval/retrieval.service.js';
 import type { AccessTokenPayload } from '../src/auth/auth.service.js';
@@ -30,12 +29,14 @@ function buildService(overrides?: {
     embedBatch: vi.fn().mockResolvedValue([[0.1, 0.2, 0.3]]),
   };
 
+  const usage = { recordEmbedding: vi.fn() };
   const service = new RetrievalService(
     prisma as never,
     collectionsService as never,
     embedding as never,
+    usage as never,
   );
-  return { service, prisma, tx, collectionsService, embedding };
+  return { service, prisma, tx, collectionsService, embedding, usage };
 }
 
 const CALLER: AccessTokenPayload = {
@@ -57,7 +58,7 @@ describe('RetrievalService', () => {
       filename: 'a.pdf',
       score: '0.0328', // Postgres driver có thể trả numeric dưới dạng string
     };
-    const { service, prisma, tx, embedding } = buildService({
+    const { service, prisma, tx, embedding, usage } = buildService({
       queryRawResult: [row],
     });
 
@@ -69,7 +70,13 @@ describe('RetrievalService', () => {
     expect(embedding.embedBatch).toHaveBeenCalledWith(
       ['xin chào docmind'],
       'query',
+      expect.any(Function),
     );
+    expect(usage.recordEmbedding).toHaveBeenCalledWith({
+      tenantId: 'tenant-1',
+      texts: ['xin chào docmind'],
+      reportedTokens: undefined,
+    });
     expect(prisma.runInTenantContext).toHaveBeenCalledWith(
       'tenant-1',
       expect.any(Function),
@@ -126,6 +133,10 @@ describe('RetrievalService', () => {
 
     await service.search(CALLER, { query: 'a', topK: 10 }); // query hợp lệ tối thiểu, chỉ kiểm tra không throw
 
-    expect(embedding.embedBatch).toHaveBeenCalledWith(['a'], 'query');
+    expect(embedding.embedBatch).toHaveBeenCalledWith(
+      ['a'],
+      'query',
+      expect.any(Function),
+    );
   });
 });

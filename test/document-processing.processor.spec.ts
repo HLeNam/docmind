@@ -19,7 +19,10 @@ import { ocrPdfPages } from '../src/documents/processing/ocr.util.js';
 vi.mock('../src/documents/processing/extract-text.util.js');
 vi.mock('../src/documents/processing/chunk-text.util.js');
 vi.mock('../src/documents/processing/ocr.util.js', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../src/documents/processing/ocr.util.js')>();
+  const actual =
+    await importOriginal<
+      typeof import('../src/documents/processing/ocr.util.js')
+    >();
   return {
     ...actual,
     // Chỉ mock hàm gọi ra tesseract/pdf-parse thật — vẫn giữ nguyên các hằng số ngưỡng OCR thật (dùng
@@ -44,15 +47,17 @@ function buildProcessor() {
   const storage = { getObjectBuffer: vi.fn() };
   const progressGateway = { emitProgress: vi.fn() };
   const embedding = { embedBatch: vi.fn() };
+  const usage = { recordEmbedding: vi.fn() };
 
   const processor = new DocumentProcessingProcessor(
     system as never,
     storage as never,
     progressGateway as never,
     embedding as never,
+    usage as never,
   );
 
-  return { processor, system, storage, progressGateway, embedding };
+  return { processor, system, storage, progressGateway, embedding, usage };
 }
 
 // Text trang "đủ chữ": ~260 ký tự khác khoảng trắng, trên ngưỡng OCR_SPARSE_PAGE_CHARS (200) nên không bị OCR.
@@ -70,7 +75,56 @@ describe('DocumentProcessingProcessor', () => {
     vi.clearAllMocks();
   });
 
-  it('pipeline thành công: extract -> chunk -> embed -> insert raw SQL -> status INDEXED', async () => {
+  it('records EMBEDDING usage log for each batch using reported tokens when provided', async () => {
+    const { processor, system, storage, embedding, usage } = buildProcessor();
+    system.document.findUnique.mockResolvedValue(BASE_DOCUMENT);
+    storage.getObjectBuffer.mockResolvedValue(Buffer.from('x'));
+    mockExtractText.mockResolvedValue('hello world');
+    mockChunkText.mockReturnValue([
+      { content: 'chunk 1', chunkIndex: 0 },
+      { content: 'chunk 2', chunkIndex: 1 },
+    ]);
+    embedding.embedBatch.mockImplementation(
+      async (
+        _texts: string[],
+        _mode: string,
+        onUsage?: (n: number) => void,
+      ) => {
+        onUsage?.(42); // provider reports actual token count
+        return [
+          [0.1, 0.2],
+          [0.3, 0.4],
+        ];
+      },
+    );
+
+    await processor.process({ data: { documentId: 'doc-1' } } as never);
+
+    expect(usage.recordEmbedding).toHaveBeenCalledWith({
+      tenantId: BASE_DOCUMENT.tenantId,
+      texts: ['chunk 1', 'chunk 2'],
+      reportedTokens: 42,
+    });
+  });
+
+  it('passes undefined reportedTokens so UsageService estimates tokens when provider does not report usage', async () => {
+    const { processor, system, storage, embedding, usage } = buildProcessor();
+    system.document.findUnique.mockResolvedValue(BASE_DOCUMENT);
+    storage.getObjectBuffer.mockResolvedValue(Buffer.from('x'));
+    mockExtractText.mockResolvedValue('hello world');
+    mockChunkText.mockReturnValue([{ content: 'chunk 1', chunkIndex: 0 }]);
+    embedding.embedBatch.mockResolvedValue([[0.1, 0.2]]);
+
+    await processor.process({ data: { documentId: 'doc-1' } } as never);
+
+    expect(usage.recordEmbedding).toHaveBeenCalledWith({
+      tenantId: BASE_DOCUMENT.tenantId,
+      texts: ['chunk 1'],
+      reportedTokens: undefined,
+    });
+  });
+
+  it('successfully processes document: extract -> chunk -> embed -> insert raw SQL -> status INDEXED', async () => {
     const { processor, system, storage, progressGateway, embedding } =
       buildProcessor();
     system.document.findUnique.mockResolvedValue(BASE_DOCUMENT);
@@ -97,6 +151,7 @@ describe('DocumentProcessingProcessor', () => {
     expect(embedding.embedBatch).toHaveBeenCalledWith(
       ['chunk 1', 'chunk 2'],
       'document',
+      expect.any(Function),
     );
     expect(system.$executeRaw).toHaveBeenCalledTimes(2); // 1 insert / chunk
     expect(system.document.update).toHaveBeenLastCalledWith({
@@ -111,7 +166,7 @@ describe('DocumentProcessingProcessor', () => {
     });
   });
 
-  it('document đã bị xoá giữa lúc enqueue và lúc worker chạy -> bỏ qua êm thấm, không throw', async () => {
+  it('silently ignores and finishes job without throwing when document was deleted before worker run', async () => {
     const { processor, system, storage } = buildProcessor();
     system.document.findUnique.mockResolvedValue(null);
 
@@ -122,7 +177,7 @@ describe('DocumentProcessingProcessor', () => {
     expect(system.document.update).not.toHaveBeenCalled();
   });
 
-  it('chunkText trả về 0 chunk (vd PDF scan ảnh) -> throw lỗi rõ ràng, status FAILED', async () => {
+  it('throws error and sets status to FAILED when chunkText returns 0 chunks', async () => {
     const { processor, system, storage, progressGateway } = buildProcessor();
     system.document.findUnique.mockResolvedValue(BASE_DOCUMENT);
     storage.getObjectBuffer.mockResolvedValue(Buffer.from('x'));
@@ -146,7 +201,7 @@ describe('DocumentProcessingProcessor', () => {
     );
   });
 
-  it('provider trả về số vector không khớp số chunk -> throw, status FAILED, KHÔNG insert', async () => {
+  it('throws error and sets status to FAILED without inserting when provider returns vector count mismatch', async () => {
     const { processor, system, storage, embedding } = buildProcessor();
     system.document.findUnique.mockResolvedValue(BASE_DOCUMENT);
     storage.getObjectBuffer.mockResolvedValue(Buffer.from('x'));
@@ -167,7 +222,7 @@ describe('DocumentProcessingProcessor', () => {
     });
   });
 
-  it('storage lỗi (download thất bại) -> status FAILED với đúng message lỗi, rethrow cho BullMQ retry', async () => {
+  it('sets status to FAILED with error message and rethrows for BullMQ retry when storage download fails', async () => {
     const { processor, system, storage } = buildProcessor();
     system.document.findUnique.mockResolvedValue(BASE_DOCUMENT);
     storage.getObjectBuffer.mockRejectedValue(new Error('S3 timeout'));
@@ -182,7 +237,7 @@ describe('DocumentProcessingProcessor', () => {
     });
   });
 
-  it('document không có mimeType -> throw lỗi rõ ràng thay vì để extractText tự lỗi mơ hồ', async () => {
+  it('throws descriptive error when document has no mimeType', async () => {
     const { processor, system, storage } = buildProcessor();
     system.document.findUnique.mockResolvedValue({
       ...BASE_DOCUMENT,
@@ -195,7 +250,7 @@ describe('DocumentProcessingProcessor', () => {
     expect(storage.getObjectBuffer).not.toHaveBeenCalled();
   });
 
-  it('mimeType application/pdf, splitPdfPagesByMarker tách được trang với text đủ dài (không nghi scan) -> dùng chunkPagedText() thẳng, KHÔNG gọi OCR, page_number insert đúng', async () => {
+  it('chunks paged text directly without OCR and inserts correct page numbers when PDF pages are split with sufficient text', async () => {
     const { processor, system, storage, embedding } = buildProcessor();
     const pdfDocument = { ...BASE_DOCUMENT, mimeType: 'application/pdf' };
     system.document.findUnique.mockResolvedValue(pdfDocument);
@@ -235,7 +290,7 @@ describe('DocumentProcessingProcessor', () => {
     expect(secondCallArgs[secondCallArgs.length - 1]).toBe(2); // pageNumber trang 2
   });
 
-  it('mimeType application/pdf, splitPdfPagesByMarker KHÔNG tách được (trả null) nhưng rawText đủ dài -> fallback chunkText() thường, KHÔNG OCR, pageNumber null', async () => {
+  it('falls back to standard chunkText without OCR and sets pageNumber to null when PDF marker splitting fails but text is sufficient', async () => {
     const { processor, system, storage, embedding } = buildProcessor();
     const pdfDocument = { ...BASE_DOCUMENT, mimeType: 'application/pdf' };
     system.document.findUnique.mockResolvedValue(pdfDocument);
@@ -257,7 +312,7 @@ describe('DocumentProcessingProcessor', () => {
     expect(callArgs[callArgs.length - 1]).toBeNull(); // pageNumber null khi không tách được trang
   });
 
-  it('PDF tách được trang, 1 trong 2 trang ít chữ (nội dung nằm trong ảnh) -> CHỈ OCR trang đó, GHÉP chữ OCR vào chữ có sẵn', async () => {
+  it('runs OCR only on sparse pages and merges OCR text into existing page text when PDF has sparse pages', async () => {
     const { processor, system, storage, embedding, progressGateway } =
       buildProcessor();
     const pdfDocument = { ...BASE_DOCUMENT, mimeType: 'application/pdf' };
@@ -307,7 +362,7 @@ describe('DocumentProcessingProcessor', () => {
     );
   });
 
-  it('PDF không tách được trang VÀ rawText gần như rỗng -> OCR TOÀN BỘ document (dùng getPdfPageCount để biết tổng số trang)', async () => {
+  it('runs OCR on all pages when PDF marker splitting fails and extracted text is nearly empty', async () => {
     const { processor, system, storage, embedding, progressGateway } =
       buildProcessor();
     const pdfDocument = { ...BASE_DOCUMENT, mimeType: 'application/pdf' };
@@ -347,7 +402,7 @@ describe('DocumentProcessingProcessor', () => {
     );
   });
 
-  it('OCR cũng không đọc được gì (PDF scan ảnh quá mờ) -> vẫn throw lỗi rõ ràng, message nêu rõ đã thử OCR', async () => {
+  it('throws descriptive error noting OCR attempt when OCR also yields no content', async () => {
     const { processor, system, storage } = buildProcessor();
     const pdfDocument = { ...BASE_DOCUMENT, mimeType: 'application/pdf' };
     system.document.findUnique.mockResolvedValue(pdfDocument);

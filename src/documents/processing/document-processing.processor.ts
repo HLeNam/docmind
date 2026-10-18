@@ -19,6 +19,7 @@ import {
   ProgressGateway,
   type DocumentProcessingPhase,
 } from '../../realtime/progress.gateway.js';
+import { UsageService } from '../../usage/usage.service.js';
 import { EMBEDDING_PROVIDER_TOKEN } from './embedding.module.js';
 import type { EmbeddingProvider } from './embedding.service.js';
 import {
@@ -63,6 +64,7 @@ export class DocumentProcessingProcessor extends WorkerHost {
     private readonly progressGateway: ProgressGateway,
     @Inject(EMBEDDING_PROVIDER_TOKEN)
     private readonly embedding: EmbeddingProvider,
+    private readonly usage: UsageService,
   ) {
     super();
   }
@@ -170,10 +172,17 @@ export class DocumentProcessingProcessor extends WorkerHost {
       const batch = chunks.slice(start, start + EMBEDDING_BATCH_SIZE);
       // mode='document': embed CHUNK tài liệu lúc index, khác ngữ cảnh RetrievalService dùng
       // mode='query' lúc embed câu hỏi user — xem EmbeddingMode trong embedding.service.ts.
+      const texts = batch.map((c) => c.content);
+      let reportedTokens: number | undefined;
       const vectors = await this.embedding.embedBatch(
-        batch.map((c) => c.content),
+        texts,
         'document',
+        (t) => {
+          reportedTokens = t;
+        },
       );
+      // Ghi ngay sau khi provider trả lời thành công (đã tốn quota dù bước insert bên dưới có lỗi hay không).
+      this.usage.recordEmbedding({ tenantId, texts, reportedTokens });
 
       if (vectors.length !== batch.length) {
         // Phòng thủ: nếu provider trả về số lượng vector không khớp số lượng input (bug ở provider,

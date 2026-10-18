@@ -18,6 +18,7 @@ import type { EmbeddingMode, EmbeddingProvider } from './embedding.service.js';
 
 interface JinaEmbedResponse {
   data: Array<{ embedding: number[]; index: number }>;
+  usage?: { total_tokens?: number };
 }
 
 @Injectable()
@@ -42,6 +43,7 @@ export class JinaEmbeddingService implements EmbeddingProvider {
   async embedBatch(
     texts: string[],
     mode: EmbeddingMode = 'document',
+    onUsage?: (tokens: number) => void,
   ): Promise<number[][]> {
     const task = mode === 'query' ? 'retrieval.query' : 'retrieval.passage';
     const res = await fetch('https://api.jina.ai/v1/embeddings', {
@@ -64,6 +66,8 @@ export class JinaEmbeddingService implements EmbeddingProvider {
       throw new Error(`Jina embedding request failed (${res.status}): ${body}`);
     }
     const data = (await res.json()) as JinaEmbedResponse;
+    if (typeof data.usage?.total_tokens === 'number')
+      onUsage?.(data.usage.total_tokens);
     return data.data.sort((a, b) => a.index - b.index).map((d) => d.embedding);
   }
 }
