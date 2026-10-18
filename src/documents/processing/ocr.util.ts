@@ -4,20 +4,22 @@
 // đen" của sản phẩm (self-hosted hoàn toàn, không phụ thuộc Google Vision/AWS Textract...).
 //
 // ⚠️ CHƯA XÁC NHẬN bằng PDF scan ảnh THẬT — code viết theo README/docs chính thức của pdf-parse
-// (getScreenshot({partial, scale}) trả {pages: [{data: Buffer PNG}]}) và tesseract.js
-// (createWorker(langs) + worker.recognize(buffer)), nhưng CHƯA tự chạy thử với 1 file PDF scan thật.
+// (getScreenshot({partial, scale}) trả {pages: [{data: Uint8Array PNG}]}) và tesseract.js
+// (createWorker(langs) + worker.recognize(Buffer.from(pageImage))), nhưng CHƯA tự chạy thử với 1 file PDF scan thật.
 // PHẢI tự test trước khi tin cậy, giống mọi provider khác trong dự án (xem cảnh báo tương tự ở
 // gemini-embedding.service.ts, extract-text.util.ts phần PDF).
 //
-// Ngôn ngữ OCR: 'eng+vie' (tiếng Anh + tiếng Việt) — khớp đối tượng dùng chính của DocMind.
+// Ngôn ngữ OCR (ocr-config.util.ts): 'eng+vie' (tiếng Anh + tiếng Việt) — khớp đối tượng dùng chính của DocMind.
 // tesseract.js MẶC ĐỊNH tải file .traineddata ngôn ngữ từ CDN (jsdelivr) ở LẦN CHẠY ĐẦU TIÊN nếu
-// chưa có sẵn local — nghĩa là cần mạng ra ngoài lần đầu. Môi trường production self-hosted/hạn chế
-// mạng ra ngoài NÊN tải sẵn eng.traineddata.gz + vie.traineddata.gz và trỏ option `langPath` vào thư
-// mục local khi gọi createWorker() — xem "Triển khai production" trong WORKER_MODULE_NOTES.md mục 9.
+// chưa có sẵn local. Production: đặt env OCR_LANG_PATH trỏ vào thư mục chứa eng/vie.traineddata.gz (tải bằng
+// `node scripts/download-tessdata.mjs <thư mục>`) -> không cần mạng ra ngoài; xem ocr-config.util.ts và
+// "Triển khai production" trong WORKER_MODULE_NOTES.md mục 9.
+import { Logger } from '@nestjs/common';
 import { createWorker } from 'tesseract.js';
 import { PDFParse } from 'pdf-parse';
+import { OCR_LANGUAGES, resolveOcrWorkerOptions } from './ocr-config.util.js';
 
-const OCR_LANGUAGES = 'eng+vie';
+const logger = new Logger('OCR');
 // Scale 2x giúp tesseract đọc chữ nhỏ/mờ chính xác hơn đáng kể so với scale mặc định 1 (kinh nghiệm
 // phổ biến khi OCR ảnh scan văn bản, đặc biệt văn bản tiếng Việt có dấu) — đánh đổi: ảnh lớn hơn,
 // OCR chậm hơn đáng kể so với 1 trang scale=1. Chưa đo thời gian thực tế, có thể cần chỉnh lại.
@@ -45,8 +47,11 @@ export async function ocrPdfPages(
   const results = new Map<number, string>();
   if (pageNumbers.length === 0) return results;
 
+  // Kiểm tra cấu hình TRƯỚC khi tốn công mở PDF; thiếu traineddata local -> lỗi rõ ràng (xem ocr-config.util.ts).
+  const workerOptions = resolveOcrWorkerOptions();
+  const startedAt = Date.now();
   const parser = new PDFParse({ data: buffer });
-  const worker = await createWorker(OCR_LANGUAGES);
+  const worker = await createWorker(OCR_LANGUAGES, 1, workerOptions); // 1 = LSTM only (mặc định của tesseract.js >= 5)
 
   try {
     // Tuần tự từng trang (KHÔNG Promise.all song song) — tesseract.js worker xử lý 1 ảnh/lần, chạy
@@ -68,6 +73,17 @@ export async function ocrPdfPages(
   } finally {
     await worker.terminate();
     await parser.destroy();
+    // Số liệu thật để chỉnh ngưỡng/timeout sau này (trước đây chưa đo được thời gian OCR).
+    const ms = Date.now() - startedAt;
+    logger.log(
+      `OCR ${results.size}/${pageNumbers.length} pages in ${ms}ms` +
+        (pageNumbers.length > 0
+          ? ` (~${Math.round(ms / pageNumbers.length)}ms/page)`
+          : '') +
+        (workerOptions.langPath
+          ? ' [local traineddata]'
+          : ' [traineddata from CDN]'),
+    );
   }
 
   return results;
