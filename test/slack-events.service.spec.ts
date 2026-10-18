@@ -6,6 +6,7 @@ import {
   extractQuestion,
 } from '../src/slack/slack-events.service.js';
 import { SlackCryptoService } from '../src/slack/slack-crypto.service.js';
+import { RateLimitService } from '../src/common/rate-limit/rate-limit.service.js';
 
 const cryptoKey = randomBytes(32).toString('base64');
 const BOT = 'U0BOT123';
@@ -116,6 +117,7 @@ describe('SlackEventsService', () => {
       api as any,
       publicQuery as any,
       condenser as any,
+      new RateLimitService(null),
     );
   });
 

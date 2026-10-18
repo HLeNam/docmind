@@ -37,6 +37,7 @@ interface MemoryWindow {
 export class RateLimitService {
   private readonly logger = new Logger(RateLimitService.name);
   private readonly memory = new Map<string, MemoryWindow>();
+  private readonly claims = new Map<string, number>(); // key -> thời điểm hết hạn
   private lastFallbackLogAt = 0;
 
   constructor(
@@ -66,6 +67,30 @@ export class RateLimitService {
       }
     }
     return this.consumeInMemory(fullKey, limit, windowMs);
+  }
+
+  /**
+   * "Giành quyền" xử lý 1 việc đúng MỘT lần trong `ttlMs` (khử trùng, vd Slack gửi lại cùng event_id).
+   * true = bạn là người đầu tiên (hãy xử lý); false = đã có người giành rồi (bỏ qua).
+   * Redis: SET NX PX (nguyên tử, đúng khi nhiều instance). Redis lỗi -> khử trùng trong process.
+   */
+  async claimOnce(key: string, ttlMs: number): Promise<boolean> {
+    const fullKey = `once:${key}`;
+    if (this.redis) {
+      try {
+        return (await this.redis.set(fullKey, '1', 'PX', ttlMs, 'NX')) === 'OK';
+      } catch (err) {
+        this.logFallback(err);
+      }
+    }
+    const now = Date.now();
+    const expiresAt = this.claims.get(fullKey);
+    if (expiresAt !== undefined && expiresAt > now) return false;
+    this.claims.set(fullKey, now + ttlMs);
+    if (this.claims.size > PURGE_THRESHOLD) {
+      for (const [k, exp] of this.claims) if (exp <= now) this.claims.delete(k);
+    }
+    return true;
   }
 
   /**

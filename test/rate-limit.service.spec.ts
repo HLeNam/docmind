@@ -91,3 +91,48 @@ describe('RateLimitService — Redis', () => {
     expect((await svc.consume('k', 2, 60_000)).allowed).toBe(false);
   });
 });
+
+describe('RateLimitService.claimOnce (deduplication)', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it('in-memory: returns true on first call, false on duplicates, true after expiration', async () => {
+    const svc = new RateLimitService(null);
+    expect(await svc.claimOnce('e1', 1000)).toBe(true);
+    expect(await svc.claimOnce('e1', 1000)).toBe(false);
+    expect(await svc.claimOnce('e2', 1000)).toBe(true);
+
+    vi.advanceTimersByTime(1001);
+    expect(await svc.claimOnce('e1', 1000)).toBe(true);
+  });
+
+  it('Redis: uses SET NX PX; "OK" = claimed, null = already claimed', async () => {
+    const redis = { set: vi.fn<(...a: any[]) => Promise<string | null>>() };
+    const svc = new RateLimitService(redis as any);
+
+    redis.set.mockResolvedValueOnce('OK');
+    expect(await svc.claimOnce('slack:event:Ev1', 600_000)).toBe(true);
+    expect(redis.set).toHaveBeenCalledWith(
+      'once:slack:event:Ev1',
+      '1',
+      'PX',
+      600_000,
+      'NX',
+    );
+
+    redis.set.mockResolvedValueOnce(null);
+    expect(await svc.claimOnce('slack:event:Ev1', 600_000)).toBe(false);
+  });
+
+  it('Redis error -> falls back to process-level deduplication without throwing', async () => {
+    const redis = {
+      set: vi.fn(async () => {
+        throw new Error('down');
+      }),
+    };
+    const svc = new RateLimitService(redis as any);
+
+    expect(await svc.claimOnce('e1', 1000)).toBe(true);
+    expect(await svc.claimOnce('e1', 1000)).toBe(false);
+  });
+});

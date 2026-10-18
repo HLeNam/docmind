@@ -12,7 +12,12 @@ import { PrismaSystemService } from '../prisma/prisma-system.service.js';
 import { PublicQueryService } from '../public-api/public-query.service.js';
 import { SlackApiClient } from './slack-api.client.js';
 import { SlackCryptoService } from './slack-crypto.service.js';
-import { FixedWindowRateLimiter } from './slack-rate-limiter.js';
+import { RateLimitService } from '../common/rate-limit/rate-limit.service.js';
+import {
+  SLACK_TEAM_LIMIT_PER_MINUTE,
+  SLACK_TEAM_LIMIT_WINDOW_MS,
+  slackTeamLimitKey,
+} from './slack-limits.js';
 import { buildAnswerBlocks, escapeSlackText } from './slack-mrkdwn.util.js';
 
 export interface SlackCommandPayload {
@@ -24,7 +29,7 @@ export interface SlackCommandPayload {
 }
 
 // Giới hạn theo workspace: mỗi /ask tốn 1 lần embedding + 1 lần LLM (quota Gemini). Hằng số ghi cứng, chưa ra env.
-export const SLACK_ASK_LIMIT_PER_MINUTE = 15;
+export const SLACK_ASK_LIMIT_PER_MINUTE = SLACK_TEAM_LIMIT_PER_MINUTE; // giữ tên cũ cho test/tương thích
 const MAX_QUESTION_CHARS = 2000; // khớp giới hạn của PublicQuerySchema.query
 const QUESTION_TOP_K = 5;
 
@@ -43,10 +48,6 @@ const MSG_ANSWER_ERROR =
 @Injectable()
 export class SlackCommandsService {
   private readonly logger = new Logger(SlackCommandsService.name);
-  private readonly limiter = new FixedWindowRateLimiter(
-    SLACK_ASK_LIMIT_PER_MINUTE,
-    60_000,
-  );
 
   constructor(
     // BYPASSRLS: request Slack không có JWT/tenant. Tra theo team_id của request ĐÃ XÁC THỰC chữ ký
@@ -55,6 +56,7 @@ export class SlackCommandsService {
     private readonly crypto: SlackCryptoService,
     private readonly api: SlackApiClient,
     private readonly publicQuery: PublicQueryService,
+    private readonly rateLimit: RateLimitService,
   ) {}
 
   /** Không bao giờ throw — chạy nền sau khi đã ack, throw ở đây chỉ thành unhandled rejection. */
@@ -76,7 +78,11 @@ export class SlackCommandsService {
     if (question.length > MAX_QUESTION_CHARS)
       return this.ephemeral(cmd, MSG_TOO_LONG);
 
-    const limit = this.limiter.check(`team:${cmd.team_id}`);
+    const limit = await this.rateLimit.consume(
+      slackTeamLimitKey(cmd.team_id),
+      SLACK_TEAM_LIMIT_PER_MINUTE,
+      SLACK_TEAM_LIMIT_WINDOW_MS,
+    );
     if (!limit.allowed) {
       return this.ephemeral(
         cmd,

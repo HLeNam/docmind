@@ -15,8 +15,14 @@ import { PublicQueryService } from '../public-api/public-query.service.js';
 import { QuestionCondenserService } from '../public-api/question-condenser.service.js';
 import { SlackApiClient } from './slack-api.client.js';
 import { SlackCryptoService } from './slack-crypto.service.js';
-import { EventDeduper } from './slack-event-dedupe.js';
-import { FixedWindowRateLimiter } from './slack-rate-limiter.js';
+import { RateLimitService } from '../common/rate-limit/rate-limit.service.js';
+import {
+  SLACK_EVENT_DEDUPE_TTL_MS,
+  SLACK_TEAM_LIMIT_PER_MINUTE,
+  SLACK_TEAM_LIMIT_WINDOW_MS,
+  slackEventKey,
+  slackTeamLimitKey,
+} from './slack-limits.js';
 import { buildAnswerBlocks, escapeSlackText } from './slack-mrkdwn.util.js';
 import { extractQuestion } from './slack-text.util.js';
 import { buildThreadHistory } from './slack-thread-history.util.js';
@@ -45,7 +51,7 @@ const AppMentionSchema = z.object({
   bot_id: z.string().optional(),
 });
 
-export const SLACK_MENTION_LIMIT_PER_MINUTE = 15;
+export const SLACK_MENTION_LIMIT_PER_MINUTE = SLACK_TEAM_LIMIT_PER_MINUTE; // giữ tên cũ cho test/tương thích
 const MAX_QUESTION_CHARS = 2000;
 const QUESTION_TOP_K = 5;
 
@@ -58,11 +64,6 @@ const MSG_ANSWER_ERROR =
 @Injectable()
 export class SlackEventsService {
   private readonly logger = new Logger(SlackEventsService.name);
-  private readonly limiter = new FixedWindowRateLimiter(
-    SLACK_MENTION_LIMIT_PER_MINUTE,
-    60_000,
-  );
-  private readonly deduper = new EventDeduper();
 
   constructor(
     private readonly system: PrismaSystemService,
@@ -70,6 +71,7 @@ export class SlackEventsService {
     private readonly api: SlackApiClient,
     private readonly publicQuery: PublicQueryService,
     private readonly condenser: QuestionCondenserService,
+    private readonly rateLimit: RateLimitService,
   ) {}
 
   /** Không bao giờ throw — chạy nền sau khi controller đã ack. */
@@ -95,7 +97,13 @@ export class SlackEventsService {
     const event = mention.data;
     if (event.bot_id) return; // không trả lời bot (kể cả chính mình) để tránh vòng lặp
 
-    if (!this.deduper.firstSeen(eventId)) return;
+    if (
+      !(await this.rateLimit.claimOnce(
+        slackEventKey(eventId),
+        SLACK_EVENT_DEDUPE_TTL_MS,
+      ))
+    )
+      return;
 
     const integration = await this.system.slackIntegration.findUnique({
       where: { slackTeamId: teamId },
@@ -109,7 +117,11 @@ export class SlackEventsService {
     const say = (text: string) =>
       this.ephemeral(token, event.channel, event.user, threadTs, text);
 
-    const limit = this.limiter.check(`team:${teamId}`);
+    const limit = await this.rateLimit.consume(
+      slackTeamLimitKey(teamId),
+      SLACK_TEAM_LIMIT_PER_MINUTE,
+      SLACK_TEAM_LIMIT_WINDOW_MS,
+    );
     if (!limit.allowed) {
       return say(
         `Có quá nhiều câu hỏi trong thời gian ngắn. Thử lại sau khoảng ${limit.retryAfterSeconds} giây.`,

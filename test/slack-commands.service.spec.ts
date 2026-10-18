@@ -6,6 +6,7 @@ import {
   type SlackCommandPayload,
 } from '../src/slack/slack-commands.service.js';
 import { SlackCryptoService } from '../src/slack/slack-crypto.service.js';
+import { RateLimitService } from '../src/common/rate-limit/rate-limit.service.js';
 
 const cryptoKey = randomBytes(32).toString('base64');
 
@@ -14,7 +15,7 @@ function cmd(over: Partial<SlackCommandPayload> = {}): SlackCommandPayload {
     team_id: 'T1',
     channel_id: 'C0123ABCDEF',
     user_id: 'U1',
-    text: 'What types of machine learning exist?',
+    text: 'What types of ML exist?',
     response_url: 'https://hooks.slack.com/commands/T1/xxx',
     ...over,
   };
@@ -61,6 +62,7 @@ describe('SlackCommandsService', () => {
       crypto,
       api as any,
       publicQuery as any,
+      new RateLimitService(null),
     );
   });
 
@@ -72,15 +74,15 @@ describe('SlackCommandsService', () => {
 
     expect(api.postMessage).toHaveBeenCalledTimes(2);
     const [token1, question] = api.postMessage.mock.calls[0]!;
-    expect(token1).toBe('xoxb-token');
+    expect(token1).toBe('xoxb-token'); // decrypted token
     expect(question.channel).toBe('C0123ABCDEF');
     expect(question.thread_ts).toBeUndefined();
     expect(question.text).toContain('<@U1>');
-    expect(question.text).toContain('> What types of machine learning exist?');
+    expect(question.text).toContain('> What types of ML exist?');
 
     expect(publicQuery.query).toHaveBeenCalledWith(
       { tenantId: 't1', collectionId: 'c1' },
-      { query: 'What types of machine learning exist?', topK: 5 },
+      { query: 'What types of ML exist?', topK: 5 },
     );
 
     const [, reply] = api.postMessage.mock.calls[1]!;
@@ -90,32 +92,32 @@ describe('SlackCommandsService', () => {
     expect(api.respondEphemeral).not.toHaveBeenCalled();
   });
 
-  it('multiline question: quotes every line with ">" and escapes special characters', async () => {
+  it('multiline question: quotes every line with ">", escapes special characters', async () => {
     await service.handle(cmd({ text: 'line 1 <@U9>\nline 2' }));
     const question = api.postMessage.mock.calls[0]![1].text as string;
     expect(question).toContain('> line 1 &lt;@U9&gt;\n> line 2');
   });
 
-  it('empty text -> shows usage guidance ephemeral without querying DB', async () => {
+  it('empty text -> returns usage instructions (ephemeral), does not touch DB', async () => {
     await service.handle(cmd({ text: '   ' }));
     expect(lastEphemeral()).toContain('/ask');
     expect(system.slackIntegration.findUnique).not.toHaveBeenCalled();
   });
 
-  it('question too long -> responds ephemeral, does not call RAG', async () => {
+  it('question too long -> ephemeral, does not call RAG', async () => {
     await service.handle(cmd({ text: 'x'.repeat(2001) }));
-    expect(lastEphemeral()).toContain('2000');
+    expect(lastEphemeral()).toContain('quá dài');
     expect(publicQuery.query).not.toHaveBeenCalled();
   });
 
-  it('workspace not connected -> responds ephemeral, does not post to channel', async () => {
+  it('workspace not connected to DocMind -> ephemeral, does not post to channel', async () => {
     system.slackIntegration.findUnique.mockResolvedValue(null);
     await service.handle(cmd());
-    expect(lastEphemeral()).toBeTruthy();
+    expect(lastEphemeral()).toContain('chưa được kết nối');
     expect(api.postMessage).not.toHaveBeenCalled();
   });
 
-  it('unmapped channel -> rejects with channel ID for admin configuration, does not call RAG', async () => {
+  it('channel not mapped to collection -> rejects with channel id for admin mapping, does not call RAG', async () => {
     system.slackChannelMapping.findUnique.mockResolvedValue(null);
     await service.handle(cmd());
     expect(lastEphemeral()).toContain('PUT /slack/channels/C0123ABCDEF');
@@ -124,7 +126,7 @@ describe('SlackCommandsService', () => {
   });
 
   it.each(['not_in_channel', 'channel_not_found'])(
-    'bot cannot access channel (%s) -> guides user to /invite',
+    'bot not in channel (%s) -> guides user to /invite',
     async (error) => {
       api.postMessage.mockResolvedValue({ ok: false, error });
       await service.handle(cmd());
@@ -133,14 +135,14 @@ describe('SlackCommandsService', () => {
     },
   );
 
-  it('other Slack error when posting question -> generic message without exposing internal errors', async () => {
+  it('other Slack errors when posting question -> generic error, does not leak internal error code', async () => {
     api.postMessage.mockResolvedValue({ ok: false, error: 'ratelimited' });
     await service.handle(cmd());
-    expect(lastEphemeral()).toBeTruthy();
+    expect(lastEphemeral()).toContain('gặp lỗi');
     expect(lastEphemeral()).not.toContain('ratelimited');
   });
 
-  it('RAG failure -> replies politely in thread without leaking error details', async () => {
+  it('RAG error -> polite error message in thread, does not leak error details', async () => {
     publicQuery.query.mockRejectedValue(
       new Error('Gemini quota exceeded: secret detail'),
     );
@@ -148,21 +150,22 @@ describe('SlackCommandsService', () => {
 
     const [, reply] = api.postMessage.mock.calls[1]!;
     expect(reply.thread_ts).toBe('1700000000.000100');
+    expect(reply.text).toContain('gặp lỗi');
     expect(reply.text).not.toContain('secret detail');
   });
 
-  it('workspace rate limit exceeded -> responds ephemeral with retry-after, does not call RAG', async () => {
+  it('workspace rate limit exceeded -> ephemeral with retry seconds, does not call RAG', async () => {
     for (let i = 0; i < SLACK_ASK_LIMIT_PER_MINUTE; i++)
       await service.handle(cmd());
     publicQuery.query.mockClear();
 
     await service.handle(cmd());
 
-    expect(lastEphemeral()).toMatch(/\d+/);
+    expect(lastEphemeral()).toMatch(/Thử lại sau khoảng \d+ giây/);
     expect(publicQuery.query).not.toHaveBeenCalled();
   });
 
-  it('rate limiting is workspace-scoped: other workspaces are not affected', async () => {
+  it('rate limit is per-workspace: other workspaces are unaffected', async () => {
     for (let i = 0; i < SLACK_ASK_LIMIT_PER_MINUTE + 1; i++)
       await service.handle(cmd());
     publicQuery.query.mockClear();
@@ -171,13 +174,13 @@ describe('SlackCommandsService', () => {
     expect(publicQuery.query).toHaveBeenCalledTimes(1);
   });
 
-  it('handle() never throws: unexpected error -> logs and attempts generic ephemeral reply', async () => {
+  it('handle() never throws: unexpected error -> logs and attempts generic ephemeral error', async () => {
     system.slackIntegration.findUnique.mockRejectedValue(new Error('db down'));
     await expect(service.handle(cmd())).resolves.toBeUndefined();
-    expect(lastEphemeral()).toBeTruthy();
+    expect(lastEphemeral()).toContain('gặp lỗi');
   });
 
-  it('handle() does not throw even if ephemeral error notification fails', async () => {
+  it('handle() does not throw even if sending ephemeral error fails', async () => {
     system.slackIntegration.findUnique.mockRejectedValue(new Error('db down'));
     api.respondEphemeral.mockRejectedValue(new Error('response_url expired'));
     await expect(service.handle(cmd())).resolves.toBeUndefined();

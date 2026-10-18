@@ -48,7 +48,7 @@ export class SlackEventsController {
 
     res.status(HttpStatus.OK).end();
     // Slack chỉ retry khi lần trước không nhận được ack kịp. Ta ack ngay và đã xử lý lần đầu rồi, nên bỏ
-    // qua các lần retry (EventDeduper là lớp bảo vệ thứ hai).
+    // qua các lần retry (claimOnce theo event_id trong SlackEventsService là lớp bảo vệ thứ hai).
     if (retryNum) return;
     void this.eventsService.handle(body);
   }
