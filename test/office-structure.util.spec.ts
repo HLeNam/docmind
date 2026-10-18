@@ -1,6 +1,7 @@
-// Fixture accurately simulates officeparser@8.1.1 AST structure.
+// Fixture mô phỏng ĐÚNG hình dạng AST của officeparser@8.1.1 (đã dump từ file pptx/xlsx thật khi viết util này).
 import { describe, expect, it } from 'vitest';
 import {
+  imagesFromAst,
   sheetsFromAst,
   slidesFromAst,
   type OfficeNode,
@@ -26,7 +27,7 @@ const cell = (t: string, row: number, col: number): OfficeNode => ({
 });
 
 describe('slidesFromAst', () => {
-  it('extracts slide number from metadata.slideNumber, skipping empty slides', () => {
+  it('reads slide numbers from metadata.slideNumber (empty slides are skipped and not counted by array index)', () => {
     const out = slidesFromAst([
       {
         type: 'slide',
@@ -45,7 +46,7 @@ describe('slidesFromAst', () => {
     ]);
   });
 
-  it('formats tables with one line per row, cells separated by " | " without repeating child text', () => {
+  it('table -> one row per line, cells separated by " | "; does not duplicate child node text', () => {
     const table: OfficeNode = {
       type: 'table',
       children: [
@@ -66,7 +67,7 @@ describe('slidesFromAst', () => {
     expect(slide!.text).toBe('So sánh\nLoại | Ví dụ\nSupervised | Phân loại');
   });
 
-  it('appends speaker notes to the end of the slide', () => {
+  it('speaker notes are appended to the end of the slide', () => {
     const [slide] = slidesFromAst([
       {
         type: 'slide',
@@ -78,7 +79,7 @@ describe('slidesFromAst', () => {
     expect(slide!.text).toBe('Nội dung\nGhi chú: Nhớ nhấn mạnh điểm này');
   });
 
-  it('recursively traverses unknown container nodes and skips slides without text or with invalid slide numbers', () => {
+  it('unknown container (no text) -> recurses into children; slide without text or invalid slide number -> skipped', () => {
     const out = slidesFromAst([
       {
         type: 'slide',
@@ -92,7 +93,7 @@ describe('slidesFromAst', () => {
     expect(out).toEqual([{ pageNumber: 1, text: 'Trong nhóm' }]);
   });
 
-  it('returns empty array when AST is empty', () => {
+  it('empty AST -> empty array', () => {
     expect(slidesFromAst([])).toEqual([]);
   });
 });
@@ -103,8 +104,8 @@ describe('sheetsFromAst', () => {
     children: cells,
   });
 
-  it('uses 1-based row numbers from metadata.row, preserves empty cells in row, and skips empty rows', () => {
-    // Excel row 1: A,B,C | row 2: x,(empty),z | row 3 empty (absent) | row 4: y,w,3.5
+  it('1-based row numbers from metadata.row; blank cells between rows retain correct columns; blank rows are skipped', () => {
+    // Hàng Excel 1: A,B,C | hàng 2: x,(trống),z | hàng 3 trống (không xuất hiện) | hàng 4: y,w,3.5
     const out = sheetsFromAst([
       {
         type: 'sheet',
@@ -128,7 +129,7 @@ describe('sheetsFromAst', () => {
     ]);
   });
 
-  it('processes multiple sheets, skips empty sheets, and defaults missing sheet name to "Sheet N"', () => {
+  it('multiple sheets; empty sheets skipped; missing sheet name -> "Sheet N"', () => {
     const out = sheetsFromAst([
       {
         type: 'sheet',
@@ -139,5 +140,62 @@ describe('sheetsFromAst', () => {
       { type: 'sheet', metadata: {}, children: [row(cell('b', 0, 0))] },
     ]);
     expect(out.map((s) => s.name)).toEqual(['Có dữ liệu', 'Sheet 2']);
+  });
+});
+
+describe('imagesFromAst', () => {
+  const img = (attachmentName: string): OfficeNode => ({
+    type: 'image',
+    text: '',
+    metadata: { attachmentName },
+  });
+  const att = (name: string, type = 'image', mimeType = 'image/png') => ({
+    type,
+    mimeType,
+    name,
+    data: Buffer.from('PNGDATA').toString('base64'),
+  });
+
+  it('matches slide image nodes with attachments by name; decodes base64; recurses into groups/tables', () => {
+    const out = imagesFromAst(
+      [
+        {
+          type: 'slide',
+          metadata: { slideNumber: 2 },
+          children: [
+            heading('A'),
+            img('image1.png'),
+            { type: 'group', children: [img('image2.png')] },
+          ],
+        },
+        {
+          type: 'slide',
+          metadata: { slideNumber: 5 },
+          children: [img('image1.png')],
+        },
+      ],
+      [att('image1.png'), att('image2.png', 'image', 'image/jpeg')],
+    );
+    expect(out.map((i) => [i.slideNumber, i.name, i.mimeType])).toEqual([
+      [2, 'image1.png', 'image/png'],
+      [2, 'image2.png', 'image/jpeg'],
+      [5, 'image1.png', 'image/png'],
+    ]);
+    expect(out[0]!.data.toString()).toBe('PNGDATA');
+  });
+
+  it('skips images not in attachments, chart attachments, and slides without valid numbers', () => {
+    const out = imagesFromAst(
+      [
+        {
+          type: 'slide',
+          metadata: { slideNumber: 1 },
+          children: [img('missing.png'), img('chart1')],
+        },
+        { type: 'slide', metadata: {}, children: [img('image1.png')] },
+      ],
+      [att('image1.png'), att('chart1', 'chart')],
+    );
+    expect(out).toEqual([]);
   });
 });

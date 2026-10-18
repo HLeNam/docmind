@@ -98,3 +98,41 @@ export async function ocrPdfPages(
 
   return results;
 }
+
+// OCR các ảnh rời (vd ảnh trong slide PPTX). Trả Map<id, text>; ảnh nào tesseract không đọc được (định dạng lạ, ảnh hỏng)
+// thì KHÔNG có trong Map — không làm hỏng cả tài liệu chỉ vì 1 ảnh. Lỗi cấp worker (thiếu traineddata, không khởi tạo
+// được tesseract) thì throw như ocrPdfPages(): đó là lỗi cấu hình cần báo rõ, không nên im lặng.
+// `beforePage` được gọi trước MỖI ảnh (dùng để dừng sớm khi document đã bị xoá).
+export async function ocrImages(
+  images: { id: string; data: Buffer }[],
+  options: OcrPdfPagesOptions = {},
+): Promise<Map<string, string>> {
+  const results = new Map<string, string>();
+  if (images.length === 0) return results;
+
+  const workerOptions = resolveOcrWorkerOptions();
+  const startedAt = Date.now();
+  const worker = await createWorker(OCR_LANGUAGES, 1, workerOptions);
+  try {
+    for (const image of images) {
+      await options.beforePage?.();
+      try {
+        const { data } = await worker.recognize(image.data);
+        const text = data.text.trim();
+        if (text) results.set(image.id, text);
+      } catch (err) {
+        logger.warn(`Failed to OCR 1 image, skipping: ${String(err)}`);
+      }
+    }
+  } finally {
+    await worker.terminate();
+    const ms = Date.now() - startedAt;
+    logger.log(
+      `OCR ${results.size}/${images.length} images in ${ms}ms (~${Math.round(ms / images.length)}ms/image)` +
+        (workerOptions.langPath
+          ? ' [local traineddata]'
+          : ' [traineddata from CDN]'),
+    );
+  }
+  return results;
+}

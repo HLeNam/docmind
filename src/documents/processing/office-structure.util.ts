@@ -13,6 +13,7 @@
 //          ô trống và hàng trống KHÔNG xuất hiện -> dùng metadata.row/col (0-based) để đặt đúng vị trí.
 import officeParser from 'officeparser';
 import type { PdfPageSegment } from './extract-text.util.js';
+import type { PptxImage } from './pptx-image-ocr.util.js';
 
 // Kiểu tối thiểu của node AST — chỉ khai những trường ta đọc, để test dựng fixture dễ và không phụ thuộc type nội bộ của lib.
 export interface OfficeNode {
@@ -115,11 +116,71 @@ export function sheetsFromAst(content: OfficeNode[]): SpreadsheetSheet[] {
   return sheets;
 }
 
-export async function extractPptxSlides(
+export interface OfficeAttachmentLike {
+  type: string;
+  mimeType: string;
+  name: string;
+  data: string; // base64 (đã kiểm chứng với officeparser@8.1.1)
+}
+
+/**
+ * Ảnh theo từng slide: node `image` trong slide có metadata.attachmentName -> khớp với attachments[].name.
+ * Slide không có `image` hoặc ảnh không có trong attachments thì bỏ qua.
+ */
+export function imagesFromAst(
+  content: OfficeNode[],
+  attachments: OfficeAttachmentLike[],
+): PptxImage[] {
+  const byName = new Map(
+    attachments.filter((a) => a.type === 'image').map((a) => [a.name, a]),
+  );
+  const images: PptxImage[] = [];
+
+  const walk = (node: OfficeNode, slideNumber: number) => {
+    if (node.type === 'image') {
+      const name = node.metadata?.attachmentName;
+      const att = typeof name === 'string' ? byName.get(name) : undefined;
+      if (att)
+        images.push({
+          slideNumber,
+          name: att.name,
+          mimeType: att.mimeType,
+          data: Buffer.from(att.data, 'base64'),
+        });
+      return;
+    }
+    for (const child of node.children ?? []) walk(child, slideNumber);
+  };
+
+  for (const node of content) {
+    if (node.type !== 'slide') continue;
+    const slideNumber = Number(node.metadata?.slideNumber);
+    if (!Number.isInteger(slideNumber) || slideNumber < 1) continue;
+    for (const child of node.children ?? []) walk(child, slideNumber);
+  }
+  return images;
+}
+
+/** `withImages`: lấy thêm ảnh từng slide (tốn thêm bộ nhớ) để OCR. */
+export async function extractPptxContent(
   buffer: Buffer,
-): Promise<PdfPageSegment[]> {
-  const ast = await officeParser.parseOffice(buffer, { fileType: 'pptx' });
-  return slidesFromAst(ast.content as unknown as OfficeNode[]);
+  options: { withImages?: boolean } = {},
+): Promise<{ slides: PdfPageSegment[]; images: PptxImage[] }> {
+  const withImages = options.withImages === true;
+  const ast = await officeParser.parseOffice(buffer, {
+    fileType: 'pptx',
+    extractAttachments: withImages,
+  });
+  const content = ast.content as unknown as OfficeNode[];
+  return {
+    slides: slidesFromAst(content),
+    images: withImages
+      ? imagesFromAst(
+          content,
+          (ast.attachments ?? []) as unknown as OfficeAttachmentLike[],
+        )
+      : [],
+  };
 }
 
 export async function extractXlsxSheets(

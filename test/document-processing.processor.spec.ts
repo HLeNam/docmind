@@ -15,9 +15,12 @@ import {
   chunkPagedText,
   chunkSpreadsheet,
 } from '../src/documents/processing/chunk-text.util.js';
-import { ocrPdfPages } from '../src/documents/processing/ocr.util.js';
 import {
-  extractPptxSlides,
+  ocrImages,
+  ocrPdfPages,
+} from '../src/documents/processing/ocr.util.js';
+import {
+  extractPptxContent,
   extractXlsxSheets,
 } from '../src/documents/processing/office-structure.util.js';
 
@@ -34,6 +37,7 @@ vi.mock('../src/documents/processing/ocr.util.js', async (importOriginal) => {
     // Chỉ mock hàm gọi ra tesseract/pdf-parse thật — vẫn giữ nguyên các hằng số ngưỡng OCR thật (dùng
     // requireActual). Text giả trong test phải dài/ngắn đủ so với ngưỡng thật (xem LONG_PAGE_TEXT bên dưới).
     ocrPdfPages: vi.fn(),
+    ocrImages: vi.fn(),
   };
 });
 
@@ -43,7 +47,8 @@ const mockSplitPdfPagesByMarker = splitPdfPagesByMarker as unknown as Mock;
 const mockChunkPagedText = chunkPagedText as unknown as Mock;
 const mockGetPdfPageCount = getPdfPageCount as unknown as Mock;
 const mockOcrPdfPages = ocrPdfPages as unknown as Mock;
-const mockExtractPptxSlides = extractPptxSlides as unknown as Mock;
+const mockExtractPptxContent = extractPptxContent as unknown as Mock;
+const mockOcrImages = ocrImages as unknown as Mock;
 const mockExtractXlsxSheets = extractXlsxSheets as unknown as Mock;
 const mockChunkSpreadsheet = chunkSpreadsheet as unknown as Mock;
 
@@ -555,7 +560,7 @@ describe('DocumentProcessingProcessor', () => {
         { pageNumber: 1, text: 'Slide một' },
         { pageNumber: 3, text: 'Slide ba' },
       ];
-      mockExtractPptxSlides.mockResolvedValue(slides);
+      mockExtractPptxContent.mockResolvedValue({ slides, images: [] });
       mockChunkPagedText.mockReturnValue([
         { content: 'Slide một', chunkIndex: 0, pageNumber: 1 },
         { content: 'Slide ba', chunkIndex: 1, pageNumber: 3 },
@@ -606,7 +611,7 @@ describe('DocumentProcessingProcessor', () => {
         mimeType: PPTX,
       });
       storage.getObjectBuffer.mockResolvedValue(Buffer.from('pptx'));
-      mockExtractPptxSlides.mockResolvedValue([]);
+      mockExtractPptxContent.mockResolvedValue({ slides: [], images: [] });
       mockChunkPagedText.mockReturnValue([]);
       mockExtractText.mockResolvedValue('text phẳng');
       mockChunkText.mockReturnValue([{ content: 'text phẳng', chunkIndex: 0 }]);
@@ -616,6 +621,110 @@ describe('DocumentProcessingProcessor', () => {
 
       expect(mockExtractText).toHaveBeenCalledWith(expect.anything(), PPTX);
       expect(mockChunkText).toHaveBeenCalledWith('text phẳng');
+    });
+
+    // PNG giả có header đúng (chữ ký + IHDR) và đủ dung lượng để qua bộ lọc "ảnh quá nhỏ".
+    function fakePng(
+      seed: number,
+      width = 800,
+      height = 300,
+      bytes = 20_000,
+    ): Buffer {
+      const buf = Buffer.alloc(bytes, seed);
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(
+        buf,
+        0,
+      );
+      buf.write('IHDR', 12, 'ascii');
+      buf.writeUInt32BE(width, 16);
+      buf.writeUInt32BE(height, 20);
+      return buf;
+    }
+
+    it('OCRs qualifying PPTX images, appends "Chữ trong ảnh" to correct slide (including image-only slides), and skips small icons', async () => {
+      const { processor, system, storage, embedding } = buildProcessor();
+      system.document.findUnique.mockResolvedValue({
+        ...BASE_DOCUMENT,
+        mimeType: PPTX,
+      });
+      storage.getObjectBuffer.mockResolvedValue(Buffer.from('pptx'));
+      const slides = [{ pageNumber: 2, text: 'Types of ML' }];
+      mockExtractPptxContent.mockResolvedValue({
+        slides,
+        images: [
+          {
+            slideNumber: 2,
+            name: 'image1.png',
+            mimeType: 'image/png',
+            data: fakePng(1),
+          },
+          {
+            slideNumber: 3,
+            name: 'image2.png',
+            mimeType: 'image/png',
+            data: fakePng(2),
+          }, // slide 3 chỉ có ảnh
+          {
+            slideNumber: 2,
+            name: 'icon.png',
+            mimeType: 'image/png',
+            data: fakePng(3, 64, 64, 600),
+          }, // icon -> bỏ
+        ],
+      });
+      mockOcrImages.mockImplementation(
+        async (imgs: { id: string }[]) =>
+          new Map(imgs.map((i) => [i.id, 'Supervised Unsupervised'])),
+      );
+      mockChunkPagedText.mockReturnValue([
+        { content: 'x', chunkIndex: 0, pageNumber: 2 },
+      ]);
+      embedding.embedBatch.mockResolvedValue([[0.1]]);
+
+      await processor.process({ data: { documentId: 'doc-1' } } as never);
+
+      // Chỉ 2 ảnh lớn được OCR, và có hook dừng-khi-document-bị-xoá
+      expect(mockOcrImages).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({ id: expect.any(String) }),
+        ]),
+        expect.objectContaining({ beforePage: expect.any(Function) }),
+      );
+      expect((mockOcrImages.mock.calls[0]![0] as unknown[]).length).toBe(2);
+      expect(mockChunkPagedText).toHaveBeenCalledWith([
+        {
+          pageNumber: 2,
+          text: 'Types of ML\nChữ trong ảnh: Supervised Unsupervised',
+        },
+        { pageNumber: 3, text: 'Chữ trong ảnh: Supervised Unsupervised' },
+      ]);
+    });
+
+    it('does not invoke OCR when PPTX only contains small or decorative images', async () => {
+      const { processor, system, storage, embedding } = buildProcessor();
+      system.document.findUnique.mockResolvedValue({
+        ...BASE_DOCUMENT,
+        mimeType: PPTX,
+      });
+      storage.getObjectBuffer.mockResolvedValue(Buffer.from('pptx'));
+      const logo = fakePng(9);
+      mockExtractPptxContent.mockResolvedValue({
+        slides: [{ pageNumber: 1, text: 'A' }],
+        images: [1, 2, 3].map((n) => ({
+          slideNumber: n,
+          name: 'logo.png',
+          mimeType: 'image/png',
+          data: logo,
+        })), // logo ở 3 slide
+      });
+      mockChunkPagedText.mockReturnValue([
+        { content: 'A', chunkIndex: 0, pageNumber: 1 },
+      ]);
+      embedding.embedBatch.mockResolvedValue([[0.1]]);
+
+      await processor.process({ data: { documentId: 'doc-1' } } as never);
+
+      expect(mockOcrImages).not.toHaveBeenCalled();
     });
   });
 });

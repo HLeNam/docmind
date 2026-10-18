@@ -35,10 +35,15 @@ import {
   type TextChunk,
 } from './chunk-text.util.js';
 import {
-  extractPptxSlides,
+  extractPptxContent,
   extractXlsxSheets,
 } from './office-structure.util.js';
 import {
+  mergeSlideOcrText,
+  selectImagesForOcr,
+} from './pptx-image-ocr.util.js';
+import {
+  ocrImages,
   ocrPdfPages,
   OCR_EMPTY_DOC_CHARS,
   OCR_SPARSE_PAGE_CHARS,
@@ -123,6 +128,8 @@ export class DocumentProcessingProcessor extends WorkerHost {
       // PPTX/XLSX: lấy cấu trúc (slide / sheet+hàng) để citation trỏ đúng vị trí. null = không phải 2 loại này, hoặc
       // không lấy được cấu trúc nào -> rơi về luồng text phẳng như cũ (không bao giờ tệ hơn trước).
       const structuredChunks = await this.extractStructuredOfficeChunks(
+        tenantId,
+        documentId,
         buffer,
         mimeType,
       );
@@ -345,16 +352,58 @@ export class DocumentProcessingProcessor extends WorkerHost {
   }
 
   private async extractStructuredOfficeChunks(
+    tenantId: string,
+    documentId: string,
     buffer: Buffer,
     mimeType: string,
   ): Promise<TextChunk[] | null> {
     let chunks: TextChunk[] = [];
     if (mimeType === PPTX_MIME)
-      chunks = chunkPagedText(await extractPptxSlides(buffer));
+      chunks = await this.chunkPptx(tenantId, documentId, buffer);
     else if (mimeType === XLSX_MIME)
       chunks = chunkSpreadsheet(await extractXlsxSheets(buffer));
     else return null;
     return chunks.length > 0 ? chunks : null;
+  }
+
+  // PPTX: chữ trong slide + OCR các ảnh "đáng OCR" (xem selectImagesForOcr: bỏ icon, logo lặp, định dạng lạ) rồi ghép
+  // chữ OCR vào đúng slide. Cũng là nơi chữ của slide chỉ-có-ảnh (sơ đồ dán thành ảnh) mới đọc được.
+  private async chunkPptx(
+    tenantId: string,
+    documentId: string,
+    buffer: Buffer,
+  ): Promise<TextChunk[]> {
+    const { slides, images } = await extractPptxContent(buffer, {
+      withImages: true,
+    });
+    const { candidates, stats } = selectImagesForOcr(images);
+
+    let segments = slides;
+    if (candidates.length > 0) {
+      const skipped =
+        stats.unsupported + stats.tooSmall + stats.decorative + stats.truncated;
+      this.emitProgress(
+        tenantId,
+        documentId,
+        22,
+        'ocr',
+        `OCR ${candidates.length} images in slide` +
+          (skipped > 0
+            ? ` (skipped ${skipped}/${stats.total} small/decorative/unsupported images)`
+            : ''),
+      );
+      if (stats.truncated > 0) {
+        this.logger.warn(
+          `Document ${documentId}: OCR image limit exceeded, skipped ${stats.truncated} trailing images`,
+        );
+      }
+      const texts = await ocrImages(
+        candidates.map((c) => ({ id: c.id, data: c.data })),
+        this.ocrOptions(documentId),
+      );
+      segments = mergeSlideOcrText(slides, candidates, texts);
+    }
+    return chunkPagedText(segments);
   }
 
   /** OCR là bước lâu nhất (vài giây/trang): kiểm tra document còn tồn tại trước mỗi trang. */
