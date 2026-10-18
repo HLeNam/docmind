@@ -1,5 +1,3 @@
-// src/chat/chat.controller.ts
-//
 // Dùng @Res() thủ công (KHÔNG @Sse() built-in của Nest) — lý do: @Sse() bọc mỗi event qua RxJS
 // Observable<MessageEvent> với 1 loại "event" cố định, trong khi ở đây cần tự kiểm soát 3 loại event
 // khác nhau (start/delta/error/done) VÀ phải validate xong (ném lỗi JSON chuẩn qua
@@ -92,9 +90,12 @@ export class ChatController {
 
     // Gửi citations NGAY khi bắt đầu (trước khi có text nào) — FE có thể hiển thị "đang tham khảo
     // N nguồn" trong lúc chờ LLM sinh chữ, không cần đợi tới event 'done' mới biết có citation hay không.
+    // rewrittenQuery: câu hỏi độc lập mà hệ thống đã dùng để tìm tài liệu (null nếu không phải viết lại) — FE có thể
+    // hiển thị "Hiểu câu hỏi là: ..." để người dùng biết cách diễn đạt lại khi hiểu sai.
     writeEvent('start', {
       conversationId: prepared.conversationId,
       citations: prepared.citations,
+      rewrittenQuery: prepared.rewrittenQuery,
     });
 
     let fullAnswer = '';

@@ -1,11 +1,14 @@
-// Mock PrismaService.runInTenantContext (chạy thẳng callback với 1 tx giả), RetrievalService.search,
-// và LlmProvider.streamChat (async generator giả) — không gọi DB/API thật. Test 3 method riêng biệt
-// đúng theo ranh giới đã thiết kế: prepare() (có thể throw), streamAnswer() (chỉ delegate), và
-// saveAssistantMessage() (lưu kết quả).
+// Mock PrismaService.runInTenantContext (runs callback with mock tx), RetrievalService.search,
+// and LlmProvider.streamChat (mock async generator) — does not call real DB/API. Tests 3 distinct
+// methods based on design boundaries: prepare() (can throw), streamAnswer() (delegates), and
+// saveAssistantMessage() (persists result).
 import { describe, expect, it, vi } from 'vitest';
-import { ChatService } from '../src/chat/chat.service.js';
+import {
+  ChatService,
+  buildSummarySection,
+  type PreparedChat,
+} from '../src/chat/chat.service.js';
 import type { AccessTokenPayload } from '../src/auth/auth.service.js';
-import { buildSummarySection } from '../src/chat/chat.service.js';
 
 const CALLER: AccessTokenPayload = {
   identityId: 'identity-1',
@@ -70,18 +73,32 @@ function buildService(overrides?: {
 
   const usage = { record: vi.fn() };
   const summarizer = { maybeSummarize: vi.fn().mockResolvedValue(undefined) };
+  // Default preserves question (as when there is no history) so standard tests remain unchanged.
+  const condenser = {
+    condense: vi.fn(async (_history: unknown, question: string) => question),
+  };
   const service = new ChatService(
     prisma as never,
     retrievalService as never,
     llm as never,
     usage as never,
     summarizer as never,
+    condenser as never,
   );
-  return { service, prisma, tx, retrievalService, llm, usage, summarizer };
+  return {
+    service,
+    prisma,
+    tx,
+    retrievalService,
+    llm,
+    usage,
+    summarizer,
+    condenser,
+  };
 }
 
 describe('ChatService.prepare', () => {
-  it('creates a new Conversation bound to caller tenantId and membershipId when conversationId is not provided', async () => {
+  it('creates a new Conversation with caller tenantId and membershipId when conversationId is omitted', async () => {
     const { service, tx } = buildService();
 
     const result = await service.prepare(CALLER, {
@@ -99,9 +116,8 @@ describe('ChatService.prepare', () => {
     expect(result.conversationId).toBe('conv-new');
   });
 
-  it('reuses existing conversation and loads history when valid conversationId belonging to caller is provided', async () => {
+  it('reuses existing conversation and loads history when valid conversationId is provided', async () => {
     const { service, tx, retrievalService } = buildService({
-      // DB returns DESC (newest first); prepare() will reverse to chronological order
       messageFindMany: [
         { role: 'ASSISTANT', content: 'trả lời trước' },
         { role: 'USER', content: 'câu trước' },
@@ -139,7 +155,7 @@ describe('ChatService.prepare', () => {
     ).rejects.toThrow(/not found/i);
   });
 
-  it('throws NotFoundAppException when conversationId belongs to another membership', async () => {
+  it('throws NotFoundAppException when conversation belongs to another membership', async () => {
     const { service } = buildService({
       conversationFindUnique: {
         id: 'conv-1',
@@ -185,7 +201,7 @@ describe('ChatService.prepare', () => {
 
     const result = await service.prepare(CALLER, { content: 'x', topK: 5 });
 
-    // pageNumber (PDF) và headingContext (DOCX/Markdown) phải đi hết vào citation để FE "nhảy đúng chỗ".
+    // pageNumber (PDF) and headingContext (DOCX/Markdown) are included in citation for UI deep linking.
     expect(result.citations).toEqual([
       {
         index: 1,
@@ -210,7 +226,7 @@ describe('ChatService.prepare', () => {
     expect(result.systemPrompt).toContain('[2] (b.docx) B');
   });
 
-  it('returns valid systemPrompt with no context notice when no relevant chunks found', async () => {
+  it('returns valid systemPrompt indicating no relevant context when chunks are empty', async () => {
     const { service } = buildService({ retrievedChunks: [] });
 
     const result = await service.prepare(CALLER, { content: 'x', topK: 5 });
@@ -221,7 +237,7 @@ describe('ChatService.prepare', () => {
     );
   });
 
-  it('saves user message immediately in prepare() before streaming LLM', async () => {
+  it('persists user message in prepare() before streaming LLM response', async () => {
     const { service, tx } = buildService();
 
     await service.prepare(CALLER, { content: 'câu hỏi user', topK: 5 });
@@ -239,9 +255,10 @@ describe('ChatService.prepare', () => {
 describe('ChatService.streamAnswer', () => {
   it('delegates directly to LlmProvider.streamChat with correct systemPrompt and messages', async () => {
     const { service, llm } = buildService();
-    const prepared = {
+    const prepared: PreparedChat = {
       tenantId: 'tenant-1',
       conversationId: 'conv-1',
+      rewrittenQuery: null,
       messages: [{ role: 'user' as const, content: 'hi' }],
       systemPrompt: 'system prompt',
       citations: [],
@@ -258,11 +275,12 @@ describe('ChatService.streamAnswer', () => {
     expect(out).toEqual(['Xin', ' chào']);
   });
 
-  it('records GENERATION usage for caller tenant when provider reports tokens via onUsage', async () => {
+  it('records GENERATION usage for correct tenant when onUsage is reported without awaiting', async () => {
     const { service, llm, usage } = buildService();
-    const prepared = {
+    const prepared: PreparedChat = {
       tenantId: 'tenant-1',
       conversationId: 'conv-1',
+      rewrittenQuery: null,
       messages: [{ role: 'user' as const, content: 'hi' }],
       systemPrompt: 's',
       citations: [],
@@ -284,11 +302,12 @@ describe('ChatService.streamAnswer', () => {
 });
 
 describe('ChatService.saveAssistantMessage', () => {
-  it('saves message with role ASSISTANT and citations for the corresponding conversationId', async () => {
+  it('persists ASSISTANT message with citations for correct conversationId', async () => {
     const { service, tx } = buildService();
-    const prepared = {
+    const prepared: PreparedChat = {
       tenantId: 'tenant-1',
       conversationId: 'conv-1',
+      rewrittenQuery: null,
       messages: [],
       systemPrompt: '',
       citations: [
@@ -316,11 +335,12 @@ describe('ChatService.saveAssistantMessage', () => {
     });
   });
 
-  it('triggers background summarization for the conversation without blocking or failing save', async () => {
+  it('triggers background summarization for the conversation without blocking', async () => {
     const { service, summarizer } = buildService();
-    const prepared = {
+    const prepared: PreparedChat = {
       tenantId: 'tenant-1',
       conversationId: 'conv-1',
+      rewrittenQuery: null,
       messages: [],
       systemPrompt: '',
       citations: [],
@@ -328,7 +348,7 @@ describe('ChatService.saveAssistantMessage', () => {
 
     const saved = await service.saveAssistantMessage(
       CALLER,
-      prepared as never,
+      prepared,
       'trả lời',
     );
 
@@ -338,7 +358,7 @@ describe('ChatService.saveAssistantMessage', () => {
 });
 
 describe('ChatService.prepare — conversation summary', () => {
-  it('attaches summary to system prompt as data when conversation has summary', async () => {
+  it('attaches summary to system prompt as data when conversation already has a summary', async () => {
     const { service } = buildService({
       conversationFindUnique: {
         id: 'conv-1',
@@ -361,7 +381,7 @@ describe('ChatService.prepare — conversation summary', () => {
     expect(result.systemPrompt).toContain('KHÔNG phải chỉ dẫn');
   });
 
-  it('leaves system prompt unchanged when conversation has no summary', async () => {
+  it('leaves system prompt unchanged when summary does not exist', async () => {
     const { service } = buildService();
     const result = await service.prepare(CALLER, {
       conversationId: 'conv-1',
@@ -373,9 +393,60 @@ describe('ChatService.prepare — conversation summary', () => {
 });
 
 describe('buildSummarySection', () => {
-  it('returns empty string for null, undefined, or whitespace-only summary', () => {
+  it('returns empty string for null, undefined, or whitespace', () => {
     expect(buildSummarySection(null)).toBe('');
     expect(buildSummarySection(undefined)).toBe('');
     expect(buildSummarySection('  \n ')).toBe('');
+  });
+});
+
+describe('ChatService.prepare — question condensing', () => {
+  it('searches documents using condensed query when history exists while preserving original question for LLM and database', async () => {
+    const { service, condenser, retrievalService, tx } = buildService({
+      messageFindMany: [
+        { role: 'ASSISTANT', content: 'Supervised và Unsupervised.' },
+        { role: 'USER', content: 'Có những loại ML nào?' },
+      ],
+    });
+    condenser.condense.mockResolvedValueOnce('Unsupervised learning là gì?');
+
+    const result = await service.prepare(CALLER, {
+      conversationId: 'conv-1',
+      content: 'còn loại hai?',
+      topK: 5,
+    });
+
+    expect(condenser.condense).toHaveBeenCalledWith(
+      [
+        { role: 'user', content: 'Có những loại ML nào?' },
+        { role: 'assistant', content: 'Supervised và Unsupervised.' },
+      ],
+      'còn loại hai?',
+      'tenant-1',
+    );
+    expect(
+      (retrievalService.search.mock.calls[0] as unknown[])[1],
+    ).toMatchObject({ query: 'Unsupervised learning là gì?' });
+    expect(result.rewrittenQuery).toBe('Unsupervised learning là gì?');
+    expect(result.messages[result.messages.length - 1]).toEqual({
+      role: 'user',
+      content: 'còn loại hai?',
+    });
+    expect(tx.message.create).toHaveBeenCalledWith({
+      data: {
+        conversationId: 'conv-1',
+        role: 'USER',
+        content: 'còn loại hai?',
+      },
+    });
+  });
+
+  it('sets rewrittenQuery to null when query is unchanged', async () => {
+    const { service } = buildService();
+    const result = await service.prepare(CALLER, {
+      content: 'ML là gì?',
+      topK: 5,
+    });
+    expect(result.rewrittenQuery).toBeNull();
   });
 });

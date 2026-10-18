@@ -20,6 +20,8 @@ import { UsageService } from '../usage/usage.service.js';
 import { deriveConversationTitle } from './conversation-title.util.js';
 import { HISTORY_WINDOW } from './chat-history.constants.js';
 import { ConversationSummarizerService } from './conversation-summarizer.service.js';
+import { QuestionCondenserService } from '../public-api/question-condenser.service.js';
+import { buildCondenserHistory } from './condenser-history.util.js';
 import { SendMessageDto } from './dtos/chat.dto.js';
 
 // Số tin nhắn GẦN NHẤT lấy làm ngữ cảnh hội thoại — hội thoại dài vô hạn mà nhét hết vào mỗi lần gọi LLM sẽ
@@ -44,6 +46,8 @@ export interface ChatCitation {
 export interface PreparedChat {
   tenantId: string; // để ghi UsageLog đúng tenant khi stream xong
   conversationId: string;
+  /** Câu hỏi đã được viết lại thành câu độc lập để tìm kiếm; null nếu không đổi (câu đầu tiên hoặc đã tự đủ nghĩa). */
+  rewrittenQuery: string | null;
   messages: ChatMessage[]; // history + user message mới, sẵn sàng gửi thẳng cho LlmProvider
   systemPrompt: string;
   citations: ChatCitation[];
@@ -69,6 +73,7 @@ export class ChatService {
     @Inject(LLM_PROVIDER_TOKEN) private readonly llm: LlmProvider,
     private readonly usage: UsageService,
     private readonly summarizer: ConversationSummarizerService,
+    private readonly condenser: QuestionCondenserService,
   ) {}
 
   /**
@@ -96,8 +101,17 @@ export class ChatService {
     );
     recentHistory.reverse(); // query lấy DESC (N tin MỚI NHẤT) -> đảo lại ASC cho đúng thứ tự thời gian thật
 
+    // Câu hỏi nối tiếp ("còn loại thứ hai?") không chứa từ khoá để tìm tài liệu -> viết lại thành câu độc lập CHỈ để
+    // tìm kiếm. LLM trả lời vẫn nhận nguyên văn câu hỏi của người dùng + lịch sử. Không có lịch sử -> không tốn
+    // thêm lượt LLM; mọi lỗi của bước viết lại -> dùng câu gốc (condense() không bao giờ throw).
+    const searchQuery = await this.condenser.condense(
+      buildCondenserHistory(recentHistory),
+      dto.content,
+      caller.tenantId,
+    );
+
     const retrieved = await this.retrievalService.search(caller, {
-      query: dto.content,
+      query: searchQuery,
       collectionId: dto.collectionId,
       topK: dto.topK ?? DEFAULT_TOP_K,
     });
@@ -137,6 +151,7 @@ export class ChatService {
     return {
       tenantId: caller.tenantId,
       conversationId: conversation.id,
+      rewrittenQuery: searchQuery !== dto.content ? searchQuery : null,
       messages,
       systemPrompt:
         buildSystemPrompt(contextBlock) +
