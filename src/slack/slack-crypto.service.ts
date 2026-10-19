@@ -1,66 +1,73 @@
+// src/slack/slack-crypto.service.ts
+//
 // Mã hoá bot token của Slack trước khi lưu DB (schema.prisma ghi rõ: "mã hóa ở tầng application").
 // AES-256-GCM (mã hoá có xác thực: sửa bậc cipher text là giải mã fail, không ra token sai âm thầm).
-// Định dạng lưu: "v1:<iv>:<authTag>:<ciphertext>" (base64) — tiền tố "v1" để sau này đổi thuật toán/xoay
-// khoá mà vẫn đọc được dữ liệu cũ.
+// Chi tiết định dạng và thuật toán nằm ở slack-token-crypto.util.ts.
 //
-// ⚠️ Mất SLACK_TOKEN_ENCRYPTION_KEY = mọi token đã lưu không giải mã được (phải cài lại app ở mọi
-// workspace). Đổi khoá cũng vậy — hiện chưa có cơ chế xoay khoá.
+// Xoay khoá (không phải cài lại app ở các workspace):
+//   SLACK_TOKEN_ENCRYPTION_KEY       = khoá HIỆN TẠI — luôn dùng để mã hoá mới.
+//   SLACK_TOKEN_ENCRYPTION_KEYS_OLD  = danh sách khoá cũ (base64, cách nhau bằng dấu phẩy) — chỉ dùng để
+//                                       giải mã token đã lưu bằng khoá cũ.
+// Quy trình đầy đủ xem SLACK_MODULE_NOTES.md (mục "Xoay khoá mã hoá token").
+//
+// ⚠️ Mất khoá đã dùng để mã hoá một token (mà không còn trong 2 biến trên) = token đó không giải mã
+// được, phải cài lại app ở workspace tương ứng.
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 import { InternalAppException } from '../common/exceptions/app.exception.js';
 import { ErrorCode } from '../common/exceptions/error-codes.js';
-
-const VERSION = 'v1';
+import {
+  TokenCryptoError,
+  decryptToken,
+  encryptToken,
+  needsRotation as tokenNeedsRotation,
+  parseKey,
+  parseKeyList,
+} from './slack-token-crypto.util.js';
 
 @Injectable()
 export class SlackCryptoService {
   constructor(private readonly config: ConfigService) {}
 
   encrypt(plaintext: string): string {
-    const iv = randomBytes(12);
-    const cipher = createCipheriv('aes-256-gcm', this.key(), iv);
-    const encrypted = Buffer.concat([
-      cipher.update(plaintext, 'utf8'),
-      cipher.final(),
-    ]);
-    const tag = cipher.getAuthTag();
-    return [
-      VERSION,
-      iv.toString('base64'),
-      tag.toString('base64'),
-      encrypted.toString('base64'),
-    ].join(':');
+    return encryptToken(plaintext, this.currentKey());
   }
 
   decrypt(stored: string): string {
-    const [version, iv, tag, data] = stored.split(':');
-    if (version !== VERSION || !iv || !tag || !data) {
-      throw new Error('Unsupported or corrupted encrypted token format');
-    }
-    const decipher = createDecipheriv(
-      'aes-256-gcm',
-      this.key(),
-      Buffer.from(iv, 'base64'),
-    );
-    decipher.setAuthTag(Buffer.from(tag, 'base64'));
-    return Buffer.concat([
-      decipher.update(Buffer.from(data, 'base64')),
-      decipher.final(),
-    ]).toString('utf8');
+    return decryptToken(stored, [this.currentKey(), ...this.oldKeys()]);
   }
 
-  private key(): Buffer {
+  /** true nếu token này chưa mã hoá bằng khoá hiện tại (cần chạy script xoay khoá). */
+  needsRotation(stored: string): boolean {
+    return tokenNeedsRotation(stored, this.currentKey());
+  }
+
+  private currentKey(): Buffer {
     const raw = this.config.get<string>('SLACK_TOKEN_ENCRYPTION_KEY', {
       infer: true,
     });
-    const key = raw ? Buffer.from(raw, 'base64') : undefined;
-    if (!key || key.length !== 32) {
+    try {
+      if (!raw) throw new TokenCryptoError('missing');
+      return parseKey(raw);
+    } catch {
       throw new InternalAppException(
         'SLACK_TOKEN_ENCRYPTION_KEY must be a base64-encoded 32-byte key',
         ErrorCode.SLACK_NOT_CONFIGURED,
       );
     }
-    return key;
+  }
+
+  private oldKeys(): Buffer[] {
+    const raw = this.config.get<string>('SLACK_TOKEN_ENCRYPTION_KEYS_OLD', {
+      infer: true,
+    });
+    try {
+      return parseKeyList(raw);
+    } catch {
+      throw new InternalAppException(
+        'SLACK_TOKEN_ENCRYPTION_KEYS_OLD must be comma-separated base64-encoded 32-byte keys',
+        ErrorCode.SLACK_NOT_CONFIGURED,
+      );
+    }
   }
 }

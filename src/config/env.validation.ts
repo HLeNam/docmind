@@ -70,6 +70,7 @@ export const envSchema = z.object({
   SLACK_SIGNING_SECRET: z.string().optional(), // dùng ở 4.5
   SLACK_REDIRECT_URI: z.string().url().optional(),
   SLACK_TOKEN_ENCRYPTION_KEY: z.string().optional(), // base64 của 32 byte: openssl rand -base64 32
+  SLACK_TOKEN_ENCRYPTION_KEYS_OLD: z.string().optional(),
 });
 
 export type EnvSchema = z.infer<typeof envSchema>;
