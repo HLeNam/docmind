@@ -6,7 +6,7 @@ export const ConversationIdSchema = z
 
 export const ListConversationsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
-  // `nextCursor` of previous page (id of the last conversation item).
+  // `nextCursor` của trang trước (id của hội thoại cuối cùng).
   cursor: z.string().uuid('Invalid UUID format for cursor').optional(),
 });
 
@@ -20,11 +20,11 @@ export const RenameConversationSchema = z.object({
 
 export const ListMessagesQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(50),
-  // `nextBefore` of previous call: fetches messages OLDER than this id (scroll upwards).
+  // `nextBefore` của lần trước: lấy các tin CŨ HƠN tin có id này (cuộn ngược lên).
   before: z.string().uuid('Invalid UUID format for before').optional(),
 });
 
-// ── Response (for Swagger documentation) ──
+// ── Response (dùng cho Swagger) ──
 export const ConversationItemSchema = z.object({
   id: z.string(),
   title: z
@@ -46,6 +46,11 @@ export const ConversationListResponseSchema = z.object({
 export const RenameConversationResponseSchema = z.object({
   id: z.string(),
   title: z.string(),
+});
+
+export const DeleteConversationResponseSchema = z.object({
+  id: z.string(),
+  deleted: z.literal(true),
 });
 
 export const MessageItemSchema = z.object({

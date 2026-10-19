@@ -132,6 +132,31 @@ describe('ConversationsService.rename', () => {
   });
 });
 
+describe('ConversationsService.remove', () => {
+  it('deletes own conversation: deleteMany filters by caller id and membershipId', async () => {
+    const deleteMany = vi.fn(async (..._a: any[]) => ({ count: 1 }));
+    const { svc, prisma } = build({ conversation: { deleteMany } });
+
+    expect(await svc.remove(CALLER, 'c1')).toEqual({ id: 'c1', deleted: true });
+    expect(prisma.runInTenantContext).toHaveBeenCalledWith(
+      't1',
+      expect.any(Function),
+    );
+    expect(deleteMany).toHaveBeenCalledWith({
+      where: { id: 'c1', membershipId: 'm1' },
+    });
+  });
+
+  it('throws 404 when no row deleted (belongs to other member, non-existent, or already deleted)', async () => {
+    const { svc } = build({
+      conversation: { deleteMany: vi.fn(async () => ({ count: 0 })) },
+    });
+    await expect(svc.remove(CALLER, 'c1')).rejects.toThrow(
+      'Conversation not found',
+    );
+  });
+});
+
 describe('ConversationsService.listMessages', () => {
   const msg = (n: number) => ({
     id: `m${n}`,

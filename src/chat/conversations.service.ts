@@ -92,6 +92,24 @@ export class ConversationsService {
     });
   }
 
+  /**
+   * Xoá hẳn hội thoại của chính mình. Tin nhắn và feedback đi kèm bị xoá theo (onDelete: Cascade trong schema).
+   * Một câu `deleteMany` lọc theo cả id lẫn membershipId: kiểm tra quyền sở hữu và xoá là MỘT thao tác nguyên tử, nên
+   * không có khoảng hở giữa "kiểm tra" và "xoá" (2 request xoá cùng lúc: một cái 200, cái kia 404, không có 500).
+   * Không phải của mình HOẶC không tồn tại -> 404 giống nhau.
+   */
+  async remove(caller: AccessTokenPayload, id: string) {
+    const { count } = await this.prisma.runInTenantContext(
+      caller.tenantId,
+      (tx) =>
+        tx.conversation.deleteMany({
+          where: { id, membershipId: caller.membershipId },
+        }),
+    );
+    if (count === 0) throw new NotFoundAppException('Conversation not found');
+    return { id, deleted: true };
+  }
+
   /** Trả `limit` tin MỚI NHẤT (hoặc cũ hơn `before`), sắp theo thời gian TĂNG dần để FE hiển thị luôn. */
   async listMessages(
     caller: AccessTokenPayload,

@@ -118,12 +118,22 @@ export class ChatController {
 
     // Chỉ lưu Message của assistant SAU KHI stream xong TRỌN VẸN — nếu lỗi giữa chừng (nhánh catch ở
     // trên), KHÔNG lưu câu trả lời dang dở vào lịch sử hội thoại.
-    const saved = await this.chatService.saveAssistantMessage(
-      user,
-      prepared,
-      fullAnswer,
-    );
-    writeEvent('done', { messageId: saved.id });
+    // Lưu có thể thất bại nếu hội thoại bị XOÁ ngay trong lúc đang stream (FK) hoặc DB lỗi. Header đã gửi nên chỉ báo
+    // được qua SSE; nếu không bắt, lỗi thoát ra ngoài và để kết nối SSE treo/đứt không có event nào.
+    let messageId: string;
+    try {
+      messageId = (
+        await this.chatService.saveAssistantMessage(user, prepared, fullAnswer)
+      ).id;
+    } catch {
+      writeEvent('error', {
+        message:
+          'Failed to save assistant message (conversation may have been deleted)',
+      });
+      res.end();
+      return;
+    }
+    writeEvent('done', { messageId });
     res.end();
   }
 }
