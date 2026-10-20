@@ -11,6 +11,7 @@ import {
 } from '../common/exceptions/app.exception.js';
 
 import type { AccessTokenPayload } from '../auth/auth.service.js';
+import { decodeUploadedFilename } from './decode-filename.util.js';
 import {
   ALLOWED_MIME_TYPES,
   getMaxSizeForMimeType,
@@ -64,7 +65,7 @@ export class DocumentsService {
     const maxSize = getMaxSizeForMimeType(file.mimetype);
     if (file.size > maxSize) {
       throw new UnprocessableAppException(
-        `File size exceeds limit for type ${file.mimetype} (max ${Math.round(maxSize / 1024 / 1024)}MB)`,
+        `File size exceeds limit for ${file.mimetype} (max ${Math.round(maxSize / 1024 / 1024)}MB)`,
         { maxBytes: maxSize },
       );
     }
@@ -77,6 +78,8 @@ export class DocumentsService {
     );
 
     const documentId = randomUUID();
+    // multer giải mã tên file bằng latin1 nên tên tiếng Việt bị hỏng — khôi phục UTF-8 trước khi lưu/đặt key.
+    const filename = decodeUploadedFilename(file.originalname);
 
     // Upload lên storage TRƯỚC khi tạo record DB — ngược lại với thứ tự "tạo DB trước" đã cân nhắc:
     // nếu upload S3 thất bại, không có Document record mồ côi nào phải dọn; nếu tạo DB record
@@ -85,7 +88,7 @@ export class DocumentsService {
     const { key } = await this.storage.uploadObject({
       tenantId: caller.tenantId,
       documentId,
-      originalFilename: file.originalname,
+      originalFilename: filename,
       body: file.buffer,
       contentType: file.mimetype,
     });
@@ -103,7 +106,7 @@ export class DocumentsService {
             id: documentId,
             tenantId: caller.tenantId,
             collectionId,
-            filename: file.originalname,
+            filename,
             fileUrl: key,
             mimeType: file.mimetype,
             status: 'PENDING',

@@ -15,9 +15,10 @@
 // `node scripts/download-tessdata.mjs <thư mục>`) -> không cần mạng ra ngoài; xem ocr-config.util.ts và
 // "Triển khai production" trong WORKER_MODULE_NOTES.md mục 9.
 import { Logger } from '@nestjs/common';
-import { createWorker } from 'tesseract.js';
+import { createWorker, PSM } from 'tesseract.js';
 import { PDFParse } from 'pdf-parse';
 import { OCR_LANGUAGES, resolveOcrWorkerOptions } from './ocr-config.util.js';
+import { mergeOcrPasses } from './ocr-text.util.js';
 
 const logger = new Logger('OCR');
 // Scale 2x giúp tesseract đọc chữ nhỏ/mờ chính xác hơn đáng kể so với scale mặc định 1 (kinh nghiệm
@@ -99,10 +100,54 @@ export async function ocrPdfPages(
   return results;
 }
 
+// Ảnh đảo màu (thang xám, đảo, kéo giãn tương phản) để đọc chữ TRẮNG trên nền tối — xem ocr-text.util.ts. Dùng `sharp`
+// (cần `npm i sharp`); nạp động và nhớ kết quả: nếu sharp lỗi/thiếu binary thì chỉ cảnh báo MỘT lần rồi OCR ảnh gốc như cũ.
+const MAX_OCR_IMAGE_SIDE_PX = 3000;
+let sharpLoader: Promise<typeof import('sharp').default | null> | undefined;
+
+function loadSharp(): Promise<typeof import('sharp').default | null> {
+  sharpLoader ??= import('sharp')
+    .then((m) => m.default)
+    .catch((err) => {
+      logger.warn(
+        `Failed to load sharp, OCRing original images only (white text on dark backgrounds may be missed): ${String(err)}`,
+      );
+      return null;
+    });
+  return sharpLoader;
+}
+
+async function invertedVariant(data: Buffer): Promise<Buffer | null> {
+  const sharp = await loadSharp();
+  if (!sharp) return null;
+  try {
+    return await sharp(data)
+      .resize({
+        width: MAX_OCR_IMAGE_SIDE_PX,
+        height: MAX_OCR_IMAGE_SIDE_PX,
+        fit: 'inside',
+        withoutEnlargement: true,
+      })
+      .grayscale()
+      .negate()
+      .normalise()
+      .png()
+      .toBuffer();
+  } catch (err) {
+    logger.warn(`Failed to create inverted image: ${String(err)}`);
+    return null;
+  }
+}
+
 // OCR các ảnh rời (vd ảnh trong slide PPTX). Trả Map<id, text>; ảnh nào tesseract không đọc được (định dạng lạ, ảnh hỏng)
 // thì KHÔNG có trong Map — không làm hỏng cả tài liệu chỉ vì 1 ảnh. Lỗi cấp worker (thiếu traineddata, không khởi tạo
 // được tesseract) thì throw như ocrPdfPages(): đó là lỗi cấu hình cần báo rõ, không nên im lặng.
 // `beforePage` được gọi trước MỖI ảnh (dùng để dừng sớm khi document đã bị xoá).
+//
+// Mỗi ảnh đọc HAI lượt rồi ghép (mergeOcrPasses):
+//   1. ảnh gốc, PSM AUTO — tốt cho khối chữ/đoạn văn tối trên nền sáng;
+//   2. ảnh đảo màu, PSM SPARSE_TEXT — lấy chữ trắng trên nền tối rải rác (header, banner, nhãn trên sơ đồ).
+// Đánh đổi: ~gấp đôi thời gian OCR mỗi ảnh (đo ~1 giây/lượt với ảnh 3000x2250, tiếng Anh).
 export async function ocrImages(
   images: { id: string; data: Buffer }[],
   options: OcrPdfPagesOptions = {},
@@ -117,11 +162,23 @@ export async function ocrImages(
     for (const image of images) {
       await options.beforePage?.();
       try {
-        const { data } = await worker.recognize(image.data);
-        const text = data.text.trim();
+        await worker.setParameters({ tessedit_pageseg_mode: PSM.AUTO });
+        const passes: string[] = [
+          (await worker.recognize(image.data)).data.text,
+        ];
+
+        const inverted = await invertedVariant(image.data);
+        if (inverted) {
+          await worker.setParameters({
+            tessedit_pageseg_mode: PSM.SPARSE_TEXT,
+          });
+          passes.push((await worker.recognize(inverted)).data.text);
+        }
+
+        const text = mergeOcrPasses(passes);
         if (text) results.set(image.id, text);
       } catch (err) {
-        logger.warn(`Failed to OCR 1 image, skipping: ${String(err)}`);
+        logger.warn(`Skipping unparseable image during OCR: ${String(err)}`);
       }
     }
   } finally {
