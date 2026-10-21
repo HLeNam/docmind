@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, type Mock } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { QuestionCondenserService } from '../src/public-api/question-condenser.service.js';
 
 function llmReturning(chunks: string[]) {
@@ -27,7 +27,7 @@ describe('QuestionCondenserService', () => {
     expect(llm.streamChat).not.toHaveBeenCalled();
   });
 
-  it('sends transcript and new question and returns rewritten question without quotes when history exists', async () => {
+  it('sends transcript and new question, returning rewritten question without quotes when history is present', async () => {
     const llm = llmReturning(['"Unsuper', 'vised learning là gì?"\n']);
     const out = await new QuestionCondenserService(
       llm as any,
@@ -35,7 +35,7 @@ describe('QuestionCondenserService', () => {
     ).condense(HISTORY, 'còn loại thứ hai?', 't1');
 
     expect(out).toBe('Unsupervised learning là gì?');
-    const params = (llm.streamChat as Mock).mock.calls[0]![0] as any;
+    const params = (llm.streamChat as any).mock.calls[0]![0] as any;
     expect(params.systemPrompt).toContain('độc lập');
     const prompt = params.messages[0].content as string;
     expect(prompt).toContain('Người dùng: Có những loại ML nào?');
@@ -43,7 +43,20 @@ describe('QuestionCondenserService', () => {
     expect(prompt).toContain('Câu hỏi mới: còn loại thứ hai?');
   });
 
-  it('falls back to original question when LLM returns empty content', async () => {
+  it('system prompt instructs preserving user keywords without adding assumptions', async () => {
+    const llm = llmReturning(['ok']);
+    await new QuestionCondenserService(llm as any, usage as any).condense(
+      HISTORY,
+      'còn loại hai?',
+      't1',
+    );
+    const { systemPrompt } = (llm.streamChat as any).mock.calls[0]![0] as any;
+    expect(systemPrompt).toContain('GIỮ NGUYÊN mọi từ khoá');
+    expect(systemPrompt).toContain('KHÔNG thêm thông tin');
+    expect(systemPrompt).toContain('khoa chính trị - hành chính');
+  });
+
+  it('falls back to original question when LLM returns empty', async () => {
     const out = await new QuestionCondenserService(
       llmReturning(['  \n']) as any,
       usage as any,
@@ -51,7 +64,7 @@ describe('QuestionCondenserService', () => {
     expect(out).toBe('còn loại hai?');
   });
 
-  it('falls back to original question when LLM response is excessively long', async () => {
+  it('falls back to original question when LLM output is excessively long', async () => {
     const out = await new QuestionCondenserService(
       llmReturning(['x'.repeat(1500)]) as any,
       usage as any,
@@ -59,11 +72,17 @@ describe('QuestionCondenserService', () => {
     expect(out).toBe('còn loại hai?');
   });
 
-  it('does not throw and falls back to original question when LLM fails', async () => {
+  it('falls back to original question without throwing when LLM fails', async () => {
     const llm = {
-      streamChat: vi.fn(async function* () {
-        yield await Promise.reject(new Error('quota'));
-      }),
+      streamChat: vi.fn(() => ({
+        [Symbol.asyncIterator]() {
+          return {
+            async next(): Promise<IteratorResult<string>> {
+              throw new Error('quota');
+            },
+          };
+        },
+      })),
     };
     const out = await new QuestionCondenserService(
       llm as any,
@@ -72,7 +91,7 @@ describe('QuestionCondenserService', () => {
     expect(out).toBe('còn loại hai?');
   });
 
-  it('records GENERATION usage for specified tenant when provider reports tokens with history', async () => {
+  it('records GENERATION UsageLog for tenant when token usage is reported', async () => {
     const record = vi.fn();
     const llm = {
       streamChat: vi.fn(async function* (params: any) {
