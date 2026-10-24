@@ -84,6 +84,31 @@
     "INVITATION_REVOKED": "Lời mời này đã bị hủy bỏ bởi quản trị viên.",
     "INVITATION_EXPIRED": "Lời mời này đã hết hạn."
   },
+  "collections": {
+    "title": "Bộ sưu tập",
+    "subtitle": "Quản lý và tổ chức tài liệu theo chủ đề hoặc dự án để tra cứu thông minh.",
+    "createButton": "Tạo bộ sưu tập",
+    "createTitle": "Tạo bộ sưu tập mới",
+    "createDescription": "Bộ sưu tập giúp gom nhóm các tài liệu liên quan để AI tìm kiếm và trích dẫn chính xác hơn.",
+    "nameLabel": "Tên bộ sưu tập",
+    "namePlaceholder": "Ví dụ: Hợp đồng kinh tế, Báo cáo tài chính...",
+    "descriptionLabel": "Mô tả",
+    "descriptionPlaceholder": "Mô tả ngắn về nội dung hoặc mục đích của bộ sưu tập này (không bắt buộc)...",
+    "deleteTitle": "Xóa bộ sưu tập",
+    "deleteConfirmMessage": "Bạn có chắc chắn muốn xóa bộ sưu tập \"{{name}}\"? Toàn bộ tài liệu bên trong sẽ bị xóa vĩnh viễn và không thể khôi phục.",
+    "deleteButton": "Xóa bộ sưu tập",
+    "emptyTitle": "Chưa có bộ sưu tập nào",
+    "emptyDescription": "Bắt đầu bằng cách tạo bộ sưu tập đầu tiên để tải lên tài liệu và bắt đầu hỏi đáp cùng AI.",
+    "emptyAction": "Tạo bộ sưu tập đầu tiên",
+    "emptyMemberDescription": "Bạn chưa được gán quyền truy cập vào bộ sưu tập nào. Vui lòng liên hệ Quản trị viên để được cấp quyền.",
+    "openCollection": "Mở bộ sưu tập",
+    "actions": "Thao tác",
+    "createdDate": "Tạo ngày {{date}}",
+    "createdAt": "Thời gian tạo",
+    "permissionNotice": "Chỉ Quản trị viên hoặc Chủ sở hữu mới có quyền tạo và xóa bộ sưu tập.",
+    "deleteSuccess": "Đã xóa bộ sưu tập thành công.",
+    "createSuccess": "Đã tạo bộ sưu tập mới thành công."
+  },
   "documents": {
     "upload": "Tải tài liệu lên",
     "status": {

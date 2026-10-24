@@ -62,6 +62,31 @@
     "showcasePillCitation": "Transparent Citations",
     "showcasePillFormats": "PDF, DOCX, XLSX, OCR"
   },
+  "collections": {
+    "title": "Collections",
+    "subtitle": "Organize and group documents by topic or project for intelligent search.",
+    "createButton": "Create collection",
+    "createTitle": "Create new collection",
+    "createDescription": "Collections group related documents together so AI can find and cite accurately.",
+    "nameLabel": "Collection name",
+    "namePlaceholder": "E.g., Legal Contracts, Financial Reports 2024...",
+    "descriptionLabel": "Description",
+    "descriptionPlaceholder": "Short description of the purpose or contents of this collection (optional)...",
+    "deleteTitle": "Delete collection",
+    "deleteConfirmMessage": "Are you sure you want to delete collection \"{{name}}\"? All documents inside will be permanently deleted and cannot be recovered.",
+    "deleteButton": "Delete collection",
+    "emptyTitle": "No collections yet",
+    "emptyDescription": "Start by creating your first collection to upload documents and begin asking AI.",
+    "emptyAction": "Create first collection",
+    "emptyMemberDescription": "You haven't been assigned to any collections yet. Please contact an Administrator for access.",
+    "openCollection": "Open collection",
+    "actions": "Actions",
+    "createdDate": "Created on {{date}}",
+    "createdAt": "Created at",
+    "permissionNotice": "Only Administrators or Owners have permission to create and delete collections.",
+    "deleteSuccess": "Collection deleted successfully.",
+    "createSuccess": "Collection created successfully."
+  },
   "documents": {
     "upload": "Upload document",
     "status": {

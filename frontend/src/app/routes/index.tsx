@@ -1,10 +1,22 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { LogOut, Building2, Shield, User, Loader2 } from "lucide-react";
+import {
+  LogOut,
+  Building2,
+  User,
+  Loader2,
+  Plus,
+  FolderOpen,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DocMindLogo } from "@/components/ui/docmind-logo";
 import { useAuth } from "@/features/auth";
+import {
+  CollectionList,
+  CreateCollectionDialog,
+  type CollectionResponse,
+} from "@/features/collections";
 
 export const Route = createFileRoute("/")({
   component: HomePage,
@@ -14,6 +26,10 @@ function HomePage() {
   const { t } = useTranslation();
   const { user, isAuthenticated, isLoading, logout } = useAuth();
   const navigate = useNavigate();
+
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [selectedCollection, setSelectedCollection] =
+    useState<CollectionResponse | null>(null);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -41,99 +57,142 @@ function HomePage() {
     return null;
   }
 
+  const canManage =
+    user.membership.role === "OWNER" || user.membership.role === "ADMIN";
+
   return (
-    <div className="min-h-screen bg-bg text-fg">
+    <div className="min-h-screen bg-bg text-fg flex flex-col">
       {/* Top Navbar */}
-      <header className="border-b border-border bg-surface sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
+      <header className="border-b border-border bg-surface sticky top-0 z-20 shadow-xs">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
+          <div className="flex items-center gap-3">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface border border-border text-fg shadow-xs">
               <DocMindLogo size={20} className="text-fg" />
             </div>
             <span className="font-heading font-semibold text-lg text-fg tracking-tight">
               {t("common.appName")}
             </span>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-md bg-surface-muted border border-border text-xs text-fg-muted">
+            <div className="hidden md:flex items-center gap-2 px-2 py-0.5 rounded-md bg-surface-muted border border-border text-xs text-fg-muted">
               <Building2 className="size-3.5" aria-hidden="true" />
               <span className="font-medium text-fg">{user.tenant.name}</span>
             </div>
+          </div>
+
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* User identity & role badge */}
+            <div className="hidden sm:flex items-center gap-2 text-xs text-fg-muted pr-2 border-r border-border">
+              <div className="flex size-6 items-center justify-center rounded-full bg-surface-muted text-fg">
+                <User className="size-3.5" aria-hidden="true" />
+              </div>
+              <span className="truncate max-w-36 font-medium text-fg">
+                {user.identity.email}
+              </span>
+              <span className="px-1.5 py-0.5 rounded text-[11px] font-mono uppercase bg-accent-soft text-accent">
+                {user.membership.role}
+              </span>
+            </div>
+
             <Button
               variant="ghost"
               size="sm"
               onClick={() => logout()}
-              className="text-fg-muted hover:text-fg"
+              className="text-fg-muted hover:text-fg text-xs"
             >
-              <LogOut className="size-4 mr-1.5" aria-hidden="true" />
+              <LogOut className="size-3.5 mr-1.5" aria-hidden="true" />
               <span>{t("auth.logout")}</span>
             </Button>
           </div>
         </div>
       </header>
 
-      {/* Main Content Area */}
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-10">
-        <div className="space-y-6">
-          {/* Welcome Card */}
-          <div className="bg-surface border border-border rounded-xl p-6 shadow-xs">
-            <h1 className="text-xl font-semibold text-fg">
-              {t("common.appName")} Workspace
-            </h1>
-            <p className="mt-1 text-sm text-fg-muted">
-              Hệ thống RAG đa tenant cho tài liệu doanh nghiệp.
-            </p>
-
-            <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t border-border">
-              {/* User Identity */}
-              <div className="flex items-start gap-3">
-                <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-surface-muted border border-border text-fg-muted">
-                  <User className="size-4" aria-hidden="true" />
+      {/* Main Container */}
+      <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {selectedCollection ? (
+          /* Collection Detail / Document View (Wired fully in Step 3) */
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-6 border-b border-border">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-xs text-fg-muted">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCollection(null)}
+                    className="hover:text-fg hover:underline cursor-pointer"
+                  >
+                    {t("collections.title")}
+                  </button>
+                  <span>/</span>
+                  <span className="text-fg font-medium">{selectedCollection.name}</span>
                 </div>
-                <div className="min-w-0">
-                  <p className="text-xs text-fg-muted">Tài khoản</p>
-                  <p className="text-sm font-medium text-fg truncate">
-                    {user.identity.email}
+                <h1 className="text-2xl font-semibold text-fg tracking-tight flex items-center gap-2.5">
+                  <FolderOpen className="size-6 text-accent" aria-hidden="true" />
+                  <span>{selectedCollection.name}</span>
+                </h1>
+                {selectedCollection.description && (
+                  <p className="text-sm text-fg-muted max-w-2xl">
+                    {selectedCollection.description}
                   </p>
-                </div>
+                )}
               </div>
 
-              {/* Workspace */}
-              <div className="flex items-start gap-3">
-                <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-surface-muted border border-border text-fg-muted">
-                  <Building2 className="size-4" aria-hidden="true" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs text-fg-muted">Workspace</p>
-                  <p className="text-sm font-medium text-fg truncate">
-                    {user.tenant.name}
-                  </p>
-                  <p className="text-xs text-fg-muted font-mono">
-                    {user.tenant.slug}
-                  </p>
-                </div>
-              </div>
-
-              {/* Role & Plan */}
-              <div className="flex items-start gap-3">
-                <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-surface-muted border border-border text-fg-muted">
-                  <Shield className="size-4" aria-hidden="true" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs text-fg-muted">Vai trò & Gói</p>
-                  <p className="text-sm font-medium text-fg">
-                    {user.membership.role}
-                  </p>
-                  <p className="text-xs text-fg-muted uppercase">
-                    {user.tenant.plan}
-                  </p>
-                </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSelectedCollection(null)}
+                >
+                  <span>Quay lại danh sách</span>
+                </Button>
               </div>
             </div>
+
+            {/* Placeholder for Documents View in Step 3 */}
+            <div className="p-8 rounded-xl border border-dashed border-border text-center bg-surface-muted/20">
+              <p className="text-sm text-fg-muted">
+                Khu vực quản lý tài liệu và tải lên file cho bộ sưu tập này sẽ được kết nối ở Bước 3.
+              </p>
+            </div>
           </div>
-        </div>
+        ) : (
+          /* Collections Overview */
+          <div className="space-y-8">
+            {/* Header section */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-6 border-b border-border">
+              <div className="space-y-1">
+                <h1 className="text-2xl font-semibold text-fg tracking-tight">
+                  {t("collections.title")}
+                </h1>
+                <p className="text-sm text-fg-muted max-w-xl">
+                  {t("collections.subtitle")}
+                </p>
+              </div>
+
+              {canManage && (
+                <Button
+                  variant="default"
+                  onClick={() => setIsCreateOpen(true)}
+                  className="sm:self-center shrink-0"
+                >
+                  <Plus className="size-4 mr-1.5" aria-hidden="true" />
+                  <span>{t("collections.createButton")}</span>
+                </Button>
+              )}
+            </div>
+
+            {/* Collection Grid / List */}
+            <CollectionList
+              canManage={canManage}
+              onCreateClick={() => setIsCreateOpen(true)}
+              onSelectCollection={(col) => setSelectedCollection(col)}
+            />
+          </div>
+        )}
       </main>
+
+      {/* Create Collection Dialog */}
+      <CreateCollectionDialog
+        open={isCreateOpen}
+        onOpenChange={setIsCreateOpen}
+      />
     </div>
   );
 }
