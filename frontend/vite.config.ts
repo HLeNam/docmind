@@ -1,4 +1,5 @@
 import path from "path";
+import { TanStackRouterVite } from "@tanstack/router-plugin/vite";
 import tailwindcss from "@tailwindcss/vite";
 import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import babel from "@rolldown/plugin-babel";
@@ -10,7 +11,16 @@ export default defineConfig(({ mode }) => {
     const target = env.API_PROXY_TARGET || "http://localhost:3000";
 
     return {
-        plugins: [react(), tailwindcss(), babel({ presets: [reactCompilerPreset()] })],
+        plugins: [
+            TanStackRouterVite({
+                routesDirectory: "./src/app/routes",
+                generatedRouteTree: "./src/app/routeTree.gen.ts",
+                autoCodeSplitting: true,
+            }),
+            react(),
+            tailwindcss(),
+            babel({ presets: [reactCompilerPreset()] }),
+        ],
         resolve: {
             alias: {
                 "@": path.resolve(import.meta.dirname, "./src"),

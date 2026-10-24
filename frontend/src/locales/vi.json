@@ -1,0 +1,34 @@
+{
+  "common": {
+    "appName": "DocMind",
+    "loading": "Đang tải...",
+    "error": "Đã xảy ra lỗi",
+    "retry": "Thử lại",
+    "save": "Lưu thay đổi",
+    "cancel": "Huỷ",
+    "delete": "Xoá",
+    "search": "Tìm kiếm..."
+  },
+  "auth": {
+    "login": "Đăng nhập",
+    "register": "Đăng ký tài khoản",
+    "email": "Email",
+    "password": "Mật khẩu",
+    "logout": "Đăng xuất"
+  },
+  "documents": {
+    "upload": "Tải tài liệu lên",
+    "status": {
+      "uploaded": "Đã tải lên",
+      "processing": "Đang xử lý",
+      "ready": "Sẵn sàng",
+      "failed": "Thất bại"
+    }
+  },
+  "chat": {
+    "newConversation": "Cuộc hội thoại mới",
+    "searching": "Đang tìm trong tài liệu...",
+    "stop": "Dừng",
+    "citations": "Nguồn trích dẫn"
+  }
+}

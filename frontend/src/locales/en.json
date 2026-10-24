@@ -1,0 +1,34 @@
+{
+  "common": {
+    "appName": "DocMind",
+    "loading": "Loading...",
+    "error": "An error occurred",
+    "retry": "Retry",
+    "save": "Save changes",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "search": "Search..."
+  },
+  "auth": {
+    "login": "Sign In",
+    "register": "Sign Up",
+    "email": "Email",
+    "password": "Password",
+    "logout": "Log Out"
+  },
+  "documents": {
+    "upload": "Upload document",
+    "status": {
+      "uploaded": "Uploaded",
+      "processing": "Processing",
+      "ready": "Ready",
+      "failed": "Failed"
+    }
+  },
+  "chat": {
+    "newConversation": "New conversation",
+    "searching": "Searching in documents...",
+    "stop": "Stop",
+    "citations": "Citations"
+  }
+}
