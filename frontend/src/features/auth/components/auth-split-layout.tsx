@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { BookOpen } from "lucide-react";
+import { DocMindLogo } from "@/components/ui/docmind-logo";
 import { AuthShowcasePanel } from "./auth-showcase-panel";
 
 interface AuthSplitLayoutProps {
@@ -27,10 +27,10 @@ export function AuthSplitLayout({
         <div className="shrink-0">
           <Link
             to="/"
-            className="inline-flex items-center gap-2 outline-none rounded-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="inline-flex items-center gap-2.5 outline-none rounded-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 group"
           >
-            <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-xs">
-              <BookOpen className="size-4" aria-hidden="true" />
+            <div className="flex size-8 items-center justify-center rounded-lg bg-surface border border-border text-fg shadow-xs group-hover:border-border-strong transition-colors">
+              <DocMindLogo size={20} className="text-fg" />
             </div>
             <span className="font-heading text-lg font-bold tracking-tight text-fg">
               {t("common.appName")}

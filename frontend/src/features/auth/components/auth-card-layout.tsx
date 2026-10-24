@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { BookOpen } from "lucide-react";
+import { DocMindLogo } from "@/components/ui/docmind-logo";
 
 interface AuthCardLayoutProps {
   title: string;
@@ -24,10 +24,10 @@ export function AuthCardLayout({
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center px-4">
         <Link
           to="/"
-          className="inline-flex items-center gap-2.5 outline-none rounded-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          className="inline-flex items-center gap-2.5 outline-none rounded-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 group"
         >
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-xs">
-            <BookOpen className="size-5" aria-hidden="true" />
+          <div className="flex size-10 items-center justify-center rounded-lg bg-surface border border-border text-fg shadow-xs group-hover:border-border-strong transition-colors">
+            <DocMindLogo size={24} className="text-fg" />
           </div>
           <span className="font-heading text-2xl font-semibold tracking-tight text-fg">
             {t("common.appName")}

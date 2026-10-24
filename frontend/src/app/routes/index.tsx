@@ -1,8 +1,9 @@
 import { useEffect } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { BookOpen, LogOut, Building2, Shield, User, Loader2 } from "lucide-react";
+import { LogOut, Building2, Shield, User, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DocMindLogo } from "@/components/ui/docmind-logo";
 import { useAuth } from "@/features/auth";
 
 export const Route = createFileRoute("/")({
@@ -24,8 +25,8 @@ function HomePage() {
     return (
       <div className="min-h-screen bg-bg text-fg flex flex-col items-center justify-center p-6">
         <div className="flex flex-col items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-xs animate-pulse">
-            <BookOpen className="size-6" />
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-surface border border-border text-fg shadow-xs animate-pulse">
+            <DocMindLogo size={28} className="text-fg" />
           </div>
           <div className="flex items-center gap-2 text-sm text-fg-muted">
             <Loader2 className="size-4 animate-spin text-accent" />
@@ -45,9 +46,9 @@ function HomePage() {
       {/* Top Navbar */}
       <header className="border-b border-border bg-surface sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <BookOpen className="size-4" aria-hidden="true" />
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface border border-border text-fg shadow-xs">
+              <DocMindLogo size={20} className="text-fg" />
             </div>
             <span className="font-heading font-semibold text-lg text-fg tracking-tight">
               {t("common.appName")}
