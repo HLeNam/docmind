@@ -1,0 +1,146 @@
+/* Nguồn sự thật cho token — khớp DESIGN.md mục 2. Đổi giá trị ở ĐÂY, không đổi trong component. */
+
+:root {
+    color-scheme: light;
+
+    --bg: oklch(0.985 0.003 90);
+    --surface: oklch(1 0 0);
+    --surface-muted: oklch(0.965 0.004 90);
+    --border: oklch(0.91 0.005 90);
+    --border-strong: oklch(0.62 0.01 260);
+    --fg: oklch(0.22 0.01 260);
+    --fg-muted: oklch(0.48 0.012 260);
+
+    --accent: oklch(0.52 0.13 255);
+    --accent-fg: oklch(0.99 0 0);
+    --accent-soft: oklch(0.95 0.025 255);
+
+    --success: oklch(0.5 0.12 150);
+    --success-soft: oklch(0.95 0.03 150);
+    --success-fg: oklch(0.38 0.1 150);
+    --warning: oklch(0.58 0.13 75);
+    --warning-soft: oklch(0.96 0.04 85);
+    --warning-fg: oklch(0.42 0.1 70);
+    --danger: oklch(0.54 0.19 27);
+    --danger-soft: oklch(0.96 0.025 25);
+    --danger-fg: oklch(0.44 0.17 27);
+
+    --ring: var(--accent);
+
+    --shadow-sm: 0 1px 2px oklch(0.22 0.01 260 / 0.06);
+    --shadow-md: 0 4px 12px oklch(0.22 0.01 260 / 0.1);
+    --shadow-lg: 0 12px 32px oklch(0.22 0.01 260 / 0.16);
+
+    --dur-fast: 120ms;
+    --dur-base: 200ms;
+    --dur-slow: 320ms;
+    --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* Dark: định nghĩa lại cùng tên token. Theo hệ thống, trừ khi người dùng ép bằng data-theme. */
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        color-scheme: dark;
+        --bg: oklch(0.17 0.01 260);
+        --surface: oklch(0.21 0.012 260);
+        --surface-muted: oklch(0.245 0.012 260);
+        --border: oklch(0.31 0.012 260);
+        --border-strong: oklch(0.55 0.012 260);
+        --fg: oklch(0.96 0.005 90);
+        --fg-muted: oklch(0.72 0.01 260);
+        --accent: oklch(0.72 0.12 255);
+        --accent-fg: oklch(0.17 0.01 260);
+        --accent-soft: oklch(0.27 0.04 255);
+        --success: oklch(0.74 0.13 150);
+        --success-soft: oklch(0.27 0.045 150);
+        --success-fg: oklch(0.86 0.1 150);
+        --warning: oklch(0.8 0.13 80);
+        --warning-soft: oklch(0.29 0.05 80);
+        --warning-fg: oklch(0.88 0.1 85);
+        --danger: oklch(0.7 0.17 27);
+        --danger-soft: oklch(0.28 0.06 27);
+        --danger-fg: oklch(0.84 0.1 25);
+        --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.4);
+        --shadow-md: 0 4px 12px oklch(0 0 0 / 0.45);
+        --shadow-lg: 0 12px 32px oklch(0 0 0 / 0.55);
+    }
+}
+
+:root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: oklch(0.17 0.01 260);
+    --surface: oklch(0.21 0.012 260);
+    --surface-muted: oklch(0.245 0.012 260);
+    --border: oklch(0.31 0.012 260);
+    --border-strong: oklch(0.55 0.012 260);
+    --fg: oklch(0.96 0.005 90);
+    --fg-muted: oklch(0.72 0.01 260);
+    --accent: oklch(0.72 0.12 255);
+    --accent-fg: oklch(0.17 0.01 260);
+    --accent-soft: oklch(0.27 0.04 255);
+    --success: oklch(0.74 0.13 150);
+    --success-soft: oklch(0.27 0.045 150);
+    --success-fg: oklch(0.86 0.1 150);
+    --warning: oklch(0.8 0.13 80);
+    --warning-soft: oklch(0.29 0.05 80);
+    --warning-fg: oklch(0.88 0.1 85);
+    --danger: oklch(0.7 0.17 27);
+    --danger-soft: oklch(0.28 0.06 27);
+    --danger-fg: oklch(0.84 0.1 25);
+    --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.4);
+    --shadow-md: 0 4px 12px oklch(0 0 0 / 0.45);
+    --shadow-lg: 0 12px 32px oklch(0 0 0 / 0.55);
+}
+
+/* Cầu nối sang Tailwind v4: tạo utility bg-bg, text-fg, border-border, bg-accent, rounded-md... */
+@theme inline {
+    --color-bg: var(--bg);
+    --color-surface: var(--surface);
+    --color-surface-muted: var(--surface-muted);
+    --color-border: var(--border);
+    --color-border-strong: var(--border-strong);
+    --color-fg: var(--fg);
+    --color-fg-muted: var(--fg-muted);
+    --color-accent: var(--accent);
+    --color-accent-fg: var(--accent-fg);
+    --color-accent-soft: var(--accent-soft);
+    --color-success: var(--success);
+    --color-success-soft: var(--success-soft);
+    --color-success-fg: var(--success-fg);
+    --color-warning: var(--warning);
+    --color-warning-soft: var(--warning-soft);
+    --color-warning-fg: var(--warning-fg);
+    --color-danger: var(--danger);
+    --color-danger-soft: var(--danger-soft);
+    --color-danger-fg: var(--danger-fg);
+    --color-ring: var(--ring);
+
+    --shadow-sm: var(--shadow-sm);
+    --shadow-md: var(--shadow-md);
+    --shadow-lg: var(--shadow-lg);
+}
+
+/* Giá trị không đổi theo theme. Thay hẳn thang mặc định của Tailwind cho các nhóm này. */
+@theme {
+    --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+    --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
+
+    --radius-sm: 6px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+
+    --text-xs: 0.75rem;
+    --text-xs--line-height: 1.4;
+    --text-sm: 0.875rem;
+    --text-sm--line-height: 1.35;
+    --text-base: 1rem;
+    --text-base--line-height: 1.55;
+    --text-lg: 1.125rem;
+    --text-lg--line-height: 1.5;
+    --text-xl: 1.25rem;
+    --text-xl--line-height: 1.4;
+    --text-2xl: 1.5rem;
+    --text-2xl--line-height: 1.3;
+    --text-3xl: 1.875rem;
+    --text-3xl--line-height: 1.2;
+}

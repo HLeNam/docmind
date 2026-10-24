@@ -11,7 +11,7 @@ Backend: NestJS nằm ở thư mục `backend/`. Frontend nằm ở thư mục `
 
 - Vite + React + TypeScript (strict), SPA.
 - Routing/data: TanStack Router + TanStack Query. Zustand **chỉ** cho UI state cục bộ (sidebar, panel); không lưu dữ liệu server trong Zustand.
-- Style: Tailwind v4 + shadcn/ui (Radix). Token ở `src/styles/tokens.css`.
+- Style: Tailwind v4 + shadcn/ui (Base UI / base-vega, gói cn chính chủ). Token ở `src/styles/tokens.css`.
 - Form: react-hook-form + Zod (`@hookform/resolvers`).
 - API client: **sinh tự động** từ OpenAPI của backend (không viết tay kiểu response).
 - Chat: `fetch` + đọc stream SSE (không dùng `EventSource` vì cần header Authorization). Tiến độ upload: `socket.io-client`.
