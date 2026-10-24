@@ -22,10 +22,19 @@ export interface DocumentStatusResponse {
   failReason: string | null;
 }
 
+export type DocumentProcessingPhase =
+  | "extracting"
+  | "chunking"
+  | "ocr"
+  | "embedding"
+  | "indexing"
+  | "completed"
+  | "failed";
+
 export interface DocumentProgressEvent {
   documentId: string;
-  status: DocumentStatus;
-  progress?: number;
+  percent: number;
+  phase: DocumentProcessingPhase;
   message?: string;
 }
 

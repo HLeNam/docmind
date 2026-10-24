@@ -10,6 +10,7 @@ import {
   getAccessToken,
   clearAccessToken,
 } from "@/lib/auth-token";
+import { disconnectRealtimeSocket } from "@/lib/socket";
 import { refreshAccessTokenSingleFlight } from "@/lib/api-client";
 import type { LoginFormData, RegisterFormData } from "../schemas/auth-schemas";
 import { AuthContext, type AuthContextValue } from "./auth-context";
@@ -79,6 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       clearAccessToken();
       queryClient.clear();
+      disconnectRealtimeSocket();
     }
   }, [queryClient]);
 

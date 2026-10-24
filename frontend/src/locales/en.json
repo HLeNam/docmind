@@ -88,7 +88,43 @@
     "createSuccess": "Collection created successfully."
   },
   "documents": {
+    "title": "Documents",
+    "subtitle": "Manage and inspect documents uploaded to this collection.",
     "upload": "Upload document",
+    "uploadTitle": "Upload documents to collection",
+    "uploadDescription": "Supports PDF, DOCX, PPTX, XLSX, CSV, TXT, MD (max 50MB; tabular files max 10MB).",
+    "dropzoneText": "Drag and drop documents here or",
+    "dropzoneBrowse": "browse files from your computer",
+    "dropzoneHint": "Multiple files supported",
+    "fileTooLarge": "File \"{{name}}\" exceeds the allowed size (max {{maxSize}}MB).",
+    "fileInvalidType": "File \"{{name}}\" format is not supported.",
+    "uploadingCount": "Uploading {{count}} documents...",
+    "uploadSuccess": "Uploaded documents successfully.",
+    "reindex": "Re-index",
+    "reindexing": "Requesting re-index...",
+    "reindexSuccess": "Document queued for re-indexing.",
+    "deleteTitle": "Delete document",
+    "deleteConfirm": "Are you sure you want to delete document \"{{name}}\"? Document and its vector citations will be permanently removed.",
+    "deleteButton": "Delete document",
+    "emptyTitle": "No documents in this collection yet",
+    "emptyDescription": "Upload your first document to start analyzing and querying with AI.",
+    "emptyMemberDescription": "There are no documents in this collection yet.",
+    "phases": {
+      "extracting": "Extracting text",
+      "chunking": "Splitting into chunks",
+      "ocr": "Running OCR recognition",
+      "embedding": "Generating vector embeddings",
+      "indexing": "Saving to index",
+      "completed": "Ready",
+      "failed": "Processing failed"
+    },
+    "tableHeader": {
+      "filename": "Document Name",
+      "size": "Size",
+      "status": "Status",
+      "createdAt": "Uploaded At",
+      "actions": "Actions"
+    },
     "status": {
       "pending": "Pending",
       "uploaded": "Uploaded",

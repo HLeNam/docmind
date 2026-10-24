@@ -110,7 +110,43 @@
     "createSuccess": "Đã tạo bộ sưu tập mới thành công."
   },
   "documents": {
+    "title": "Tài liệu",
+    "subtitle": "Quản lý và tra cứu các tài liệu đã tải lên trong bộ sưu tập này.",
     "upload": "Tải tài liệu lên",
+    "uploadTitle": "Tải tài liệu vào bộ sưu tập",
+    "uploadDescription": "Hỗ trợ PDF, DOCX, PPTX, XLSX, CSV, TXT, MD (tối đa 50MB; bảng tính tối đa 10MB).",
+    "dropzoneText": "Kéo thả tài liệu vào đây hoặc",
+    "dropzoneBrowse": "chọn file từ máy tính",
+    "dropzoneHint": "Hỗ trợ kéo thả nhiều file cùng lúc",
+    "fileTooLarge": "File \"{{name}}\" vượt quá kích thước cho phép (tối đa {{maxSize}}MB).",
+    "fileInvalidType": "File \"{{name}}\" không đúng định dạng được hỗ trợ.",
+    "uploadingCount": "Đang tải lên {{count}} tài liệu...",
+    "uploadSuccess": "Đã tải lên tài liệu thành công.",
+    "reindex": "Tái chỉ mục",
+    "reindexing": "Đang yêu cầu tái chỉ mục...",
+    "reindexSuccess": "Đã đưa tài liệu vào hàng đợi xử lý lại.",
+    "deleteTitle": "Xóa tài liệu",
+    "deleteConfirm": "Bạn có chắc chắn muốn xóa tài liệu \"{{name}}\"? Tài liệu và toàn bộ vector trích dẫn sẽ bị xóa vĩnh viễn.",
+    "deleteButton": "Xóa tài liệu",
+    "emptyTitle": "Chưa có tài liệu nào trong bộ sưu tập",
+    "emptyDescription": "Tải lên tài liệu đầu tiên để bắt đầu phân tích và hỏi đáp AI.",
+    "emptyMemberDescription": "Hiện chưa có tài liệu nào trong bộ sưu tập này.",
+    "phases": {
+      "extracting": "Đang trích xuất văn bản",
+      "chunking": "Đang phân đoạn nội dung",
+      "ocr": "Đang nhận dạng chữ (OCR)",
+      "embedding": "Đang tạo vector embedding",
+      "indexing": "Đang lưu trữ chỉ mục",
+      "completed": "Hoàn tất chỉ mục",
+      "failed": "Xử lý thất bại"
+    },
+    "tableHeader": {
+      "filename": "Tên tài liệu",
+      "size": "Kích thước",
+      "status": "Trạng thái",
+      "createdAt": "Ngày tải lên",
+      "actions": "Thao tác"
+    },
     "status": {
       "pending": "Chờ xử lý",
       "uploaded": "Đã tải lên",

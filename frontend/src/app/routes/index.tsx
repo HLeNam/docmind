@@ -7,7 +7,6 @@ import {
   User,
   Loader2,
   Plus,
-  FolderOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DocMindLogo } from "@/components/ui/docmind-logo";
@@ -17,6 +16,7 @@ import {
   CreateCollectionDialog,
   type CollectionResponse,
 } from "@/features/collections";
+import { CollectionDocumentsView } from "@/features/documents";
 
 export const Route = createFileRoute("/")({
   component: HomePage,
@@ -108,50 +108,11 @@ function HomePage() {
       {/* Main Container */}
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {selectedCollection ? (
-          /* Collection Detail / Document View (Wired fully in Step 3) */
-          <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-6 border-b border-border">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 text-xs text-fg-muted">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedCollection(null)}
-                    className="hover:text-fg hover:underline cursor-pointer"
-                  >
-                    {t("collections.title")}
-                  </button>
-                  <span>/</span>
-                  <span className="text-fg font-medium">{selectedCollection.name}</span>
-                </div>
-                <h1 className="text-2xl font-semibold text-fg tracking-tight flex items-center gap-2.5">
-                  <FolderOpen className="size-6 text-accent" aria-hidden="true" />
-                  <span>{selectedCollection.name}</span>
-                </h1>
-                {selectedCollection.description && (
-                  <p className="text-sm text-fg-muted max-w-2xl">
-                    {selectedCollection.description}
-                  </p>
-                )}
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setSelectedCollection(null)}
-                >
-                  <span>Quay lại danh sách</span>
-                </Button>
-              </div>
-            </div>
-
-            {/* Placeholder for Documents View in Step 3 */}
-            <div className="p-8 rounded-xl border border-dashed border-border text-center bg-surface-muted/20">
-              <p className="text-sm text-fg-muted">
-                Khu vực quản lý tài liệu và tải lên file cho bộ sưu tập này sẽ được kết nối ở Bước 3.
-              </p>
-            </div>
-          </div>
+          <CollectionDocumentsView
+            collection={selectedCollection}
+            canManage={canManage}
+            onBack={() => setSelectedCollection(null)}
+          />
         ) : (
           /* Collections Overview */
           <div className="space-y-8">
