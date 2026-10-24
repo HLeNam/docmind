@@ -1,114 +1,206 @@
 <p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
+  <img src="assets/branding/docmind-logo.svg" width="128" height="128" alt="DocMind Logo" />
 </p>
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+<h1 align="center">DocMind</h1>
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
+<p align="center">
+  <strong>Enterprise Multi-Tenant RAG Knowledge Base with Verifiable Citations</strong><br>
+  Nền tảng hỏi đáp thông minh trên tài liệu doanh nghiệp, loại bỏ ảo giác AI với trích dẫn nguồn minh bạch.
 </p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
 
-## Description
+<p align="center">
+  <a href="#-tính-năng-cốt-lõi"><img src="https://img.shields.io/badge/Architecture-Multi--Tenant%20RLS-blue.svg?style=flat-square" alt="Multi-Tenant RLS" /></a>
+  <a href="#-công-nghệ"><img src="https://img.shields.io/badge/Frontend-React%2019%20%7C%20Vite%20%7C%20Tailwind%20v4-61DAFB.svg?style=flat-square" alt="React 19 Vite" /></a>
+  <a href="#-công-nghệ"><img src="https://img.shields.io/badge/Backend-NestJS%2011%20%7C%20Prisma%20ORM-E0234E.svg?style=flat-square" alt="NestJS 11 Prisma" /></a>
+  <a href="#-công-nghệ"><img src="https://img.shields.io/badge/Database-PostgreSQL%20%2B%20pgvector-336791.svg?style=flat-square" alt="PostgreSQL pgvector" /></a>
+  <a href="#-công-nghệ"><img src="https://img.shields.io/badge/Security-Memory%20JWT%20%2B%20Web%20Locks-success.svg?style=flat-square" alt="Security" /></a>
+  <a href="#-giấy-phép"><img src="https://img.shields.io/badge/License-MIT-green.svg?style=flat-square" alt="License MIT" /></a>
+</p>
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+---
 
-## Project setup
+## 📖 Giới thiệu (Overview)
+
+**DocMind** là giải pháp SaaS Retrieval-Augmented Generation (RAG) toàn diện dành cho doanh nghiệp. Hệ thống cho phép các tổ chức tải lên khối lượng lớn tài liệu nội bộ (PDF, DOCX, PPTX, bảng tính XLSX/CSV, tài liệu scan ảnh OCR) vào các **Bộ sưu tập** riêng biệt, tra cứu và hỏi đáp AI với tốc độ cao, và đặc biệt **mỗi câu trả lời đều có trích dẫn nguồn có thể kiểm chứng (Verifiable Citations)**.
+
+### Triết lý sản phẩm
+1. **Yên tĩnh & Dễ đọc (Quiet & Editorial)**: Chữ và nội dung tài liệu là nhân vật chính. Giao diện tối giản, thanh lịch, dựa trên viền và màu ngữ nghĩa OKLCH thay vì bóng đổ hào nhoáng.
+2. **Đáng tin cậy tuyệt đối**: Không bao giờ đưa ra câu trả lời không có bằng chứng. Mọi số liệu hay lập luận đều gắn kèm số trang, đoạn trích và độ khớp tương quan.
+3. **Cô lập dữ liệu nghiêm ngặt**: Đảm bảo Tenant A tuyệt đối không thể truy cập tài liệu hay hội thoại của Tenant B bằng Row-Level Security (RLS) ở tầng cơ sở dữ liệu.
+
+---
+
+## ✨ Tính năng cốt lõi (Core Features)
+
+### 1. Quản lý Bộ sưu tập & Kho tài liệu (Collections & Documents)
+- **Tổ chức theo chủ đề**: Gom nhóm tài liệu theo phòng ban, dự án hoặc danh mục nghiệp vụ.
+- **Đa định dạng tài liệu**: Hỗ trợ `.pdf`, `.docx`, `.pptx`, `.xlsx`, `.csv`, `.txt`, `.md`.
+- **OCR thông minh**: Tự động nhận dạng ký tự đối với tài liệu scan ảnh chất lượng kém.
+- **Tiến độ xử lý thời gian thực**: Lắng nghe WebSocket (`/realtime`) cập nhật từng bước: *Trích xuất văn bản* $\rightarrow$ *Phân đoạn (Chunking)* $\rightarrow$ *OCR* $\rightarrow$ *Vector Embedding* $\rightarrow$ *Lưu trữ chỉ mục (Indexing)*.
+- **Tái chỉ mục (Re-index) & Xoá an toàn**: Dễ dàng chạy lại pipeline nhúng vector hoặc xoá hoàn toàn dữ liệu trích dẫn khi cần.
+
+### 2. Trợ lý AI & Trích dẫn minh bạch (Conversational RAG & Citations)
+- **Truy xuất lai (Hybrid Search)**: Kết hợp tìm kiếm ngữ nghĩa Dense Vector (pgvector) với Full-text Search (BM25) để tối ưu độ chính xác.
+- **Stream câu trả lời SSE**: Tốc độ phản hồi tức thì với hiệu ứng gõ chữ và nút Dừng/Thử lại linh hoạt.
+- **Chip trích dẫn tương tác `[1]`, `[2]`**:
+  - Di chuột: Xem nhanh tên tài liệu, trang số và đoạn tóm tắt.
+  - Bấm chọn: Mở Panel nguồn bên phải, tự động cuộn đến và tô đậm văn bản gốc trong tài liệu kèm chỉ số tin cậy.
+
+### 3. Bảo mật & Cô lập Doanh nghiệp (Enterprise Security)
+- **Xác thực an toàn (Zero XSS)**: Access Token (JWT) được lưu thuần túy **trong bộ nhớ** (Module memory), tuyệt đối không lưu ở `localStorage` hay `sessionStorage`.
+- **Single-Flight Refresh & Web Locks**: Refresh token lưu tại cookie HttpOnly; cơ chế Web Locks API ngăn chặn token reuse race-condition khi người dùng mở nhiều tab cùng lúc.
+- **Phân quyền vai trò (RBAC)**: Phân cấp rõ rệt giữa Chủ sở hữu (`OWNER`), Quản trị viên (`ADMIN`), và Thành viên (`MEMBER`).
+
+---
+
+## 🛠️ Công nghệ sử dụng (Tech Stack)
+
+### Frontend (`frontend/`)
+| Công nghệ | Vai trò & Mục đích |
+| :--- | :--- |
+| **Vite + React 19** | Nền tảng SPA hiệu năng cao, Strict Mode, React Compiler ready |
+| **TypeScript (Strict)** | Đảm bảo tính toàn vẹn kiểu dữ liệu, không sử dụng `any` |
+| **TanStack Router** | File-based routing tự động sinh cây route và tách nhỏ bundle |
+| **TanStack Query v5** | Quản lý Server State, cơ chế cache phân cấp và đồng bộ dữ liệu |
+| **Tailwind CSS v4** | Hệ thống style thế hệ mới với CSS Tokens OKLCH (Light & Dark mode) |
+| **Base UI / shadcn** | Bộ thành phần giao diện không style, đạt chuẩn trợ năng WCAG 2.2 AA |
+| **Socket.IO Client** | Kết nối WebSocket hai chiều nhận tiến độ xử lý file realtime |
+| **React Markdown + GFM** | Kết xuất câu trả lời AI an toàn (không dùng `dangerouslySetInnerHTML`) |
+| **i18next** | Quốc tế hóa toàn diện (mặc định Tiếng Việt `vi`, sẵn sàng Tiếng Anh `en`) |
+
+### Backend (`backend/`)
+| Công nghệ | Vai trò & Mục đích |
+| :--- | :--- |
+| **NestJS 11** | Framework kiến trúc module hóa vững chắc trên nền Node.js / Express |
+| **Prisma ORM** | Quản lý schema, migrations và truy vấn CSDL an toàn |
+| **PostgreSQL + pgvector** | Lưu trữ dữ liệu quan hệ, cô lập RLS và tìm kiếm vector tương đồng |
+| **Redis + BullMQ** | Hàng đợi tác vụ xử lý tài liệu nền (background job processing) |
+| **RustFS / MinIO** | Kho lưu trữ đối tượng tương thích chuẩn Amazon S3 |
+| **LangChain / OpenAI / Gemini** | Pipeline chia đoạn văn bản, trích xuất và tạo vector nhúng |
+| **Socket.IO Gateway** | Phát sóng tiến độ xử lý tài liệu theo từng tenant room |
+
+---
+
+## 📁 Cấu trúc thư mục Monorepo
 
 ```bash
-$ npm install
+docmind/
+├── assets/                       # Tài nguyên thương hiệu (Logo SVG, PNG icons)
+│   └── branding/
+├── backend/                      # Mã nguồn NestJS Backend
+│   ├── prisma/                   # Prisma Schema, Migrations & RLS policies
+│   ├── src/
+│   │   ├── auth/                 # Xác thực JWT, Refresh token, Google OAuth
+│   │   ├── collections/          # Quản lý bộ sưu tập tài liệu
+│   │   ├── documents/            # Xử lý upload, parser, chunker, OCR, embeddings
+│   │   ├── chat/                 # RAG engine, hybrid search, SSE stream
+│   │   ├── realtime/             # WebSocket progress gateway
+│   │   └── common/               # Interceptors, guards, filters, RLS decorators
+│   └── test/
+├── frontend/                     # Mã nguồn Vite + React Frontend
+│   ├── src/
+│   │   ├── app/                  # Router TanStack, providers, layouts
+│   │   ├── features/             # Feature modules (auth, collections, documents, chat)
+│   │   ├── components/           # UI components (Base UI) & Domain components
+│   │   ├── lib/                  # API client, token manager, socket, i18n
+│   │   ├── locales/              # Bản dịch ngôn ngữ (vi.json, en.json)
+│   │   └── styles/               # tokens.css (OKLCH palette), globals.css
+│   └── public/
+├── docs/                         # Tài liệu kiến trúc và kế hoạch phát triển
+│   └── planning/                 # Báo cáo hoàn thành từng giai đoạn (F0, F1...)
+├── docker-compose.dev.yml        # Dịch vụ phụ trợ môi trường dev (Postgres, Redis, RustFS)
+├── DESIGN.md                     # Tiêu chuẩn thiết kế giao diện & quy tắc chống AI-slop
+└── AGENTS.md                     # Nguyên tắc làm việc và quy chuẩn kỹ thuật cho AI
 ```
 
-## Compile and run the project
+---
 
+## 🚀 Hướng dẫn cài đặt & Khởi chạy (Quickstart)
+
+### 1. Yêu cầu hệ thống
+- **Node.js**: Phiên bản 20.x hoặc 22.x LTS
+- **Package Manager**: `npm`
+- **Docker & Docker Compose**: Để chạy Postgres, Redis và S3 Storage
+
+### 2. Khởi động hạ tầng dịch vụ (Docker)
+Từ thư mục gốc dự án:
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+docker compose -f docker-compose.dev.yml up -d
 ```
+*Lệnh này sẽ khởi động PostgreSQL (port 5433 nội bộ/5432 container), Redis (port 6379), và RustFS (port 9000).*
 
-## Run tests
-
+### 3. Thiết lập Backend
 ```bash
-# unit tests
-$ npm run test
+cd backend
 
-# e2e tests
-$ npm run test:e2e
+# Cài đặt thư viện
+npm install
 
-# test coverage
-$ npm run test:cov
+# Thiết lập biến môi trường (sao chép từ .env.example nếu có)
+# Chạy migration database và kích hoạt RLS
+npm run prisma:migrate
+
+# Khởi động máy chủ backend ở chế độ watch
+npm run start:dev
 ```
+- Backend sẽ lắng nghe tại: `http://localhost:3000`
+- Tài liệu API tương tác Swagger: `http://localhost:3000/api/docs`
 
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
+### 4. Thiết lập Frontend
+Mở một cửa sổ terminal mới:
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+cd frontend
+
+# Cài đặt thư viện
+npm install
+
+# Khởi động Vite dev server
+npm run dev
 ```
+- Frontend sẽ chạy tại: `http://localhost:5173`
+- Mọi yêu cầu `/api` và `/socket.io` được Vite tự động proxy ngầm sang backend `localhost:3000`.
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+### 5. Tài khoản thử nghiệm
+Bạn có thể đăng ký tài khoản mới trực tiếp tại `http://localhost:5173/register` hoặc sử dụng tài khoản mẫu:
+- **Email**: `demo@docmind.vn`
+- **Mật khẩu**: `Password123`
+- **Vai trò**: `OWNER` (Chủ sở hữu)
 
-## Observability
+---
 
-In production applications, observability is essential for understanding how your system behaves, detecting issues early, and maintaining reliable performance.
+## 🗺️ Lộ trình phát triển (Roadmap)
 
-[NestJS Observe](https://observe.nestjs.com) automatically instruments your NestJS application, giving you deep visibility into your system with minimal setup:
+- [x] **Phase F0: Nền móng & Xác thực (Foundations & Auth)**
+  - Tái cấu trúc monorepo, thiết lập Design Tokens OKLCH.
+  - Động cơ xác thực an toàn: Memory JWT, Single-flight refresh token, Web Locks, Google OAuth.
+  - Trang đăng nhập, đăng ký và chọn Workspace đa tenant.
+- [x] **Phase F1: Bộ sưu tập & Quản lý Tài liệu (Collections & Documents)**
+  - Quản lý danh sách, tạo mới, xoá cascade bộ sưu tập.
+  - Vùng kéo thả tải lên nhiều file, kiểm soát định dạng & kích thước.
+  - Socket.IO Realtime hiển thị tiến độ phân tích văn bản từng bước.
+  - Bảng tài liệu, badge trạng thái kèm lý do lỗi, nút tái chỉ mục.
+- [ ] **Phase F2: Trợ lý Chat & Trích dẫn minh bạch (AI Chat & Citations)**
+  - Bố cục 3 cột chuyên nghiệp: Lịch sử $\leftrightarrow$ Chat Stream $\leftrightarrow$ Panel đối soát nguồn.
+  - Stream câu trả lời SSE, chip trích dẫn tương tác highlight vị trí tài liệu gốc.
+  - Lịch sử hội thoại nhóm theo ngày, tìm kiếm và quản lý phiên chat.
+- [ ] **Phase F3: Cài đặt & Tích hợp Doanh nghiệp (Settings & Integrations)**
+  - Quản lý thành viên nhóm, phân quyền RBAC và gửi lời mời qua email.
+  - Cổng nhà phát triển: Quản lý API Key có scoped permission.
+  - Tích hợp Slack Bot tự động trả lời câu hỏi trực tiếp trên các kênh nội bộ.
+  - Bảng đồng hồ theo dõi hạn mức sử dụng (Usage Meter).
+- [ ] **Phase F4: Hoàn thiện & Tối ưu hóa (Polish & Launch)**
+  - Rà soát toàn diện trợ năng WCAG 2.2 AA (axe automated tests).
+  - Tối ưu hiệu năng tải trang, kiểm thử E2E với Playwright.
 
-- **Distributed tracing:** Follow requests across services and understand how they flow through your system.
-- **Waterfall analysis:** Visualize request execution and identify slow operations, bottlenecks, and unexpected delays.
-- **Performance analysis:** Analyze application performance in real time and quickly pinpoint areas that need optimization.
-- **Metrics:** Track key application and infrastructure metrics to understand system health and performance trends.
-- **Logging:** Centralize and correlate logs with traces and other telemetry to make debugging easier.
-- **Error tracking:** Detect errors quickly and investigate their root causes with the surrounding context.
-- **SLA monitoring:** Track service-level objectives and identify when your application is approaching or exceeding defined thresholds.
-- **Alarms and alerts:** Set up alerts for critical errors, performance degradation, SLA violations, and other anomalies so your team can react quickly.
+---
 
-## Resources
+## 📜 Giấy phép (License)
 
-Check out a few resources that may come in handy when working with NestJS:
+Dự án được phân phối dưới giấy phép **MIT License**. Xem chi tiết tại tập tin `LICENSE`.
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Auto-instrument your application with [NestJS Observer](https://observer.nestjs.com). Distributed tracing, metrics, and logging made easy. Error tracking and performance monitoring for your NestJS applications.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+---
 
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+<p align="center">
+  Xây dựng với niềm đam mê dành cho tri thức doanh nghiệp chính xác và minh bạch.
+</p>
