@@ -16,7 +16,7 @@ import { PasswordStrengthIndicator } from "./password-strength-indicator";
 
 export function RegisterForm() {
   const { t } = useTranslation();
-  const { register: registerUser } = useAuth();
+  const { register: registerUser, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
 
   const [showPassword, setShowPassword] = useState(false);
@@ -53,15 +53,22 @@ export function RegisterForm() {
     }
   }
 
-  function handleGoogleLogin() {
-    alert("Tính năng Google OAuth đang được liên kết với Google Client ID trong backend.");
+  async function handleGoogleSuccess(credential: string) {
+    setApiError(null);
+    try {
+      await loginWithGoogle(credential);
+      await navigate({ to: "/" });
+    } catch (err) {
+      setApiError(err);
+    }
   }
 
   return (
     <div className="space-y-3.5">
       {/* Google OAuth Option */}
       <SocialAuthButtons
-        onGoogleClick={handleGoogleLogin}
+        onGoogleSuccess={handleGoogleSuccess}
+        onError={(err) => setApiError(err)}
         disabled={isSubmitting}
       />
 

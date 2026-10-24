@@ -21,7 +21,7 @@ interface LoginFormProps {
 
 export function LoginForm({ redirectTo = "/" }: LoginFormProps) {
   const { t } = useTranslation();
-  const { login } = useAuth();
+  const { login, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
 
   const [showPassword, setShowPassword] = useState(false);
@@ -78,8 +78,18 @@ export function LoginForm({ redirectTo = "/" }: LoginFormProps) {
     }
   }
 
-  function handleGoogleLogin() {
-    alert("Tính năng Google OAuth đang được liên kết với Google Client ID trong backend.");
+  async function handleGoogleSuccess(credential: string) {
+    setApiError(null);
+    try {
+      const result = await loginWithGoogle(credential);
+      if ("requiresTenantSelection" in result && result.requiresTenantSelection) {
+        setTenantsToSelect(result.tenants);
+        return;
+      }
+      await navigate({ to: redirectTo });
+    } catch (err) {
+      setApiError(err);
+    }
   }
 
   if (tenantsToSelect && tenantsToSelect.length > 0) {
@@ -96,7 +106,8 @@ export function LoginForm({ redirectTo = "/" }: LoginFormProps) {
     <div className="space-y-3.5">
       {/* Google OAuth Button */}
       <SocialAuthButtons
-        onGoogleClick={handleGoogleLogin}
+        onGoogleSuccess={handleGoogleSuccess}
+        onError={(err) => setApiError(err)}
         disabled={isSubmitting}
       />
 
