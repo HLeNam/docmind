@@ -1,5 +1,3 @@
-// src/chat/llm/gemini-llm.service.ts
-//
 // Provider chính được chọn dùng — cùng lý do đã chốt cho Embedding module (chưa có ngân sách gọi
 // API trả phí, Gemini có free tier): dùng REST endpoint streamGenerateContent với alt=sse để nhận
 // response dạng Server-Sent Events, parse thủ công từng event (fetch() chuẩn không có helper SSE
@@ -19,6 +17,7 @@ import { ConfigService } from '@nestjs/config';
 import type {
   ChatMessage,
   LlmProvider,
+  LlmUsage,
   StreamChatParams,
 } from './llm-provider.interface.js';
 
@@ -26,6 +25,13 @@ interface GeminiStreamChunk {
   candidates?: Array<{
     content?: { parts?: Array<{ text?: string }> };
   }>;
+  // Có ở các chunk cuối (Gemini gửi cộng dồn; lấy giá trị CUỐI CÙNG thấy được).
+  usageMetadata?: {
+    promptTokenCount?: number;
+    candidatesTokenCount?: number;
+    thoughtsTokenCount?: number;
+    totalTokenCount?: number;
+  };
 }
 
 @Injectable()
@@ -70,7 +76,12 @@ export class GeminiLlmService implements LlmProvider {
       throw new Error(`Gemini chat request failed (${res.status}): ${errBody}`);
     }
 
-    yield* parseSseTextDeltas(res.body);
+    yield* parseSseTextDeltas(
+      res.body,
+      params.onUsage
+        ? (u) => params.onUsage!({ ...u, model: this.model })
+        : undefined,
+    );
   }
 }
 
@@ -89,7 +100,9 @@ function toGeminiContent(message: ChatMessage): {
 // Web Streams API mà fetch() trả về ở cả runtime Node 18+ lẫn browser), yield từng đoạn text delta.
 export async function* parseSseTextDeltas(
   stream: ReadableStream<Uint8Array>,
+  onUsage?: (usage: LlmUsage) => void,
 ): AsyncGenerator<string> {
+  let lastUsage: GeminiStreamChunk['usageMetadata'];
   const reader = stream.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
@@ -120,12 +133,26 @@ export async function* parseSseTextDeltas(
           continue;
         }
 
+        if (parsed.usageMetadata) lastUsage = parsed.usageMetadata;
+
         const text =
           parsed.candidates?.[0]?.content?.parts
             ?.map((p) => p.text ?? '')
             .join('') ?? '';
         if (text) yield text;
       }
+    }
+
+    // Stream kết thúc trọn vẹn -> báo số token. output = total - prompt (gồm cả token "suy nghĩ" mà
+    // candidatesTokenCount không tính); thiếu total thì rơi về candidates + thoughts.
+    if (onUsage && lastUsage) {
+      const input = lastUsage.promptTokenCount ?? 0;
+      const output =
+        lastUsage.totalTokenCount !== undefined
+          ? Math.max(0, lastUsage.totalTokenCount - input)
+          : (lastUsage.candidatesTokenCount ?? 0) +
+            (lastUsage.thoughtsTokenCount ?? 0);
+      onUsage({ inputTokens: input, outputTokens: output });
     }
   } finally {
     reader.releaseLock();

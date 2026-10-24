@@ -15,6 +15,7 @@ import { CollectionsService } from '../collections/collections.service.js';
 import { EMBEDDING_PROVIDER_TOKEN } from '../documents/processing/embedding.module.js';
 import type { EmbeddingProvider } from '../documents/processing/embedding.service.js';
 import type { AccessTokenPayload } from '../auth/auth.service.js';
+import { UsageService } from '../usage/usage.service.js';
 import { RetrievalSearchDto } from './dtos/retrieval.dto.js';
 
 const RRF_K = 60;
@@ -55,6 +56,7 @@ export class RetrievalService {
     // GeminiEmbeddingService/JinaEmbeddingService — đổi provider chỉ cần đổi env.
     @Inject(EMBEDDING_PROVIDER_TOKEN)
     private readonly embedding: EmbeddingProvider,
+    private readonly usage: UsageService,
   ) {}
 
   async search(
@@ -72,19 +74,48 @@ export class RetrievalService {
       ? accessibleCollectionIds.filter((id) => id === dto.collectionId)
       : accessibleCollectionIds;
 
-    if (searchCollectionIds.length === 0) {
+    return this.searchInCollections(
+      caller.tenantId,
+      searchCollectionIds,
+      dto.query,
+      dto.topK,
+    );
+  }
+
+  /**
+   * Lõi hybrid search, KHÔNG biết gì về user/membership: caller phải tự quyết định `collectionIds` mà
+   * bên gọi được phép đọc rồi truyền vào. Tách riêng để 2 đường vào dùng chung 1 câu SQL:
+   *  - search(): user đăng nhập bằng JWT, quyền theo role/CollectionAccess (membership).
+   *  - PublicQueryService: API key, quyền theo scope của key (không có membership).
+   * Phạm vi tenant vẫn do RLS đảm bảo (chạy trong runInTenantContext(tenantId)).
+   */
+  async searchInCollections(
+    tenantId: string,
+    collectionIds: string[],
+    query: string,
+    topK: number,
+  ): Promise<RetrievedChunk[]> {
+    if (collectionIds.length === 0) {
       return [];
     }
 
     // mode='query': đây là chỗ embed CÂU HỎI user lúc search, khác ngữ cảnh embed CHUNK tài liệu lúc
     // index (DocumentProcessingProcessor dùng mode='document') — ĐÃ SỬA, trước đây dùng chung 1 task
     // type cho cả 2 (xem EmbeddingMode trong embedding.service.ts).
-    const [queryVector] = await this.embedding.embedBatch([dto.query], 'query');
+    let reportedTokens: number | undefined;
+    const [queryVector] = await this.embedding.embedBatch(
+      [query],
+      'query',
+      (t) => {
+        reportedTokens = t;
+      },
+    );
+    this.usage.recordEmbedding({ tenantId, texts: [query], reportedTokens });
     const vectorLiteral = `[${queryVector.join(',')}]`;
-    const candidateLimit = dto.topK * CANDIDATE_MULTIPLIER;
+    const candidateLimit = topK * CANDIDATE_MULTIPLIER;
 
     const rows = await this.prisma.runInTenantContext(
-      caller.tenantId,
+      tenantId,
       (tx) =>
         tx.$queryRaw<RetrievedChunkRow[]>`
         WITH vector_matches AS (
@@ -94,7 +125,7 @@ export class RetrievalService {
             ROW_NUMBER() OVER (ORDER BY dc.embedding <=> ${vectorLiteral}::vector) AS rank
           FROM document_chunks dc
           JOIN documents d ON d.id = dc.document_id
-          WHERE dc.embedding IS NOT NULL AND d.collection_id = ANY(${searchCollectionIds}::text[])
+          WHERE dc.embedding IS NOT NULL AND d.collection_id = ANY(${collectionIds}::text[])
           ORDER BY dc.embedding <=> ${vectorLiteral}::vector
           LIMIT ${candidateLimit}
         ),
@@ -103,12 +134,12 @@ export class RetrievalService {
             dc.id, dc.document_id, dc.content, dc.chunk_index, dc.heading_context, dc.page_number,
             d.filename,
             ROW_NUMBER() OVER (
-              ORDER BY ts_rank(dc.content_tsv, plainto_tsquery('simple', ${dto.query})) DESC
+              ORDER BY ts_rank(dc.content_tsv, plainto_tsquery('simple', ${query})) DESC
             ) AS rank
           FROM document_chunks dc
           JOIN documents d ON d.id = dc.document_id
-          WHERE dc.content_tsv @@ plainto_tsquery('simple', ${dto.query})
-            AND d.collection_id = ANY(${searchCollectionIds}::text[])
+          WHERE dc.content_tsv @@ plainto_tsquery('simple', ${query})
+            AND d.collection_id = ANY(${collectionIds}::text[])
           LIMIT ${candidateLimit}
         )
         SELECT
@@ -123,7 +154,7 @@ export class RetrievalService {
         FROM vector_matches v
         FULL OUTER JOIN fts_matches f ON v.id = f.id
         ORDER BY score DESC
-        LIMIT ${dto.topK}
+        LIMIT ${topK}
       `,
     );
 

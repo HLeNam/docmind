@@ -13,18 +13,31 @@ import {
 import {
   chunkText,
   chunkPagedText,
+  chunkSpreadsheet,
 } from '../src/documents/processing/chunk-text.util.js';
-import { ocrPdfPages } from '../src/documents/processing/ocr.util.js';
+import {
+  ocrImages,
+  ocrPdfPages,
+} from '../src/documents/processing/ocr.util.js';
+import {
+  extractPptxContent,
+  extractXlsxSheets,
+} from '../src/documents/processing/office-structure.util.js';
 
 vi.mock('../src/documents/processing/extract-text.util.js');
 vi.mock('../src/documents/processing/chunk-text.util.js');
+vi.mock('../src/documents/processing/office-structure.util.js');
 vi.mock('../src/documents/processing/ocr.util.js', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../src/documents/processing/ocr.util.js')>();
+  const actual =
+    await importOriginal<
+      typeof import('../src/documents/processing/ocr.util.js')
+    >();
   return {
     ...actual,
     // Chỉ mock hàm gọi ra tesseract/pdf-parse thật — vẫn giữ nguyên các hằng số ngưỡng OCR thật (dùng
     // requireActual). Text giả trong test phải dài/ngắn đủ so với ngưỡng thật (xem LONG_PAGE_TEXT bên dưới).
     ocrPdfPages: vi.fn(),
+    ocrImages: vi.fn(),
   };
 });
 
@@ -34,6 +47,10 @@ const mockSplitPdfPagesByMarker = splitPdfPagesByMarker as unknown as Mock;
 const mockChunkPagedText = chunkPagedText as unknown as Mock;
 const mockGetPdfPageCount = getPdfPageCount as unknown as Mock;
 const mockOcrPdfPages = ocrPdfPages as unknown as Mock;
+const mockExtractPptxContent = extractPptxContent as unknown as Mock;
+const mockOcrImages = ocrImages as unknown as Mock;
+const mockExtractXlsxSheets = extractXlsxSheets as unknown as Mock;
+const mockChunkSpreadsheet = chunkSpreadsheet as unknown as Mock;
 
 function buildProcessor() {
   const system = {
@@ -44,15 +61,17 @@ function buildProcessor() {
   const storage = { getObjectBuffer: vi.fn() };
   const progressGateway = { emitProgress: vi.fn() };
   const embedding = { embedBatch: vi.fn() };
+  const usage = { recordEmbedding: vi.fn() };
 
   const processor = new DocumentProcessingProcessor(
     system as never,
     storage as never,
     progressGateway as never,
     embedding as never,
+    usage as never,
   );
 
-  return { processor, system, storage, progressGateway, embedding };
+  return { processor, system, storage, progressGateway, embedding, usage };
 }
 
 // Text trang "đủ chữ": ~260 ký tự khác khoảng trắng, trên ngưỡng OCR_SPARSE_PAGE_CHARS (200) nên không bị OCR.
@@ -70,7 +89,56 @@ describe('DocumentProcessingProcessor', () => {
     vi.clearAllMocks();
   });
 
-  it('pipeline thành công: extract -> chunk -> embed -> insert raw SQL -> status INDEXED', async () => {
+  it('records EMBEDDING usage log for each batch using reported tokens when provided', async () => {
+    const { processor, system, storage, embedding, usage } = buildProcessor();
+    system.document.findUnique.mockResolvedValue(BASE_DOCUMENT);
+    storage.getObjectBuffer.mockResolvedValue(Buffer.from('x'));
+    mockExtractText.mockResolvedValue('hello world');
+    mockChunkText.mockReturnValue([
+      { content: 'chunk 1', chunkIndex: 0 },
+      { content: 'chunk 2', chunkIndex: 1 },
+    ]);
+    embedding.embedBatch.mockImplementation(
+      async (
+        _texts: string[],
+        _mode: string,
+        onUsage?: (n: number) => void,
+      ) => {
+        onUsage?.(42); // provider reports actual token count
+        return [
+          [0.1, 0.2],
+          [0.3, 0.4],
+        ];
+      },
+    );
+
+    await processor.process({ data: { documentId: 'doc-1' } } as never);
+
+    expect(usage.recordEmbedding).toHaveBeenCalledWith({
+      tenantId: BASE_DOCUMENT.tenantId,
+      texts: ['chunk 1', 'chunk 2'],
+      reportedTokens: 42,
+    });
+  });
+
+  it('passes undefined reportedTokens so UsageService estimates tokens when provider does not report usage', async () => {
+    const { processor, system, storage, embedding, usage } = buildProcessor();
+    system.document.findUnique.mockResolvedValue(BASE_DOCUMENT);
+    storage.getObjectBuffer.mockResolvedValue(Buffer.from('x'));
+    mockExtractText.mockResolvedValue('hello world');
+    mockChunkText.mockReturnValue([{ content: 'chunk 1', chunkIndex: 0 }]);
+    embedding.embedBatch.mockResolvedValue([[0.1, 0.2]]);
+
+    await processor.process({ data: { documentId: 'doc-1' } } as never);
+
+    expect(usage.recordEmbedding).toHaveBeenCalledWith({
+      tenantId: BASE_DOCUMENT.tenantId,
+      texts: ['chunk 1'],
+      reportedTokens: undefined,
+    });
+  });
+
+  it('successfully processes document: extract -> chunk -> embed -> insert raw SQL -> status INDEXED', async () => {
     const { processor, system, storage, progressGateway, embedding } =
       buildProcessor();
     system.document.findUnique.mockResolvedValue(BASE_DOCUMENT);
@@ -97,6 +165,7 @@ describe('DocumentProcessingProcessor', () => {
     expect(embedding.embedBatch).toHaveBeenCalledWith(
       ['chunk 1', 'chunk 2'],
       'document',
+      expect.any(Function),
     );
     expect(system.$executeRaw).toHaveBeenCalledTimes(2); // 1 insert / chunk
     expect(system.document.update).toHaveBeenLastCalledWith({
@@ -111,7 +180,7 @@ describe('DocumentProcessingProcessor', () => {
     });
   });
 
-  it('document đã bị xoá giữa lúc enqueue và lúc worker chạy -> bỏ qua êm thấm, không throw', async () => {
+  it('silently ignores and finishes job without throwing when document was deleted before worker run', async () => {
     const { processor, system, storage } = buildProcessor();
     system.document.findUnique.mockResolvedValue(null);
 
@@ -122,7 +191,7 @@ describe('DocumentProcessingProcessor', () => {
     expect(system.document.update).not.toHaveBeenCalled();
   });
 
-  it('chunkText trả về 0 chunk (vd PDF scan ảnh) -> throw lỗi rõ ràng, status FAILED', async () => {
+  it('throws error and sets status to FAILED when chunkText returns 0 chunks', async () => {
     const { processor, system, storage, progressGateway } = buildProcessor();
     system.document.findUnique.mockResolvedValue(BASE_DOCUMENT);
     storage.getObjectBuffer.mockResolvedValue(Buffer.from('x'));
@@ -146,13 +215,13 @@ describe('DocumentProcessingProcessor', () => {
     );
   });
 
-  it('provider trả về số vector không khớp số chunk -> throw, status FAILED, KHÔNG insert', async () => {
+  it('throws error and sets status to FAILED without inserting when provider returns vector count mismatch', async () => {
     const { processor, system, storage, embedding } = buildProcessor();
     system.document.findUnique.mockResolvedValue(BASE_DOCUMENT);
     storage.getObjectBuffer.mockResolvedValue(Buffer.from('x'));
     mockExtractText.mockResolvedValue('hello');
     mockChunkText.mockReturnValue([{ content: 'chunk 1', chunkIndex: 0 }]);
-    embedding.embedBatch.mockResolvedValue([]); // thiếu vector so với 1 chunk đầu vào
+    embedding.embedBatch.mockResolvedValue([]); // missing vector compared to 1 chunk input
 
     await expect(
       processor.process({ data: { documentId: 'doc-1' } } as never),
@@ -167,7 +236,7 @@ describe('DocumentProcessingProcessor', () => {
     });
   });
 
-  it('storage lỗi (download thất bại) -> status FAILED với đúng message lỗi, rethrow cho BullMQ retry', async () => {
+  it('sets status to FAILED with error message and rethrows for BullMQ retry when storage download fails', async () => {
     const { processor, system, storage } = buildProcessor();
     system.document.findUnique.mockResolvedValue(BASE_DOCUMENT);
     storage.getObjectBuffer.mockRejectedValue(new Error('S3 timeout'));
@@ -182,7 +251,7 @@ describe('DocumentProcessingProcessor', () => {
     });
   });
 
-  it('document không có mimeType -> throw lỗi rõ ràng thay vì để extractText tự lỗi mơ hồ', async () => {
+  it('throws descriptive error when document has no mimeType', async () => {
     const { processor, system, storage } = buildProcessor();
     system.document.findUnique.mockResolvedValue({
       ...BASE_DOCUMENT,
@@ -195,12 +264,12 @@ describe('DocumentProcessingProcessor', () => {
     expect(storage.getObjectBuffer).not.toHaveBeenCalled();
   });
 
-  it('mimeType application/pdf, splitPdfPagesByMarker tách được trang với text đủ dài (không nghi scan) -> dùng chunkPagedText() thẳng, KHÔNG gọi OCR, page_number insert đúng', async () => {
+  it('chunks paged text directly without OCR and inserts correct page numbers when PDF pages are split with sufficient text', async () => {
     const { processor, system, storage, embedding } = buildProcessor();
     const pdfDocument = { ...BASE_DOCUMENT, mimeType: 'application/pdf' };
     system.document.findUnique.mockResolvedValue(pdfDocument);
     storage.getObjectBuffer.mockResolvedValue(Buffer.from('%PDF-...'));
-    // Text mỗi trang PHẢI đủ dài (>= OCR_SPARSE_PAGE_CHARS) để không bị coi là "ít chữ, cần OCR".
+    // Page text MUST be long enough (>= OCR_SPARSE_PAGE_CHARS) to avoid being marked sparse/OCR.
     const rawText = `${LONG_PAGE_TEXT}\n-- 1 of 2 --\n${LONG_PAGE_TEXT}\n-- 2 of 2 --`;
     mockExtractText.mockResolvedValue(rawText);
     const pages = [
@@ -219,30 +288,28 @@ describe('DocumentProcessingProcessor', () => {
 
     await processor.process({ data: { documentId: 'doc-1' } } as never);
 
-    // chunkText (fallback thường) KHÔNG được gọi khi đã tách trang thành công — đúng nhánh PDF.
+    // chunkText (standard fallback) is not called when page split succeeds.
     expect(mockChunkText).not.toHaveBeenCalled();
     expect(mockSplitPdfPagesByMarker).toHaveBeenCalledWith(rawText);
-    expect(mockChunkPagedText).toHaveBeenCalledWith(pages); // KHÔNG bị OCR ghi đè, dùng đúng pages gốc
-    expect(mockOcrPdfPages).not.toHaveBeenCalled(); // text mỗi trang đủ dài -> không nghi scan ảnh
+    expect(mockChunkPagedText).toHaveBeenCalledWith(pages);
+    expect(mockOcrPdfPages).not.toHaveBeenCalled();
 
-    // Mỗi lệnh INSERT raw SQL nhận đúng pageNumber theo thứ tự chunk tương ứng (tham số cuối cùng
-    // truyền vào $executeRaw sau templateStrings, randomUUID, documentId, content, vectorLiteral,
-    // chunkIndex, headingContext).
+    // Raw SQL INSERT gets correct pageNumber in chunk order.
     expect(system.$executeRaw).toHaveBeenCalledTimes(2);
     const firstCallArgs = system.$executeRaw.mock.calls[0]!;
     const secondCallArgs = system.$executeRaw.mock.calls[1]!;
-    expect(firstCallArgs[firstCallArgs.length - 1]).toBe(1); // pageNumber trang 1
-    expect(secondCallArgs[secondCallArgs.length - 1]).toBe(2); // pageNumber trang 2
+    expect(firstCallArgs[firstCallArgs.length - 1]).toBe(1);
+    expect(secondCallArgs[secondCallArgs.length - 1]).toBe(2);
   });
 
-  it('mimeType application/pdf, splitPdfPagesByMarker KHÔNG tách được (trả null) nhưng rawText đủ dài -> fallback chunkText() thường, KHÔNG OCR, pageNumber null', async () => {
+  it('falls back to standard chunkText without OCR and sets pageNumber to null when PDF marker splitting fails but text is sufficient', async () => {
     const { processor, system, storage, embedding } = buildProcessor();
     const pdfDocument = { ...BASE_DOCUMENT, mimeType: 'application/pdf' };
     system.document.findUnique.mockResolvedValue(pdfDocument);
     storage.getObjectBuffer.mockResolvedValue(Buffer.from('%PDF-...'));
     mockExtractText.mockResolvedValue('text PDF không có marker (vd 1 trang)'); // >= OCR_EMPTY_DOC_CHARS (20)
     mockSplitPdfPagesByMarker.mockReturnValue(null);
-    mockChunkText.mockReturnValue([{ content: 'nội dung', chunkIndex: 0 }]); // không có pageNumber
+    mockChunkText.mockReturnValue([{ content: 'nội dung', chunkIndex: 0 }]);
     embedding.embedBatch.mockResolvedValue([[0.1, 0.2]]);
 
     await processor.process({ data: { documentId: 'doc-1' } } as never);
@@ -254,10 +321,10 @@ describe('DocumentProcessingProcessor', () => {
     expect(mockOcrPdfPages).not.toHaveBeenCalled();
     expect(mockGetPdfPageCount).not.toHaveBeenCalled();
     const callArgs = system.$executeRaw.mock.calls[0]!;
-    expect(callArgs[callArgs.length - 1]).toBeNull(); // pageNumber null khi không tách được trang
+    expect(callArgs[callArgs.length - 1]).toBeNull();
   });
 
-  it('PDF tách được trang, 1 trong 2 trang ít chữ (nội dung nằm trong ảnh) -> CHỈ OCR trang đó, GHÉP chữ OCR vào chữ có sẵn', async () => {
+  it('runs OCR only on sparse pages and merges OCR text into existing page text when PDF has sparse pages', async () => {
     const { processor, system, storage, embedding, progressGateway } =
       buildProcessor();
     const pdfDocument = { ...BASE_DOCUMENT, mimeType: 'application/pdf' };
@@ -269,7 +336,7 @@ describe('DocumentProcessingProcessor', () => {
     );
     mockSplitPdfPagesByMarker.mockReturnValue([
       { pageNumber: 1, text: LONG_PAGE_TEXT },
-      { pageNumber: 2, text: 'Tiêu đề slide' }, // chỉ có tiêu đề, nội dung nằm trong ảnh
+      { pageNumber: 2, text: 'Tiêu đề slide' },
     ]);
     mockOcrPdfPages.mockResolvedValue(
       new Map([[2, 'Nội dung OCR được từ ảnh trang 2.']]),
@@ -289,11 +356,13 @@ describe('DocumentProcessingProcessor', () => {
 
     await processor.process({ data: { documentId: 'doc-1' } } as never);
 
-    // CHỈ gọi OCR cho trang 2 (trang 1 có text đủ dài, không cần OCR).
-    expect(mockOcrPdfPages).toHaveBeenCalledWith(buffer, [2]);
-    expect(mockGetPdfPageCount).not.toHaveBeenCalled(); // đã biết tổng số trang qua splitPdfPagesByMarker, không cần gọi thêm
+    expect(mockOcrPdfPages).toHaveBeenCalledWith(
+      buffer,
+      [2],
+      expect.objectContaining({ beforePage: expect.any(Function) }),
+    );
+    expect(mockGetPdfPageCount).not.toHaveBeenCalled();
 
-    // chunkPagedText() nhận pages đã MERGE: trang 1 giữ nguyên, trang 2 = chữ có sẵn + chữ OCR.
     expect(mockChunkPagedText).toHaveBeenCalledWith([
       { pageNumber: 1, text: LONG_PAGE_TEXT },
       {
@@ -307,15 +376,15 @@ describe('DocumentProcessingProcessor', () => {
     );
   });
 
-  it('PDF không tách được trang VÀ rawText gần như rỗng -> OCR TOÀN BỘ document (dùng getPdfPageCount để biết tổng số trang)', async () => {
+  it('runs OCR on all pages when PDF marker splitting fails and extracted text is nearly empty', async () => {
     const { processor, system, storage, embedding, progressGateway } =
       buildProcessor();
     const pdfDocument = { ...BASE_DOCUMENT, mimeType: 'application/pdf' };
     system.document.findUnique.mockResolvedValue(pdfDocument);
     const buffer = Buffer.from('%PDF-...');
     storage.getObjectBuffer.mockResolvedValue(buffer);
-    mockExtractText.mockResolvedValue('  '); // gần như rỗng -> < OCR_EMPTY_DOC_CHARS
-    mockSplitPdfPagesByMarker.mockReturnValue(null); // không có marker nào (PDF scan hoàn toàn)
+    mockExtractText.mockResolvedValue('  ');
+    mockSplitPdfPagesByMarker.mockReturnValue(null);
     mockGetPdfPageCount.mockResolvedValue(2);
     mockOcrPdfPages.mockResolvedValue(
       new Map([
@@ -335,8 +404,12 @@ describe('DocumentProcessingProcessor', () => {
     await processor.process({ data: { documentId: 'doc-1' } } as never);
 
     expect(mockGetPdfPageCount).toHaveBeenCalledWith(buffer);
-    expect(mockOcrPdfPages).toHaveBeenCalledWith(buffer, [1, 2]); // OCR HẾT mọi trang (1..totalPages)
-    expect(mockChunkText).not.toHaveBeenCalled(); // không dùng fallback chunkText() thường ở nhánh này
+    expect(mockOcrPdfPages).toHaveBeenCalledWith(
+      buffer,
+      [1, 2],
+      expect.objectContaining({ beforePage: expect.any(Function) }),
+    );
+    expect(mockChunkText).not.toHaveBeenCalled();
     expect(mockChunkPagedText).toHaveBeenCalledWith([
       { pageNumber: 1, text: 'OCR trang 1.' },
       { pageNumber: 2, text: 'OCR trang 2.' },
@@ -347,7 +420,7 @@ describe('DocumentProcessingProcessor', () => {
     );
   });
 
-  it('OCR cũng không đọc được gì (PDF scan ảnh quá mờ) -> vẫn throw lỗi rõ ràng, message nêu rõ đã thử OCR', async () => {
+  it('throws descriptive error noting OCR attempt when OCR also yields no content', async () => {
     const { processor, system, storage } = buildProcessor();
     const pdfDocument = { ...BASE_DOCUMENT, mimeType: 'application/pdf' };
     system.document.findUnique.mockResolvedValue(pdfDocument);
@@ -355,8 +428,8 @@ describe('DocumentProcessingProcessor', () => {
     mockExtractText.mockResolvedValue('');
     mockSplitPdfPagesByMarker.mockReturnValue(null);
     mockGetPdfPageCount.mockResolvedValue(1);
-    mockOcrPdfPages.mockResolvedValue(new Map()); // OCR chạy nhưng không đọc được chữ nào
-    mockChunkPagedText.mockReturnValue([]); // không trang nào có text -> 0 chunk
+    mockOcrPdfPages.mockResolvedValue(new Map());
+    mockChunkPagedText.mockReturnValue([]);
 
     await expect(
       processor.process({ data: { documentId: 'doc-1' } } as never),
@@ -367,6 +440,291 @@ describe('DocumentProcessingProcessor', () => {
         status: 'FAILED',
         failReason: expect.stringMatching(/even after attempting OCR/i),
       },
+    });
+  });
+
+  describe('document deletion during processing', () => {
+    function setupMidRunDelete(aliveAnswers: Array<object | null>) {
+      const ctx = buildProcessor();
+      // First call: initial fetch at beginning of process(); remaining calls: cancellation checkpoints.
+      const [first, ...rest] = aliveAnswers;
+      ctx.system.document.findUnique.mockResolvedValueOnce(first);
+      for (const a of rest)
+        ctx.system.document.findUnique.mockResolvedValueOnce(a);
+      ctx.system.document.findUnique.mockResolvedValue(null);
+      ctx.storage.getObjectBuffer.mockResolvedValue(Buffer.from('x'));
+      mockExtractText.mockResolvedValue('hello');
+      return ctx;
+    }
+
+    it('stops gracefully without chunking, embedding, marking FAILED, or throwing when document deleted right after extraction', async () => {
+      const { processor, system, embedding } = setupMidRunDelete([
+        BASE_DOCUMENT,
+        null,
+      ]);
+
+      await expect(
+        processor.process({ data: { documentId: 'doc-1' } } as never),
+      ).resolves.toBeUndefined();
+
+      expect(mockChunkText).not.toHaveBeenCalled();
+      expect(embedding.embedBatch).not.toHaveBeenCalled();
+      expect(system.document.update).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: 'FAILED' }),
+        }),
+      );
+    });
+
+    it('does not embed second batch when document is deleted after first embedding batch', async () => {
+      // findUnique: [start of process, after extract, before batch 1] alive; before batch 2 deleted.
+      const { processor, embedding } = setupMidRunDelete([
+        BASE_DOCUMENT,
+        { id: 'doc-1' },
+        { id: 'doc-1' },
+      ]);
+      mockChunkText.mockReturnValue(
+        Array.from({ length: 25 }, (_, i) => ({
+          content: `c${i}`,
+          chunkIndex: i,
+        })),
+      );
+      embedding.embedBatch.mockImplementation(async (texts: string[]) =>
+        texts.map(() => [0.1, 0.2]),
+      );
+
+      await expect(
+        processor.process({ data: { documentId: 'doc-1' } } as never),
+      ).resolves.toBeUndefined();
+
+      expect(embedding.embedBatch).toHaveBeenCalledTimes(1); // 25 chunks = 2 batches (20 + 5), only first batch runs
+    });
+
+    it('treats unexpected error as deleted document without marking FAILED or rethrowing when document no longer exists', async () => {
+      const { processor, system, storage, embedding } = buildProcessor();
+      system.document.findUnique
+        .mockResolvedValueOnce(BASE_DOCUMENT) // start of process
+        .mockResolvedValueOnce({ id: 'doc-1' }) // after extract
+        .mockResolvedValueOnce({ id: 'doc-1' }) // before batch 1
+        .mockResolvedValueOnce(null); // catch: recheck -> deleted
+      storage.getObjectBuffer.mockResolvedValue(Buffer.from('x'));
+      mockExtractText.mockResolvedValue('hello');
+      mockChunkText.mockReturnValue([{ content: 'c0', chunkIndex: 0 }]);
+      embedding.embedBatch.mockResolvedValue([[0.1, 0.2]]);
+      system.$executeRaw.mockRejectedValue(new Error('FK violation'));
+
+      await expect(
+        processor.process({ data: { documentId: 'doc-1' } } as never),
+      ).resolves.toBeUndefined();
+
+      expect(system.document.update).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: 'FAILED' }),
+        }),
+      );
+    });
+
+    it('marks FAILED and rethrows when real error occurs and document still exists', async () => {
+      const { processor, system, storage } = buildProcessor();
+      system.document.findUnique.mockResolvedValue(BASE_DOCUMENT);
+      storage.getObjectBuffer.mockRejectedValue(new Error('S3 down'));
+
+      await expect(
+        processor.process({ data: { documentId: 'doc-1' } } as never),
+      ).rejects.toThrow('S3 down');
+      expect(system.document.update).toHaveBeenCalledWith({
+        where: { id: 'doc-1' },
+        data: { status: 'FAILED', failReason: 'S3 down' },
+      });
+    });
+  });
+
+  describe('structured PPTX / XLSX processing (slide / sheet+row citations)', () => {
+    const PPTX =
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+    const XLSX =
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+    function lastArg(call: unknown[]) {
+      return call[call.length - 1];
+    }
+
+    it('processes PPTX via chunkPagedText per slide without flat extractText, setting page_number to slide number', async () => {
+      const { processor, system, storage, embedding } = buildProcessor();
+      system.document.findUnique.mockResolvedValue({
+        ...BASE_DOCUMENT,
+        mimeType: PPTX,
+      });
+      storage.getObjectBuffer.mockResolvedValue(Buffer.from('pptx'));
+      const slides = [
+        { pageNumber: 1, text: 'Slide một' },
+        { pageNumber: 3, text: 'Slide ba' },
+      ];
+      mockExtractPptxContent.mockResolvedValue({ slides, images: [] });
+      mockChunkPagedText.mockReturnValue([
+        { content: 'Slide một', chunkIndex: 0, pageNumber: 1 },
+        { content: 'Slide ba', chunkIndex: 1, pageNumber: 3 },
+      ]);
+      embedding.embedBatch.mockResolvedValue([[0.1], [0.2]]);
+
+      await processor.process({ data: { documentId: 'doc-1' } } as never);
+
+      expect(mockChunkPagedText).toHaveBeenCalledWith(slides);
+      expect(mockExtractText).not.toHaveBeenCalled();
+      expect(mockChunkText).not.toHaveBeenCalled();
+      expect(lastArg(system.$executeRaw.mock.calls[0]!)).toBe(1);
+      expect(lastArg(system.$executeRaw.mock.calls[1]!)).toBe(3);
+    });
+
+    it('processes XLSX via chunkSpreadsheet, inserting headingContext with sheet and row ranges', async () => {
+      const { processor, system, storage, embedding } = buildProcessor();
+      system.document.findUnique.mockResolvedValue({
+        ...BASE_DOCUMENT,
+        mimeType: XLSX,
+      });
+      storage.getObjectBuffer.mockResolvedValue(Buffer.from('xlsx'));
+      const sheets = [
+        { name: 'Doanh thu', rows: [{ rowNumber: 1, cells: ['A'] }] },
+      ];
+      mockExtractXlsxSheets.mockResolvedValue(sheets);
+      mockChunkSpreadsheet.mockReturnValue([
+        {
+          content: '[Sheet: Doanh thu]\nA',
+          chunkIndex: 0,
+          headingContext: 'Sheet "Doanh thu" · hàng 2–8',
+        },
+      ]);
+      embedding.embedBatch.mockResolvedValue([[0.1]]);
+
+      await processor.process({ data: { documentId: 'doc-1' } } as never);
+
+      expect(mockChunkSpreadsheet).toHaveBeenCalledWith(sheets);
+      expect(mockExtractText).not.toHaveBeenCalled();
+      const args = system.$executeRaw.mock.calls[0]!;
+      expect(args).toContain('Sheet "Doanh thu" · hàng 2–8');
+    });
+
+    it('falls back to flat extractText and chunkText when PPTX yields 0 slides with text', async () => {
+      const { processor, system, storage, embedding } = buildProcessor();
+      system.document.findUnique.mockResolvedValue({
+        ...BASE_DOCUMENT,
+        mimeType: PPTX,
+      });
+      storage.getObjectBuffer.mockResolvedValue(Buffer.from('pptx'));
+      mockExtractPptxContent.mockResolvedValue({ slides: [], images: [] });
+      mockChunkPagedText.mockReturnValue([]);
+      mockExtractText.mockResolvedValue('text phẳng');
+      mockChunkText.mockReturnValue([{ content: 'text phẳng', chunkIndex: 0 }]);
+      embedding.embedBatch.mockResolvedValue([[0.1]]);
+
+      await processor.process({ data: { documentId: 'doc-1' } } as never);
+
+      expect(mockExtractText).toHaveBeenCalledWith(expect.anything(), PPTX);
+      expect(mockChunkText).toHaveBeenCalledWith('text phẳng');
+    });
+
+    // PNG giả có header đúng (chữ ký + IHDR) và đủ dung lượng để qua bộ lọc "ảnh quá nhỏ".
+    function fakePng(
+      seed: number,
+      width = 800,
+      height = 300,
+      bytes = 20_000,
+    ): Buffer {
+      const buf = Buffer.alloc(bytes, seed);
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(
+        buf,
+        0,
+      );
+      buf.write('IHDR', 12, 'ascii');
+      buf.writeUInt32BE(width, 16);
+      buf.writeUInt32BE(height, 20);
+      return buf;
+    }
+
+    it('OCRs qualifying PPTX images, appends "Chữ trong ảnh" to correct slide (including image-only slides), and skips small icons', async () => {
+      const { processor, system, storage, embedding } = buildProcessor();
+      system.document.findUnique.mockResolvedValue({
+        ...BASE_DOCUMENT,
+        mimeType: PPTX,
+      });
+      storage.getObjectBuffer.mockResolvedValue(Buffer.from('pptx'));
+      const slides = [{ pageNumber: 2, text: 'Types of ML' }];
+      mockExtractPptxContent.mockResolvedValue({
+        slides,
+        images: [
+          {
+            slideNumber: 2,
+            name: 'image1.png',
+            mimeType: 'image/png',
+            data: fakePng(1),
+          },
+          {
+            slideNumber: 3,
+            name: 'image2.png',
+            mimeType: 'image/png',
+            data: fakePng(2),
+          }, // slide 3 chỉ có ảnh
+          {
+            slideNumber: 2,
+            name: 'icon.png',
+            mimeType: 'image/png',
+            data: fakePng(3, 64, 64, 600),
+          }, // icon -> bỏ
+        ],
+      });
+      mockOcrImages.mockImplementation(
+        async (imgs: { id: string }[]) =>
+          new Map(imgs.map((i) => [i.id, 'Supervised Unsupervised'])),
+      );
+      mockChunkPagedText.mockReturnValue([
+        { content: 'x', chunkIndex: 0, pageNumber: 2 },
+      ]);
+      embedding.embedBatch.mockResolvedValue([[0.1]]);
+
+      await processor.process({ data: { documentId: 'doc-1' } } as never);
+
+      // Chỉ 2 ảnh lớn được OCR, và có hook dừng-khi-document-bị-xoá
+      expect(mockOcrImages).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({ id: expect.any(String) }),
+        ]),
+        expect.objectContaining({ beforePage: expect.any(Function) }),
+      );
+      expect((mockOcrImages.mock.calls[0]![0] as unknown[]).length).toBe(2);
+      expect(mockChunkPagedText).toHaveBeenCalledWith([
+        {
+          pageNumber: 2,
+          text: 'Types of ML\nChữ trong ảnh: Supervised Unsupervised',
+        },
+        { pageNumber: 3, text: 'Chữ trong ảnh: Supervised Unsupervised' },
+      ]);
+    });
+
+    it('does not invoke OCR when PPTX only contains small or decorative images', async () => {
+      const { processor, system, storage, embedding } = buildProcessor();
+      system.document.findUnique.mockResolvedValue({
+        ...BASE_DOCUMENT,
+        mimeType: PPTX,
+      });
+      storage.getObjectBuffer.mockResolvedValue(Buffer.from('pptx'));
+      const logo = fakePng(9);
+      mockExtractPptxContent.mockResolvedValue({
+        slides: [{ pageNumber: 1, text: 'A' }],
+        images: [1, 2, 3].map((n) => ({
+          slideNumber: n,
+          name: 'logo.png',
+          mimeType: 'image/png',
+          data: logo,
+        })), // logo ở 3 slide
+      });
+      mockChunkPagedText.mockReturnValue([
+        { content: 'A', chunkIndex: 0, pageNumber: 1 },
+      ]);
+      embedding.embedBatch.mockResolvedValue([[0.1]]);
+
+      await processor.process({ data: { documentId: 'doc-1' } } as never);
+
+      expect(mockOcrImages).not.toHaveBeenCalled();
     });
   });
 });

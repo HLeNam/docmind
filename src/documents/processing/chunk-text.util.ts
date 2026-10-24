@@ -2,6 +2,7 @@
 // xác, thay vì đếm theo từ (ước lượng sai lệch nhiều với tiếng Việt do dấu).
 import { get_encoding } from 'tiktoken';
 import type { PdfPageSegment } from './extract-text.util.js';
+import type { SpreadsheetSheet } from './office-structure.util.js';
 
 const encoding = get_encoding('cl100k_base');
 
@@ -42,6 +43,68 @@ export function chunkPagedText(pages: PdfPageSegment[]): TextChunk[] {
         pageNumber: page.pageNumber,
       });
     }
+  }
+  return chunks;
+}
+
+// XLSX: gom các HÀNG liền nhau thành chunk (không cắt giữa hàng), LẶP LẠI hàng tiêu đề ở đầu mỗi chunk để embedding và
+// LLM hiểu cột nào là gì ("700 | 420" vô nghĩa nếu thiếu "Doanh thu | Chi phí"). headingContext cho FE "nhảy đúng chỗ":
+// `Sheet "Tên" · hàng 2–8`. Hàng đầu tiên của sheet được coi là tiêu đề. chunkIndex tăng liên tục xuyên các sheet.
+export function chunkSpreadsheet(sheets: SpreadsheetSheet[]): TextChunk[] {
+  const chunks: TextChunk[] = [];
+  let chunkIndex = 0;
+  const push = (content: string, headingContext: string) =>
+    chunks.push({ content, headingContext, chunkIndex: chunkIndex++ });
+
+  for (const sheet of sheets) {
+    const [header, ...dataRows] = sheet.rows;
+    if (!header) continue;
+
+    const prefix = `[Sheet: ${sheet.name}]`;
+    const headerLine = header.cells.join(' | ');
+    const base = `${prefix}\n${headerLine}`;
+    const baseTokens = encoding.encode(base).length;
+    const label = (from: number, to: number) =>
+      `Sheet "${sheet.name}" · ${from === to ? `hàng ${from}` : `hàng ${from}–${to}`}`;
+
+    if (dataRows.length === 0) {
+      push(base, label(header.rowNumber, header.rowNumber));
+      continue;
+    }
+
+    let buffer: string[] = [];
+    let first = 0;
+    let last = 0;
+    let tokens = baseTokens;
+    const flush = () => {
+      if (buffer.length === 0) return;
+      push(`${base}\n${buffer.join('\n')}`, label(first, last));
+      buffer = [];
+      tokens = baseTokens;
+    };
+
+    for (const row of dataRows) {
+      const line = row.cells.join(' | ');
+      const lineTokens = encoding.encode(line).length;
+
+      if (baseTokens + lineTokens > CHUNK_SIZE_TOKENS) {
+        // 1 hàng dài hơn cả 1 chunk (ô chứa đoạn văn dài): cắt sliding window riêng, vẫn gắn đúng số hàng.
+        flush();
+        for (const c of slidingWindowChunk(
+          `${prefix}\n${line}`,
+          label(row.rowNumber, row.rowNumber),
+        )) {
+          push(c.content, c.headingContext!);
+        }
+        continue;
+      }
+      if (tokens + lineTokens > CHUNK_SIZE_TOKENS) flush();
+      if (buffer.length === 0) first = row.rowNumber;
+      buffer.push(line);
+      last = row.rowNumber;
+      tokens += lineTokens;
+    }
+    flush();
   }
   return chunks;
 }

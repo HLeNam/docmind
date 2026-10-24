@@ -12,6 +12,7 @@ import type { EmbeddingMode, EmbeddingProvider } from './embedding.service.js';
 
 interface OllamaEmbedResponse {
   embeddings: number[][];
+  prompt_eval_count?: number; // số token đầu vào Ollama đã xử lý
 }
 
 @Injectable()
@@ -33,6 +34,7 @@ export class OllamaEmbeddingService implements EmbeddingProvider {
   async embedBatch(
     texts: string[],
     _mode?: EmbeddingMode,
+    onUsage?: (tokens: number) => void,
   ): Promise<number[][]> {
     // /api/embed (bản hiện hành, thay cho /api/embeddings cũ đã deprecated) — nhận "input" là
     // string hoặc mảng string để batch, trả "embeddings" là mảng vector ĐÚNG THEO THỨ TỰ input
@@ -50,6 +52,8 @@ export class OllamaEmbeddingService implements EmbeddingProvider {
       );
     }
     const data = (await res.json()) as OllamaEmbedResponse;
+    if (typeof data.prompt_eval_count === 'number')
+      onUsage?.(data.prompt_eval_count);
     return data.embeddings;
   }
 }

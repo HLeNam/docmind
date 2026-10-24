@@ -1,0 +1,36 @@
+# slack/slack-app-manifest.yaml — Slack App manifest cho DocMind.
+# Thay MỌI chỗ "https://YOUR_PUBLIC_URL" bằng URL public của server (tunnel hoặc domain thật).
+# Scope trong file này PHẢI khớp BOT_SCOPES trong src/slack/slack.service.ts.
+display_information:
+  name: DocMind
+  description: Hỏi đáp tài liệu của tổ chức ngay trong Slack
+  background_color: '#1f2937'
+features:
+  bot_user:
+    display_name: DocMind
+    always_online: true
+  slash_commands:
+    - command: /ask
+      url: https://YOUR_PUBLIC_URL/slack/commands
+      description: Hỏi DocMind về tài liệu
+      usage_hint: '[câu hỏi]'
+      should_escape: false
+oauth_config:
+  redirect_urls:
+    - https://YOUR_PUBLIC_URL/slack/oauth/callback
+  scopes:
+    bot:
+      - commands
+      - chat:write
+      - chat:write.public
+      - app_mentions:read
+      - channels:history
+      - groups:history
+settings:
+  event_subscriptions:
+    request_url: https://YOUR_PUBLIC_URL/slack/events
+    bot_events:
+      - app_mention
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  token_rotation_enabled: false

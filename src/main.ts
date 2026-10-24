@@ -9,10 +9,14 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor.
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { zodSwaggerDocumentOptions } from './common/swagger/zod-schema-converter.js';
+import { buildCorsOptions } from './common/cors.util.js';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  // rawBody: true để lưu buffer gốc vào req.rawBody, phục vụ xác thực chữ ký webhook (Slack...)
+  const app = await NestFactory.create(AppModule, { rawBody: true });
   const configService = app.get(ConfigService);
+
+  app.enableCors(buildCorsOptions(process.env)); // thay enableCors cũ nếu có
 
   app.useGlobalPipes(
     new StandardSchemaValidationPipe({
@@ -55,6 +59,7 @@ async function bootstrap() {
         },
         'access-token', // tên định danh, dùng lại ở @ApiBearerAuth('access-token')
       )
+      .addBearerAuth({ type: 'http', scheme: 'bearer' }, 'api-key')
       .build();
 
     const documentFactory = () =>

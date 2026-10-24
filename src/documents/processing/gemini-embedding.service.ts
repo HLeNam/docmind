@@ -42,9 +42,12 @@ export class GeminiEmbeddingService implements EmbeddingProvider {
     );
   }
 
+  // Tham số thứ 3 (onUsage) cố ý KHÔNG dùng: batchEmbedContents của Gemini không trả số token trong response, nên nơi
+  // gọi sẽ ước lượng theo độ dài văn bản (UsageService.recordEmbedding). Khai để khớp interface chung.
   async embedBatch(
     texts: string[],
     mode: EmbeddingMode = 'document',
+    _onUsage?: (tokens: number) => void,
   ): Promise<number[][]> {
     const taskType =
       mode === 'query' ? 'RETRIEVAL_QUERY' : 'RETRIEVAL_DOCUMENT';

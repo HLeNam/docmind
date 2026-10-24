@@ -1,19 +1,21 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
+import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { StorageService } from '../storage/storage.service.js';
 import { CollectionsService } from '../collections/collections.service.js';
-import { Queue } from 'bullmq';
-import { InjectQueue } from '@nestjs/bullmq';
-import { AccessTokenPayload } from '../auth/auth.service.js';
-import {
-  ALLOWED_MIME_TYPES,
-  getMaxSizeForMimeType,
-} from './schemas/document.schema.js';
 import {
   NotFoundAppException,
   UnprocessableAppException,
 } from '../common/exceptions/app.exception.js';
-import { randomUUID } from 'crypto';
+
+import type { AccessTokenPayload } from '../auth/auth.service.js';
+import { decodeUploadedFilename } from './decode-filename.util.js';
+import {
+  ALLOWED_MIME_TYPES,
+  getMaxSizeForMimeType,
+} from './schemas/document.schema.js';
 
 export interface UploadedFileLike {
   originalname: string;
@@ -29,6 +31,8 @@ const JOB_OPTS = {
 
 @Injectable()
 export class DocumentsService {
+  private readonly logger = new Logger(DocumentsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
@@ -61,7 +65,7 @@ export class DocumentsService {
     const maxSize = getMaxSizeForMimeType(file.mimetype);
     if (file.size > maxSize) {
       throw new UnprocessableAppException(
-        `File size exceeds limit for type ${file.mimetype} (max ${Math.round(maxSize / 1024 / 1024)}MB)`,
+        `File size exceeds limit for ${file.mimetype} (max ${Math.round(maxSize / 1024 / 1024)}MB)`,
         { maxBytes: maxSize },
       );
     }
@@ -74,6 +78,8 @@ export class DocumentsService {
     );
 
     const documentId = randomUUID();
+    // multer giải mã tên file bằng latin1 nên tên tiếng Việt bị hỏng — khôi phục UTF-8 trước khi lưu/đặt key.
+    const filename = decodeUploadedFilename(file.originalname);
 
     // Upload lên storage TRƯỚC khi tạo record DB — ngược lại với thứ tự "tạo DB trước" đã cân nhắc:
     // nếu upload S3 thất bại, không có Document record mồ côi nào phải dọn; nếu tạo DB record
@@ -82,7 +88,7 @@ export class DocumentsService {
     const { key } = await this.storage.uploadObject({
       tenantId: caller.tenantId,
       documentId,
-      originalFilename: file.originalname,
+      originalFilename: filename,
       body: file.buffer,
       contentType: file.mimetype,
     });
@@ -100,7 +106,7 @@ export class DocumentsService {
             id: documentId,
             tenantId: caller.tenantId,
             collectionId,
-            filename: file.originalname,
+            filename,
             fileUrl: key,
             mimeType: file.mimetype,
             status: 'PENDING',
@@ -162,19 +168,40 @@ export class DocumentsService {
   // ý thêm ở đây. Cascade xoá DocumentChunk đã có sẵn qua onDelete: Cascade trong schema.prisma.
   // Muốn soft-delete thật, xem mục "Đã hoãn có chủ đích" trong doc Phase 2.
   async remove(caller: AccessTokenPayload, documentId: string) {
-    return this.prisma.runInTenantContext(caller.tenantId, async (tx) => {
-      const document = await tx.document.findUnique({
-        where: { id: documentId },
-      });
-      if (!document) throw new NotFoundAppException('Document not found');
-      await this.collectionsService.assertCollectionAccessible(
-        caller,
-        document.collectionId,
+    const result = await this.prisma.runInTenantContext(
+      caller.tenantId,
+      async (tx) => {
+        const document = await tx.document.findUnique({
+          where: { id: documentId },
+        });
+        if (!document) throw new NotFoundAppException('Document not found');
+        await this.collectionsService.assertCollectionAccessible(
+          caller,
+          document.collectionId,
+        );
+        await tx.document.delete({ where: { id: documentId } });
+        await this.storage.deleteObject(document.fileUrl);
+        return { id: documentId, deleted: true };
+      },
+    );
+
+    // Sau khi đã xoá (và đã qua kiểm tra quyền): bỏ các job đang chờ/chờ retry của document này. Job ĐANG chạy không
+    // huỷ được từ ngoài (BullMQ khoá job) — worker tự dừng ở điểm kiểm tra kế tiếp (xem DocumentGoneError ở processor).
+    await this.cancelPendingJobs(documentId);
+    return result;
+  }
+
+  /** Best-effort: lỗi Redis/BullMQ chỉ log, không làm hỏng việc xoá (document đã xoá xong; worker vẫn tự bỏ qua job). */
+  private async cancelPendingJobs(documentId: string): Promise<void> {
+    try {
+      const jobs = await this.queue.getJobs(['waiting', 'delayed'], 0, 999);
+      const mine = jobs.filter((job) => job?.data?.documentId === documentId);
+      await Promise.all(mine.map((job) => job.remove().catch(() => undefined))); // job vừa chuyển sang active -> bỏ qua
+    } catch (err) {
+      this.logger.warn(
+        `Failed to cancel pending jobs for document ${documentId}: ${String(err)}`,
       );
-      await tx.document.delete({ where: { id: documentId } });
-      await this.storage.deleteObject(document.fileUrl);
-      return { id: documentId, deleted: true };
-    });
+    }
   }
 
   // Re-index: enqueue lại đúng job cũ, worker tự xoá chunks cũ trước khi tạo lại (xem module Worker).

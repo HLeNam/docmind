@@ -38,6 +38,29 @@ export const ErrorCode = {
   STORAGE_UPLOAD_FAILED: 'STORAGE_UPLOAD_FAILED',
   STORAGE_DOWNLOAD_FAILED: 'STORAGE_DOWNLOAD_FAILED',
   STORAGE_DELETE_FAILED: 'STORAGE_DELETE_FAILED',
+
+  COLLECTION_NOT_FOUND: 'COLLECTION_NOT_FOUND',
+  API_KEY_NOT_FOUND: 'API_KEY_NOT_FOUND',
+  API_KEY_ALREADY_REVOKED: 'API_KEY_ALREADY_REVOKED',
+
+  API_KEY_MISSING: 'API_KEY_MISSING',
+  API_KEY_INVALID: 'API_KEY_INVALID',
+  API_KEY_REVOKED: 'API_KEY_REVOKED',
+
+  API_KEY_SCOPE_FORBIDDEN: 'API_KEY_SCOPE_FORBIDDEN',
+  RATE_LIMITED: 'RATE_LIMITED',
+
+  // ---- Slack ----
+  SLACK_NOT_CONFIGURED: 'SLACK_NOT_CONFIGURED',
+  SLACK_STATE_INVALID: 'SLACK_STATE_INVALID',
+  SLACK_OAUTH_FAILED: 'SLACK_OAUTH_FAILED',
+  SLACK_WORKSPACE_TAKEN: 'SLACK_WORKSPACE_TAKEN',
+  SLACK_NOT_CONNECTED: 'SLACK_NOT_CONNECTED',
+  SLACK_CHANNEL_ID_INVALID: 'SLACK_CHANNEL_ID_INVALID',
+  SLACK_CHANNEL_NOT_MAPPED: 'SLACK_CHANNEL_NOT_MAPPED',
+
+  SLACK_SIGNATURE_INVALID: 'SLACK_SIGNATURE_INVALID',
+  SLACK_RAW_BODY_MISSING: 'SLACK_RAW_BODY_MISSING',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
@@ -76,4 +99,27 @@ export const ErrorMessage: Record<ErrorCode, string> = {
   STORAGE_UPLOAD_FAILED: 'Failed to upload file to storage',
   STORAGE_DOWNLOAD_FAILED: 'Failed to download file from storage',
   STORAGE_DELETE_FAILED: 'Failed to delete file from storage',
+
+  COLLECTION_NOT_FOUND: 'Collection not found',
+  API_KEY_NOT_FOUND: 'API key not found',
+  API_KEY_ALREADY_REVOKED: 'API key already revoked',
+
+  API_KEY_MISSING: 'Missing API key',
+  API_KEY_INVALID: 'Invalid API key',
+  API_KEY_REVOKED: 'API key has been revoked',
+
+  API_KEY_SCOPE_FORBIDDEN: 'API key does not have access to this collection',
+  RATE_LIMITED: 'Too many requests. Please try again later.',
+
+  SLACK_NOT_CONFIGURED: 'Slack integration is not configured',
+  SLACK_STATE_INVALID: 'Invalid or expired Slack state',
+  SLACK_OAUTH_FAILED: 'Slack OAuth failed',
+  SLACK_WORKSPACE_TAKEN:
+    'Slack workspace is already connected to another tenant',
+  SLACK_NOT_CONNECTED: 'Slack is not connected',
+  SLACK_CHANNEL_ID_INVALID: 'Invalid Slack channel ID',
+  SLACK_CHANNEL_NOT_MAPPED: 'Slack channel is not mapped',
+
+  SLACK_RAW_BODY_MISSING: 'Slack raw body missing',
+  SLACK_SIGNATURE_INVALID: 'Slack signature invalid',
 };

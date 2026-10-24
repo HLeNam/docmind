@@ -1,5 +1,3 @@
-// src/chat/chat.controller.ts
-//
 // Dùng @Res() thủ công (KHÔNG @Sse() built-in của Nest) — lý do: @Sse() bọc mỗi event qua RxJS
 // Observable<MessageEvent> với 1 loại "event" cố định, trong khi ở đây cần tự kiểm soát 3 loại event
 // khác nhau (start/delta/error/done) VÀ phải validate xong (ném lỗi JSON chuẩn qua
@@ -19,16 +17,25 @@ import {
 } from '@nestjs/swagger';
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
 import type { AccessTokenPayload } from '../auth/auth.service.js';
+import { RateLimitService } from '../common/rate-limit/rate-limit.service.js';
 import { ChatService } from './chat.service.js';
 import { SendMessageSchema } from './schemas/chat.schema.js';
 import { type SendMessageDto } from './dtos/chat.dto.js';
 import { ApiErrorResponse } from '../common/swagger/api-error-response.decorator.js';
 
+// Mỗi tin nhắn tốn 1 lần embedding + 1 lần LLM (quota Gemini). Giới hạn theo THÀNH VIÊN (membership), không
+// theo tenant, để 1 người spam không làm cả công ty hết quota; số liệu hào phóng cho người dùng thật.
+export const CHAT_RATE_LIMIT_PER_WINDOW = 20;
+export const CHAT_RATE_LIMIT_WINDOW_MS = 60_000;
+
 @ApiTags('chat')
 @ApiBearerAuth('access-token')
 @Controller('chat')
 export class ChatController {
-  constructor(private readonly chatService: ChatService) {}
+  constructor(
+    private readonly chatService: ChatService,
+    private readonly rateLimit: RateLimitService,
+  ) {}
 
   @Post('messages')
   @ApiProduces('text/event-stream')
@@ -44,11 +51,24 @@ export class ChatController {
     HttpStatus.UNPROCESSABLE_ENTITY,
     'Invalid message payload or collection ID.',
   )
+  @ApiErrorResponse(
+    HttpStatus.TOO_MANY_REQUESTS,
+    'Rate limit exceeded (20 requests/minute per member)',
+  )
   async sendMessage(
     @CurrentUser() user: AccessTokenPayload,
     @Body({ schema: SendMessageSchema }) dto: SendMessageDto,
     @Res() res: Response,
   ): Promise<void> {
+    // Kiểm tra giới hạn TRƯỚC mọi việc tốn kém (embedding/LLM) và trước khi set header SSE, nên vượt giới hạn
+    // trả 429 JSON chuẩn (kèm X-RateLimit-* và Retry-After) như mọi route khác.
+    await this.rateLimit.enforce(
+      `chat:${user.membershipId}`,
+      CHAT_RATE_LIMIT_PER_WINDOW,
+      CHAT_RATE_LIMIT_WINDOW_MS,
+      res,
+    );
+
     // Chạy TRƯỚC khi set header SSE — nếu throw (vd conversationId không thuộc về caller),
     // GlobalExceptionFilter xử lý bình thường như mọi route khác, trả đúng status code + JSON error.
     const prepared = await this.chatService.prepare(user, dto);
@@ -70,9 +90,12 @@ export class ChatController {
 
     // Gửi citations NGAY khi bắt đầu (trước khi có text nào) — FE có thể hiển thị "đang tham khảo
     // N nguồn" trong lúc chờ LLM sinh chữ, không cần đợi tới event 'done' mới biết có citation hay không.
+    // rewrittenQuery: câu hỏi độc lập mà hệ thống đã dùng để tìm tài liệu (null nếu không phải viết lại) — FE có thể
+    // hiển thị "Hiểu câu hỏi là: ..." để người dùng biết cách diễn đạt lại khi hiểu sai.
     writeEvent('start', {
       conversationId: prepared.conversationId,
       citations: prepared.citations,
+      rewrittenQuery: prepared.rewrittenQuery,
     });
 
     let fullAnswer = '';
@@ -95,12 +118,22 @@ export class ChatController {
 
     // Chỉ lưu Message của assistant SAU KHI stream xong TRỌN VẸN — nếu lỗi giữa chừng (nhánh catch ở
     // trên), KHÔNG lưu câu trả lời dang dở vào lịch sử hội thoại.
-    const saved = await this.chatService.saveAssistantMessage(
-      user,
-      prepared,
-      fullAnswer,
-    );
-    writeEvent('done', { messageId: saved.id });
+    // Lưu có thể thất bại nếu hội thoại bị XOÁ ngay trong lúc đang stream (FK) hoặc DB lỗi. Header đã gửi nên chỉ báo
+    // được qua SSE; nếu không bắt, lỗi thoát ra ngoài và để kết nối SSE treo/đứt không có event nào.
+    let messageId: string;
+    try {
+      messageId = (
+        await this.chatService.saveAssistantMessage(user, prepared, fullAnswer)
+      ).id;
+    } catch {
+      writeEvent('error', {
+        message:
+          'Failed to save assistant message (conversation may have been deleted)',
+      });
+      res.end();
+      return;
+    }
+    writeEvent('done', { messageId });
     res.end();
   }
 }
