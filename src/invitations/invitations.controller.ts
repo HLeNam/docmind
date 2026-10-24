@@ -7,6 +7,7 @@ import {
   HttpStatus,
   Param,
   Post,
+  UseInterceptors,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { InvitationsService } from './invitations.service.js';
@@ -27,6 +28,7 @@ import { Public } from '../common/decorators/public.decorator.js';
 import { ApiZodResponse } from '../common/swagger/api-zod-response.decorator.js';
 import { ApiErrorResponse } from '../common/swagger/api-error-response.decorator.js';
 import { TokensResponseSchema } from '../auth/schemas/auth.schema.js';
+import { RefreshCookieInterceptor } from '../auth/refresh-cookie.interceptor.js';
 
 @ApiTags('invitations')
 @Controller()
@@ -40,7 +42,8 @@ export class InvitationsController {
   @ApiBearerAuth('access-token')
   @Post('tenants/:tenantId/invitations')
   @ApiOperation({
-    summary: 'Create an invitation for the current organization (OWNER/ADMIN only)',
+    summary:
+      'Create an invitation for the current organization (OWNER/ADMIN only)',
   })
   @ApiZodResponse({
     status: HttpStatus.CREATED,
@@ -70,7 +73,10 @@ export class InvitationsController {
     schema: InvitationResponseSchema,
   })
   @ApiErrorResponse(HttpStatus.NOT_FOUND, 'Invitation not found.')
-  @ApiErrorResponse(HttpStatus.UNPROCESSABLE_ENTITY, 'Invitation has already been accepted and cannot be revoked.')
+  @ApiErrorResponse(
+    HttpStatus.UNPROCESSABLE_ENTITY,
+    'Invitation has already been accepted and cannot be revoked.',
+  )
   revoke(
     @CurrentUser() user: AccessTokenPayload,
     @Param('invitationId') invitationId: string,
@@ -81,7 +87,8 @@ export class InvitationsController {
   @Public()
   @Get('invitations/:token')
   @ApiOperation({
-    summary: 'Get invitation details before accepting (no authentication required)',
+    summary:
+      'Get invitation details before accepting (no authentication required)',
   })
   @ApiZodResponse({
     status: HttpStatus.OK,
@@ -89,13 +96,17 @@ export class InvitationsController {
     schema: InvitationInfoResponseSchema,
   })
   @ApiErrorResponse(HttpStatus.NOT_FOUND, 'Invitation not found.')
-  @ApiErrorResponse(HttpStatus.UNPROCESSABLE_ENTITY, 'Invitation has expired, been revoked, or already accepted.')
+  @ApiErrorResponse(
+    HttpStatus.UNPROCESSABLE_ENTITY,
+    'Invitation has expired, been revoked, or already accepted.',
+  )
   findByToken(@Param('token') token: string) {
     return this.invitationsService.findByToken(token);
   }
 
   @Public()
   @Post('invitations/:token/accept')
+  @UseInterceptors(RefreshCookieInterceptor)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary:
@@ -103,12 +114,19 @@ export class InvitationsController {
   })
   @ApiZodResponse({
     status: HttpStatus.OK,
-    description: 'Invitation accepted successfully. Returns access and refresh tokens.',
+    description:
+      'Invitation accepted successfully. Returns access and refresh tokens.',
     schema: TokensResponseSchema,
   })
   @ApiErrorResponse(HttpStatus.NOT_FOUND, 'Invitation not found.')
-  @ApiErrorResponse(HttpStatus.UNPROCESSABLE_ENTITY, 'Invitation is invalid (expired/revoked/used) or user is already a member.')
-  @ApiErrorResponse(HttpStatus.BAD_REQUEST, 'Password is required for new accounts.')
+  @ApiErrorResponse(
+    HttpStatus.UNPROCESSABLE_ENTITY,
+    'Invitation is invalid (expired/revoked/used) or user is already a member.',
+  )
+  @ApiErrorResponse(
+    HttpStatus.BAD_REQUEST,
+    'Password is required for new accounts.',
+  )
   accept(
     @Param('token') token: string,
     @Body({ schema: AcceptInvitationSchema }) dto: AcceptInvitationDto,

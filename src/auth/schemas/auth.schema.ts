@@ -17,9 +17,11 @@ export const LoginSchema = z.object({
   tenantSlug: z.string().optional(),
 });
 
-export const RefreshTokenSchema = z.object({
-  refreshToken: z.string().min(1),
-});
+export const RefreshTokenSchema = z
+  .object({
+    refreshToken: z.string().min(1).optional(),
+  })
+  .default({});
 
 export const TokensResponseSchema = z.object({
   accessToken: z.string(),

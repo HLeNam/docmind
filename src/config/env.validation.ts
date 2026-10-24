@@ -71,6 +71,13 @@ export const envSchema = z.object({
   SLACK_REDIRECT_URI: z.string().url().optional(),
   SLACK_TOKEN_ENCRYPTION_KEY: z.string().optional(), // base64 của 32 byte: openssl rand -base64 32
   SLACK_TOKEN_ENCRYPTION_KEYS_OLD: z.string().optional(),
+
+  CORS_ORIGINS: z.string().optional(), // vd http://localhost:5173 (cách nhau dấu phẩy); mặc định lấy FRONTEND_URL
+  AUTH_COOKIE_SAMESITE: z.enum(['lax', 'strict', 'none']).optional(),
+  AUTH_COOKIE_SECURE: z.enum(['true', 'false']).optional(), // mặc định: true khi NODE_ENV=production
+  AUTH_COOKIE_PATH: z.string().optional(), // mặc định /auth; sau reverse proxy có tiền tố thì /api/auth
+  AUTH_REFRESH_COOKIE_MAX_AGE_DAYS: z.coerce.number().positive().optional(), // mặc định 30
+  AUTH_REFRESH_TOKEN_IN_BODY: z.enum(['true', 'false']).optional(), // mặc định false; chỉ bật cho client không phải trình duyệt
 });
 
 export type EnvSchema = z.infer<typeof envSchema>;

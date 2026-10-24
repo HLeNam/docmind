@@ -1,7 +1,5 @@
-// test/auth-invitation-flow.e2e-spec.ts
-//
-// Bản đầy đủ của khung sườn "test/auth-invitation-flow.e2e-spec.ts" đã phác thảo trong
 // docmind-phase1-implementation.md mục 7 — trước đó chỉ có comment mô tả từng bước, chưa có
+// Bản đầy đủ của khung sườn "test/auth-invitation-flow.e2e-spec.ts" đã phác thảo trong
 // code thật. File này implement bằng supertest, bootstrap app giống hệt main.ts.
 //
 // Yêu cầu môi trường: Postgres + pgvector đã migrate đủ (bao gồm RLS), .env có đủ
@@ -21,6 +19,17 @@ import { LoggingInterceptor } from '../src/common/interceptors/logging.intercept
 import { ValidationAppException } from '../src/common/exceptions/app.exception.js';
 
 const VALID_PASSWORD = 'Passw0rd123';
+
+// Refresh token giờ nằm trong cookie HttpOnly (Set-Cookie), KHÔNG còn trong body JSON.
+function refreshCookieOf(res: request.Response): string {
+  const raw = ([] as string[])
+    .concat(res.headers['set-cookie'] ?? [])
+    .find((c) => c.startsWith('refresh_token='));
+  expect(raw).toBeDefined();
+  expect(raw).toMatch(/HttpOnly/i);
+  expect(raw).toMatch(/Path=\/auth/i);
+  return decodeURIComponent(raw!.split(';')[0]!.slice('refresh_token='.length));
+}
 
 function uniqueEmail(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1e6)}@test.docmind.local`;
@@ -80,10 +89,12 @@ describe('Full auth + invitation flow (e2e)', () => {
       .expect(201);
 
     expect(registerRes.body.success).toBe(true);
-    const { accessToken: firstAccessToken, refreshToken: firstRefreshToken } =
-      registerRes.body.data;
+    const firstAccessToken = registerRes.body.data.accessToken;
+    const firstRefreshToken = refreshCookieOf(registerRes);
     expect(typeof firstAccessToken).toBe('string');
-    expect(typeof firstRefreshToken).toBe('string');
+    expect(firstRefreshToken.length).toBeGreaterThan(10);
+    // refreshToken KHÔNG được lộ trong body (script trong trang không được đọc được)
+    expect(registerRes.body.data.refreshToken).toBeUndefined();
 
     // register lại đúng email -> phải bị từ chối (409, đúng error code nghiệp vụ)
     const duplicateRes = await request(app.getHttpServer())
@@ -98,7 +109,8 @@ describe('Full auth + invitation flow (e2e)', () => {
       .send({ email, password: VALID_PASSWORD })
       .expect(200);
     expect(loginRes.body.success).toBe(true);
-    const { refreshToken: loginRefreshToken } = loginRes.body.data;
+    const loginRefreshToken = refreshCookieOf(loginRes);
+    expect(loginRes.body.data.refreshToken).toBeUndefined();
 
     // sai password -> 401 đúng code
     await request(app.getHttpServer())
@@ -112,13 +124,13 @@ describe('Full auth + invitation flow (e2e)', () => {
     // 3. Rotate refresh token nhận từ login
     const refreshRes = await request(app.getHttpServer())
       .post('/auth/refresh')
-      .send({ refreshToken: loginRefreshToken })
+      .set('Cookie', `refresh_token=${loginRefreshToken}`)
+      .send({})
       .expect(200);
     expect(refreshRes.body.success).toBe(true);
-    const {
-      accessToken: rotatedAccessToken,
-      refreshToken: rotatedRefreshToken,
-    } = refreshRes.body.data;
+    const rotatedAccessToken = refreshRes.body.data.accessToken;
+    const rotatedRefreshToken = refreshCookieOf(refreshRes);
+    expect(refreshRes.body.data.refreshToken).toBeUndefined();
     expect(rotatedRefreshToken).not.toBe(loginRefreshToken);
 
     // GET /auth/me bằng access token vừa rotate
@@ -135,14 +147,16 @@ describe('Full auth + invitation flow (e2e)', () => {
     // 4. Reuse detection: dùng lại refresh token CŨ (loginRefreshToken đã bị revoke bởi bước rotate)
     const reuseRes = await request(app.getHttpServer())
       .post('/auth/refresh')
-      .send({ refreshToken: loginRefreshToken })
+      .set('Cookie', `refresh_token=${loginRefreshToken}`)
+      .send({})
       .expect(401);
     expect(reuseRes.body.error.code).toBe('AUTH_REFRESH_TOKEN_REUSED');
 
     // hệ quả: rotatedRefreshToken (cùng family, sinh ra sau) cũng đã bị revoke theo -> reuse tiếp
     const rotatedNowRevokedRes = await request(app.getHttpServer())
       .post('/auth/refresh')
-      .send({ refreshToken: rotatedRefreshToken })
+      .set('Cookie', `refresh_token=${rotatedRefreshToken}`)
+      .send({})
       .expect(401);
     expect(rotatedNowRevokedRes.body.error.code).toBe(
       'AUTH_REFRESH_TOKEN_REUSED',
@@ -158,21 +172,32 @@ describe('Full auth + invitation flow (e2e)', () => {
       );
 
     // 5. Logout bằng refresh token đầu tiên (từ register — family riêng, chưa bị đụng tới ở trên)
+    const logoutRes = await request(app.getHttpServer())
+      .post('/auth/logout')
+      .set('Cookie', `refresh_token=${firstRefreshToken}`)
+      .send({})
+      .expect(200);
+    // cookie bị xoá (giá trị rỗng, hết hạn)
+    expect(
+      ([] as string[]).concat(logoutRes.headers['set-cookie'] ?? []).join(';'),
+    ).toMatch(/refresh_token=;/);
+
+    // logout lần hai không còn token nào -> vẫn 200 (idempotent)
     await request(app.getHttpServer())
       .post('/auth/logout')
-      .set('Authorization', `Bearer ${firstAccessToken}`)
-      .send({ refreshToken: firstRefreshToken })
+      .send({})
       .expect(200);
 
     // token vừa logout, dùng lại -> cũng rơi vào nhánh reuse detected (revokedAt đã set bởi logout)
     const afterLogoutRes = await request(app.getHttpServer())
       .post('/auth/refresh')
-      .send({ refreshToken: firstRefreshToken })
+      .set('Cookie', `refresh_token=${firstRefreshToken}`)
+      .send({})
       .expect(401);
     expect(afterLogoutRes.body.error.code).toBe('AUTH_REFRESH_TOKEN_REUSED');
   });
 
-  it('invite -> accept (email has no account yet)', async () => {
+  it('invite -> accept (email without existing account)', async () => {
     const ownerEmail = uniqueEmail('inv-owner');
     const registerRes = await request(app.getHttpServer())
       .post('/auth/register')
@@ -220,6 +245,9 @@ describe('Full auth + invitation flow (e2e)', () => {
       .expect(200);
     expect(acceptRes.body.success).toBe(true);
     const memberAccessToken = acceptRes.body.data.accessToken;
+    // accept invitation cũng phát token: refresh token phải ở cookie, không ở body (cần @UseInterceptors(RefreshCookieInterceptor) trên route accept)
+    expect(acceptRes.body.data.refreshToken).toBeUndefined();
+    refreshCookieOf(acceptRes);
 
     // GET /auth/me bằng token vừa nhận -> đúng role MEMBER, đúng tenant
     const meRes = await request(app.getHttpServer())
@@ -267,7 +295,7 @@ describe('Full auth + invitation flow (e2e)', () => {
     void invitationId; // giữ lại biến để dễ mở rộng test sau này (vd revoke chính invitation này)
   });
 
-  it('invite -> accept (email already has an account in another tenant) — link additional membership, do not create new Identity', async () => {
+  it('invite -> accept (email with existing account in another tenant) — links membership without creating new Identity', async () => {
     const existingEmail = uniqueEmail('multi-tenant');
 
     // 1. Tạo sẵn 1 Identity qua register() ở Tenant A
