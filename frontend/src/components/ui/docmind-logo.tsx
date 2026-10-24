@@ -14,7 +14,7 @@ export function DocMindLogo({
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      viewBox="440 450 1020 1060"
+      viewBox="365.5 384.5 1200 1200"
       width={size}
       height={size}
       fill="none"
