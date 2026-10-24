@@ -17,7 +17,7 @@ Backend: NestJS nằm ở thư mục `backend/`. Frontend nằm ở thư mục `
 - Chat: `fetch` + đọc stream SSE (không dùng `EventSource` vì cần header Authorization). Tiến độ upload: `socket.io-client`.
 - Markdown: `react-markdown` + `remark-gfm`, component tuỳ biến cho trích dẫn. **Không** dùng `dangerouslySetInnerHTML`.
 - i18n: `i18next` (mặc định `vi`). Test: Vitest + Testing Library; E2E: Playwright; a11y: `vitest-axe`/`@axe-core/playwright`.
-- Trình quản lý gói: pnpm. Thêm dependency mới cần được duyệt: nêu lý do và phương án thay thế.
+- Trình quản lý gói: npm. Thêm dependency mới cần được duyệt: nêu lý do và phương án thay thế.
 
 ## 3. Cấu trúc thư mục
 
@@ -93,7 +93,7 @@ Feature không import trực tiếp nội bộ feature khác, chỉ qua `index.t
 
 ## 9. Định nghĩa "xong" (cho mỗi bước)
 
-- [ ] `pnpm typecheck`, `pnpm lint`, `pnpm test` sạch.
+- [ ] `npm run typecheck`, `npm run lint`, `npm test` sạch.
 - [ ] Không vi phạm mục 9 của `DESIGN.md` (tìm hex, `[...]` tuỳ ý, chuỗi cứng).
 - [ ] Đủ trạng thái loading/empty/error/forbidden.
 - [ ] axe không có lỗi nghiêm trọng; thao tác được hoàn toàn bằng bàn phím.
@@ -105,5 +105,5 @@ Feature không import trực tiếp nội bộ feature khác, chỉ qua `index.t
 
 - `anthropics/skills` → `frontend-design` (token trước code, tránh 3 kiểu mặc định, chuyển động tiết chế).
 - `vercel-labs/agent-skills` → `web-design-guidelines`, `composition-patterns`; `react-best-practices` dùng chọn lọc (nhiều mục hướng Next.js, bỏ qua mục không áp dụng cho SPA).
-- Skill shadcn (`pnpm dlx skills add shadcn/ui`).
+- Skill shadcn (`npx skills add shadcn-ui/ui@shadcn`).
 - Luôn đọc nội dung skill trước khi cài; nếu mâu thuẫn với `DESIGN.md`/`AGENTS.md` thì hai file này thắng.
