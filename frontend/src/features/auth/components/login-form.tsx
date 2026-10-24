@@ -13,6 +13,7 @@ import { loginSchema, type LoginFormData } from "../schemas/auth-schemas";
 import { getErrorMessage } from "@/lib/error-util";
 import type { TenantSelectionOption } from "../api/auth-api";
 import { TenantSelectionList } from "./tenant-selection-list";
+import { SocialAuthButtons } from "./social-auth-buttons";
 
 interface LoginFormProps {
   redirectTo?: string;
@@ -77,6 +78,11 @@ export function LoginForm({ redirectTo = "/" }: LoginFormProps) {
     }
   }
 
+  function handleGoogleLogin() {
+    // Khi có Google OAuth client: mở Google OAuth consent popup/redirect
+    alert("Tính năng Google OAuth đang được liên kết với Google Client ID trong backend.");
+  }
+
   if (tenantsToSelect && tenantsToSelect.length > 0) {
     return (
       <TenantSelectionList
@@ -88,126 +94,134 @@ export function LoginForm({ redirectTo = "/" }: LoginFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
-      {apiError != null && (
-        <Alert variant="destructive">
-          <AlertCircle className="size-4" />
-          <AlertDescription>
-            {getErrorMessage(apiError)}
-          </AlertDescription>
-        </Alert>
-      )}
+    <div className="space-y-5">
+      {/* Google OAuth Button */}
+      <SocialAuthButtons
+        onGoogleClick={handleGoogleLogin}
+        disabled={isSubmitting}
+      />
 
-      {/* Email */}
-      <div className="space-y-1.5">
-        <Label htmlFor="login-email">{t("auth.emailLabel")}</Label>
-        <Input
-          id="login-email"
-          type="email"
-          autoComplete="email"
-          placeholder={t("auth.emailPlaceholder")}
-          aria-invalid={!!errors.email}
-          aria-describedby={errors.email ? "login-email-error" : undefined}
-          disabled={isSubmitting}
-          {...register("email")}
-        />
-        {errors.email && (
-          <p id="login-email-error" className="text-xs text-destructive font-medium" role="alert">
-            {errors.email.message}
-          </p>
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+        {apiError != null && (
+          <Alert variant="destructive">
+            <AlertCircle className="size-4" />
+            <AlertDescription>
+              {getErrorMessage(apiError)}
+            </AlertDescription>
+          </Alert>
         )}
-      </div>
 
-      {/* Password */}
-      <div className="space-y-1.5">
-        <Label htmlFor="login-password">{t("auth.passwordLabel")}</Label>
-        <div className="relative">
+        {/* Email */}
+        <div className="space-y-1.5">
+          <Label htmlFor="login-email">{t("auth.emailLabel")}</Label>
           <Input
-            id="login-password"
-            type={showPassword ? "text" : "password"}
-            autoComplete="current-password"
-            placeholder={t("auth.passwordPlaceholder")}
-            aria-invalid={!!errors.password}
-            aria-describedby={errors.password ? "login-password-error" : undefined}
+            id="login-email"
+            type="email"
+            autoComplete="email"
+            placeholder={t("auth.emailPlaceholder")}
+            aria-invalid={!!errors.email}
+            aria-describedby={errors.email ? "login-email-error" : undefined}
             disabled={isSubmitting}
-            className="pr-10"
-            {...register("password")}
+            {...register("email")}
           />
-          <button
-            type="button"
-            onClick={() => setShowPassword((prev) => !prev)}
-            aria-label={showPassword ? t("auth.hidePassword") : t("auth.showPassword")}
-            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-fg-muted hover:text-fg p-1 rounded outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            {showPassword ? (
-              <EyeOff className="size-4" aria-hidden="true" />
-            ) : (
-              <Eye className="size-4" aria-hidden="true" />
-            )}
-          </button>
-        </div>
-        {errors.password && (
-          <p id="login-password-error" className="text-xs text-destructive font-medium" role="alert">
-            {errors.password.message}
-          </p>
-        )}
-      </div>
-
-      {/* Optional Tenant Slug toggle */}
-      <div className="pt-1">
-        {!showTenantField ? (
-          <button
-            type="button"
-            onClick={() => setShowTenantField(true)}
-            className="text-xs text-accent hover:underline outline-none focus-visible:ring-1 focus-visible:ring-ring rounded"
-          >
-            {t("auth.showSpecificTenant")}
-          </button>
-        ) : (
-          <div className="space-y-1.5 pt-1">
-            <Label htmlFor="login-tenant-slug">{t("auth.tenantSlugLabel")}</Label>
-            <Input
-              id="login-tenant-slug"
-              type="text"
-              placeholder={t("auth.tenantSlugPlaceholder")}
-              disabled={isSubmitting}
-              {...register("tenantSlug")}
-            />
-            <p className="text-xs text-fg-muted">
-              {t("auth.tenantSlugHelp")}
+          {errors.email && (
+            <p id="login-email-error" className="text-xs text-destructive font-medium" role="alert">
+              {errors.email.message}
             </p>
-          </div>
-        )}
-      </div>
-
-      {/* Submit Button */}
-      <div className="pt-2">
-        <Button
-          type="submit"
-          className="w-full"
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? (
-            <>
-              <Loader2 className="size-4 animate-spin mr-2" aria-hidden="true" />
-              <span>{t("auth.submitting")}</span>
-            </>
-          ) : (
-            t("auth.submitLogin")
           )}
-        </Button>
-      </div>
+        </div>
 
-      {/* Switch to Register */}
-      <div className="pt-2 text-center text-xs text-fg-muted">
-        <span>{t("auth.dontHaveAccount")} </span>
-        <Link
-          to="/register"
-          className="font-medium text-accent hover:underline outline-none focus-visible:ring-1 focus-visible:ring-ring rounded"
-        >
-          {t("auth.registerLink")}
-        </Link>
-      </div>
-    </form>
+        {/* Password */}
+        <div className="space-y-1.5">
+          <Label htmlFor="login-password">{t("auth.passwordLabel")}</Label>
+          <div className="relative">
+            <Input
+              id="login-password"
+              type={showPassword ? "text" : "password"}
+              autoComplete="current-password"
+              placeholder={t("auth.passwordPlaceholder")}
+              aria-invalid={!!errors.password}
+              aria-describedby={errors.password ? "login-password-error" : undefined}
+              disabled={isSubmitting}
+              className="pr-10"
+              {...register("password")}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((prev) => !prev)}
+              aria-label={showPassword ? t("auth.hidePassword") : t("auth.showPassword")}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-fg-muted hover:text-fg p-1 rounded outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {showPassword ? (
+                <EyeOff className="size-4" aria-hidden="true" />
+              ) : (
+                <Eye className="size-4" aria-hidden="true" />
+              )}
+            </button>
+          </div>
+          {errors.password && (
+            <p id="login-password-error" className="text-xs text-destructive font-medium" role="alert">
+              {errors.password.message}
+            </p>
+          )}
+        </div>
+
+        {/* Optional Tenant Slug toggle */}
+        <div className="pt-0.5">
+          {!showTenantField ? (
+            <button
+              type="button"
+              onClick={() => setShowTenantField(true)}
+              className="text-xs text-accent hover:underline outline-none focus-visible:ring-1 focus-visible:ring-ring rounded font-medium"
+            >
+              {t("auth.showSpecificTenant")}
+            </button>
+          ) : (
+            <div className="space-y-1.5 pt-1">
+              <Label htmlFor="login-tenant-slug">{t("auth.tenantSlugLabel")}</Label>
+              <Input
+                id="login-tenant-slug"
+                type="text"
+                placeholder={t("auth.tenantSlugPlaceholder")}
+                disabled={isSubmitting}
+                {...register("tenantSlug")}
+              />
+              <p className="text-xs text-fg-muted">
+                {t("auth.tenantSlugHelp")}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Submit Button */}
+        <div className="pt-2">
+          <Button
+            type="submit"
+            className="w-full h-10 font-medium"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="size-4 animate-spin mr-2" aria-hidden="true" />
+                <span>{t("auth.submitting")}</span>
+              </>
+            ) : (
+              t("auth.submitLogin")
+            )}
+          </Button>
+        </div>
+
+        {/* Switch to Register */}
+        <div className="pt-3 text-center text-xs text-fg-muted">
+          <span>{t("auth.dontHaveAccount")} </span>
+          <Link
+            to="/register"
+            className="font-medium text-accent hover:underline outline-none focus-visible:ring-1 focus-visible:ring-ring rounded"
+          >
+            {t("auth.registerLink")}
+          </Link>
+        </div>
+      </form>
+    </div>
   );
 }

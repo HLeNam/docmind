@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
-import { useAuth, AuthCardLayout, LoginForm } from "@/features/auth";
+import { useAuth, AuthSplitLayout, LoginForm } from "@/features/auth";
 
 const loginSearchSchema = z.object({
   redirect: z.string().optional(),
@@ -26,11 +26,11 @@ function LoginPage() {
   }, [isLoading, isAuthenticated, search.redirect, navigate]);
 
   return (
-    <AuthCardLayout
+    <AuthSplitLayout
       title={t("auth.loginTitle")}
       subtitle={t("auth.loginSubtitle")}
     >
       <LoginForm redirectTo={search.redirect || "/"} />
-    </AuthCardLayout>
+    </AuthSplitLayout>
   );
 }

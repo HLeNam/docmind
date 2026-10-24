@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { useAuth, AuthCardLayout, RegisterForm } from "@/features/auth";
+import { useAuth, AuthSplitLayout, RegisterForm } from "@/features/auth";
 
 export const Route = createFileRoute("/register")({
   component: RegisterPage,
@@ -19,11 +19,11 @@ function RegisterPage() {
   }, [isLoading, isAuthenticated, navigate]);
 
   return (
-    <AuthCardLayout
+    <AuthSplitLayout
       title={t("auth.registerTitle")}
       subtitle={t("auth.registerSubtitle")}
     >
       <RegisterForm />
-    </AuthCardLayout>
+    </AuthSplitLayout>
   );
 }
