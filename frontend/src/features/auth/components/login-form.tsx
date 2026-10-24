@@ -79,7 +79,6 @@ export function LoginForm({ redirectTo = "/" }: LoginFormProps) {
   }
 
   function handleGoogleLogin() {
-    // Khi có Google OAuth client: mở Google OAuth consent popup/redirect
     alert("Tính năng Google OAuth đang được liên kết với Google Client ID trong backend.");
   }
 
@@ -94,14 +93,14 @@ export function LoginForm({ redirectTo = "/" }: LoginFormProps) {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3.5">
       {/* Google OAuth Button */}
       <SocialAuthButtons
         onGoogleClick={handleGoogleLogin}
         disabled={isSubmitting}
       />
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-3" noValidate>
         {apiError != null && (
           <Alert variant="destructive">
             <AlertCircle className="size-4" />
@@ -112,8 +111,8 @@ export function LoginForm({ redirectTo = "/" }: LoginFormProps) {
         )}
 
         {/* Email */}
-        <div className="space-y-1.5">
-          <Label htmlFor="login-email">{t("auth.emailLabel")}</Label>
+        <div className="space-y-1">
+          <Label htmlFor="login-email" className="text-xs">{t("auth.emailLabel")}</Label>
           <Input
             id="login-email"
             type="email"
@@ -122,6 +121,7 @@ export function LoginForm({ redirectTo = "/" }: LoginFormProps) {
             aria-invalid={!!errors.email}
             aria-describedby={errors.email ? "login-email-error" : undefined}
             disabled={isSubmitting}
+            className="h-9"
             {...register("email")}
           />
           {errors.email && (
@@ -132,8 +132,8 @@ export function LoginForm({ redirectTo = "/" }: LoginFormProps) {
         </div>
 
         {/* Password */}
-        <div className="space-y-1.5">
-          <Label htmlFor="login-password">{t("auth.passwordLabel")}</Label>
+        <div className="space-y-1">
+          <Label htmlFor="login-password" className="text-xs">{t("auth.passwordLabel")}</Label>
           <div className="relative">
             <Input
               id="login-password"
@@ -143,7 +143,7 @@ export function LoginForm({ redirectTo = "/" }: LoginFormProps) {
               aria-invalid={!!errors.password}
               aria-describedby={errors.password ? "login-password-error" : undefined}
               disabled={isSubmitting}
-              className="pr-10"
+              className="h-9 pr-10"
               {...register("password")}
             />
             <button
@@ -177,16 +177,17 @@ export function LoginForm({ redirectTo = "/" }: LoginFormProps) {
               {t("auth.showSpecificTenant")}
             </button>
           ) : (
-            <div className="space-y-1.5 pt-1">
-              <Label htmlFor="login-tenant-slug">{t("auth.tenantSlugLabel")}</Label>
+            <div className="space-y-1 pt-1">
+              <Label htmlFor="login-tenant-slug" className="text-xs">{t("auth.tenantSlugLabel")}</Label>
               <Input
                 id="login-tenant-slug"
                 type="text"
                 placeholder={t("auth.tenantSlugPlaceholder")}
                 disabled={isSubmitting}
+                className="h-9"
                 {...register("tenantSlug")}
               />
-              <p className="text-xs text-fg-muted">
+              <p className="text-[11px] text-fg-muted">
                 {t("auth.tenantSlugHelp")}
               </p>
             </div>
@@ -194,10 +195,10 @@ export function LoginForm({ redirectTo = "/" }: LoginFormProps) {
         </div>
 
         {/* Submit Button */}
-        <div className="pt-2">
+        <div className="pt-1.5">
           <Button
             type="submit"
-            className="w-full h-10 font-medium"
+            className="w-full h-9 font-medium"
             disabled={isSubmitting}
           >
             {isSubmitting ? (
@@ -212,7 +213,7 @@ export function LoginForm({ redirectTo = "/" }: LoginFormProps) {
         </div>
 
         {/* Switch to Register */}
-        <div className="pt-3 text-center text-xs text-fg-muted">
+        <div className="pt-1.5 text-center text-xs text-fg-muted">
           <span>{t("auth.dontHaveAccount")} </span>
           <Link
             to="/register"

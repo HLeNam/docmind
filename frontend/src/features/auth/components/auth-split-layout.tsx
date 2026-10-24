@@ -20,31 +20,31 @@ export function AuthSplitLayout({
   const { t } = useTranslation();
 
   return (
-    <div className="min-h-screen bg-bg text-fg grid grid-cols-1 lg:grid-cols-2">
+    <div className="min-h-screen lg:h-screen lg:overflow-hidden bg-bg text-fg grid grid-cols-1 lg:grid-cols-2">
       {/* Left Column: Focused Auth Form */}
-      <div className="flex flex-col justify-between px-6 py-8 sm:px-12 sm:py-12 lg:px-16 xl:px-20 min-h-screen">
+      <div className="flex flex-col justify-between px-6 py-6 sm:px-10 sm:py-8 lg:px-12 xl:px-16 h-full overflow-y-auto">
         {/* Brand Lockup */}
-        <div>
+        <div className="shrink-0">
           <Link
             to="/"
-            className="inline-flex items-center gap-2.5 outline-none rounded-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="inline-flex items-center gap-2 outline-none rounded-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           >
-            <div className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-xs">
-              <BookOpen className="size-4.5" aria-hidden="true" />
+            <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-xs">
+              <BookOpen className="size-4" aria-hidden="true" />
             </div>
-            <span className="font-heading text-xl font-bold tracking-tight text-fg">
+            <span className="font-heading text-lg font-bold tracking-tight text-fg">
               {t("common.appName")}
             </span>
           </Link>
         </div>
 
         {/* Center Form Area */}
-        <div className="w-full max-w-sm mx-auto my-8 space-y-6">
-          <div className="space-y-1.5">
-            <h1 className="font-heading text-2xl font-semibold tracking-tight text-fg">
+        <div className="w-full max-w-sm mx-auto my-auto py-4 space-y-4">
+          <div className="space-y-1">
+            <h1 className="font-heading text-xl sm:text-2xl font-semibold tracking-tight text-fg">
               {title}
             </h1>
-            <p className="text-sm text-fg-muted">
+            <p className="text-xs sm:text-sm text-fg-muted">
               {subtitle}
             </p>
           </div>
@@ -54,7 +54,7 @@ export function AuthSplitLayout({
         </div>
 
         {/* Bottom Area */}
-        <div className="w-full max-w-sm mx-auto text-center text-xs text-fg-muted">
+        <div className="shrink-0 w-full max-w-sm mx-auto text-center text-xs text-fg-muted pt-2">
           {footer || (
             <p>
               &copy; {new Date().getFullYear()} {t("common.appName")}. Nền tảng RAG doanh nghiệp.

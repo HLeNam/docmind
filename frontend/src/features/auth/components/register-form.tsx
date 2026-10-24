@@ -58,14 +58,14 @@ export function RegisterForm() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3.5">
       {/* Google OAuth Option */}
       <SocialAuthButtons
         onGoogleClick={handleGoogleLogin}
         disabled={isSubmitting}
       />
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-3" noValidate>
         {apiError != null && (
           <Alert variant="destructive">
             <AlertCircle className="size-4" />
@@ -76,31 +76,28 @@ export function RegisterForm() {
         )}
 
         {/* Workspace / Tenant Name */}
-        <div className="space-y-1.5">
-          <Label htmlFor="register-tenant-name">{t("auth.tenantNameLabel")}</Label>
+        <div className="space-y-1">
+          <Label htmlFor="register-tenant-name" className="text-xs">{t("auth.tenantNameLabel")}</Label>
           <Input
             id="register-tenant-name"
             type="text"
             placeholder={t("auth.tenantNamePlaceholder")}
             aria-invalid={!!errors.tenantName}
-            aria-describedby={errors.tenantName ? "register-tenant-name-error" : "register-tenant-name-help"}
+            aria-describedby={errors.tenantName ? "register-tenant-name-error" : undefined}
             disabled={isSubmitting}
+            className="h-9"
             {...register("tenantName")}
           />
-          {errors.tenantName ? (
+          {errors.tenantName && (
             <p id="register-tenant-name-error" className="text-xs text-destructive font-medium" role="alert">
               {errors.tenantName.message}
-            </p>
-          ) : (
-            <p id="register-tenant-name-help" className="text-xs text-fg-muted">
-              {t("auth.tenantNameHelp")}
             </p>
           )}
         </div>
 
         {/* Email */}
-        <div className="space-y-1.5">
-          <Label htmlFor="register-email">{t("auth.emailLabel")}</Label>
+        <div className="space-y-1">
+          <Label htmlFor="register-email" className="text-xs">{t("auth.emailLabel")}</Label>
           <Input
             id="register-email"
             type="email"
@@ -109,6 +106,7 @@ export function RegisterForm() {
             aria-invalid={!!errors.email}
             aria-describedby={errors.email ? "register-email-error" : undefined}
             disabled={isSubmitting}
+            className="h-9"
             {...register("email")}
           />
           {errors.email && (
@@ -119,8 +117,8 @@ export function RegisterForm() {
         </div>
 
         {/* Password */}
-        <div className="space-y-1.5">
-          <Label htmlFor="register-password">{t("auth.passwordLabel")}</Label>
+        <div className="space-y-1">
+          <Label htmlFor="register-password" className="text-xs">{t("auth.passwordLabel")}</Label>
           <div className="relative">
             <Input
               id="register-password"
@@ -130,7 +128,7 @@ export function RegisterForm() {
               aria-invalid={!!errors.password}
               aria-describedby={errors.password ? "register-password-error" : undefined}
               disabled={isSubmitting}
-              className="pr-10"
+              className="h-9 pr-10"
               {...register("password")}
             />
             <button
@@ -158,10 +156,10 @@ export function RegisterForm() {
         </div>
 
         {/* Submit Button */}
-        <div className="pt-2">
+        <div className="pt-1.5">
           <Button
             type="submit"
-            className="w-full h-10 font-medium"
+            className="w-full h-9 font-medium"
             disabled={isSubmitting}
           >
             {isSubmitting ? (
@@ -176,7 +174,7 @@ export function RegisterForm() {
         </div>
 
         {/* Switch to Login */}
-        <div className="pt-3 text-center text-xs text-fg-muted">
+        <div className="pt-1.5 text-center text-xs text-fg-muted">
           <span>{t("auth.alreadyHaveAccount")} </span>
           <Link
             to="/login"

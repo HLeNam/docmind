@@ -13,11 +13,11 @@ export function SocialAuthButtons({
   const { t } = useTranslation();
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <Button
         type="button"
         variant="outline"
-        className="w-full h-10 font-medium text-fg bg-surface hover:bg-surface-muted border-border-strong transition-colors justify-center gap-2.5"
+        className="w-full h-9 font-medium text-xs sm:text-sm text-fg bg-surface hover:bg-surface-muted border-border-strong transition-colors justify-center gap-2.5"
         onClick={onGoogleClick}
         disabled={disabled}
       >
@@ -50,7 +50,7 @@ export function SocialAuthButtons({
       {/* Divider */}
       <div className="relative flex items-center justify-center">
         <div className="w-full border-t border-border" />
-        <span className="absolute bg-surface px-3 text-xs text-fg-muted uppercase tracking-wider font-medium">
+        <span className="absolute bg-surface px-2.5 text-[11px] text-fg-muted uppercase tracking-wider font-medium">
           {t("auth.orDivider")}
         </span>
       </div>
