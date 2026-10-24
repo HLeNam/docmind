@@ -4,6 +4,7 @@ import { RouterProvider } from "@tanstack/react-router";
 import { router } from "@/app/router";
 import { QueryProvider } from "@/app/providers/query-provider";
 import { AuthProvider } from "@/features/auth";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import "@/lib/i18n";
 import "./index.css";
 
@@ -11,7 +12,9 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryProvider>
       <AuthProvider>
-        <RouterProvider router={router} />
+        <TooltipProvider>
+          <RouterProvider router={router} />
+        </TooltipProvider>
       </AuthProvider>
     </QueryProvider>
   </StrictMode>
