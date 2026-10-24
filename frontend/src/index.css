@@ -131,6 +131,26 @@
     ::selection {
         background: var(--accent-soft);
     }
+
+    /* Thanh cuộn tinh tế đồng bộ toàn hệ thống theo token */
+    * {
+        scrollbar-width: thin;
+        scrollbar-color: var(--border) transparent;
+    }
+    *::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+    *::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    *::-webkit-scrollbar-thumb {
+        background: var(--border);
+        border-radius: var(--radius-full);
+    }
+    *::-webkit-scrollbar-thumb:hover {
+        background: var(--border-strong);
+    }
 }
 
 /* Tôn trọng giảm chuyển động (DESIGN.md mục 2.4) */
