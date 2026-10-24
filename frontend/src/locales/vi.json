@@ -87,10 +87,13 @@
   "documents": {
     "upload": "Tải tài liệu lên",
     "status": {
+      "pending": "Chờ xử lý",
       "uploaded": "Đã tải lên",
       "processing": "Đang xử lý",
+      "indexed": "Sẵn sàng",
       "ready": "Sẵn sàng",
-      "failed": "Thất bại"
+      "failed": "Thất bại",
+      "failedTooltip": "Xử lý thất bại. Bấm để xem chi tiết hoặc thử tái chỉ mục."
     }
   },
   "chat": {

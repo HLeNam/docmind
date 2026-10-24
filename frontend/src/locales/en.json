@@ -65,10 +65,13 @@
   "documents": {
     "upload": "Upload document",
     "status": {
+      "pending": "Pending",
       "uploaded": "Uploaded",
       "processing": "Processing",
+      "indexed": "Indexed",
       "ready": "Ready",
-      "failed": "Failed"
+      "failed": "Failed",
+      "failedTooltip": "Processing failed. Click to view details or re-index."
     }
   },
   "chat": {
