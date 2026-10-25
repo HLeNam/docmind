@@ -137,7 +137,7 @@ export function ChatMessageItem({
   // 1. User Message
   if (role === "USER") {
     return (
-      <div className="flex gap-3 justify-end group py-2">
+      <div className="flex gap-3 justify-end group py-2 animate-in fade-in duration-150">
         <div className="max-w-2xl rounded-2xl rounded-tr-xs bg-accent text-accent-fg px-4 py-2.5 text-sm shadow-xs font-normal">
           <p className="whitespace-pre-wrap leading-relaxed">{content}</p>
         </div>
@@ -150,7 +150,7 @@ export function ChatMessageItem({
 
   // 2. Assistant Message
   return (
-    <div className="flex gap-3 group py-3">
+    <div className="flex gap-3 group py-3 animate-in fade-in duration-150">
       {/* AI Avatar */}
       <div className="flex size-7 shrink-0 items-center justify-center rounded-xl bg-surface border border-border text-accent shadow-2xs mt-0.5">
         <DocMindLogo size={16} className="text-accent" />

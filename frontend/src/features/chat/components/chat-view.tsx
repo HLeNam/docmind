@@ -6,6 +6,7 @@ import {
   Bookmark,
   Sparkles,
 } from "lucide-react";
+import { cn } from "cn";
 import { Button } from "@/components/ui/button";
 import { SourcePanel } from "@/components/domain/source-panel";
 import { ConversationList } from "./conversation-list";
@@ -25,7 +26,12 @@ export function ChatView({ initialConversationId }: ChatViewProps) {
     initialConversationId || null
   );
 
-  const [showLeftSidebar, setShowLeftSidebar] = useState(true);
+  const [showLeftSidebar, setShowLeftSidebar] = useState(() => {
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
+      return false;
+    }
+    return true;
+  });
   const [showSourcePanel, setShowSourcePanel] = useState(false);
   const [activeCitation, setActiveCitation] = useState<ChatCitation | null>(null);
 
@@ -98,17 +104,40 @@ export function ChatView({ initialConversationId }: ChatViewProps) {
   const conversationMessages = messagesData?.items || [];
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden bg-bg">
+    <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden bg-bg relative">
       {/* 1. Left Column: Conversation History Sidebar */}
+      {/* Mobile Backdrop for left sidebar */}
+      {showLeftSidebar && (
+        <div
+          onClick={() => setShowLeftSidebar(false)}
+          className="fixed inset-0 bg-black/40 backdrop-blur-xs z-30 md:hidden transition-opacity"
+          aria-hidden="true"
+        />
+      )}
+
       <div
-        className={`${
-          showLeftSidebar ? "w-64 sm:w-72" : "w-0 hidden md:hidden"
-        } shrink-0 transition-all duration-200 h-full overflow-hidden`}
+        className={cn(
+          "h-full overflow-hidden transition-all duration-200 z-30 shrink-0",
+          "fixed inset-y-0 left-0 w-72 bg-surface border-r border-border shadow-xl md:static md:shadow-none md:z-auto",
+          showLeftSidebar
+            ? "translate-x-0 md:w-64 lg:w-72"
+            : "-translate-x-full md:translate-x-0 md:w-0 md:hidden"
+        )}
       >
         <ConversationList
           activeConversationId={activeConversationId}
-          onSelectConversation={handleSelectConversation}
-          onNewConversation={handleNewConversation}
+          onSelectConversation={(id) => {
+            handleSelectConversation(id);
+            if (typeof window !== "undefined" && window.innerWidth < 768) {
+              setShowLeftSidebar(false);
+            }
+          }}
+          onNewConversation={() => {
+            handleNewConversation();
+            if (typeof window !== "undefined" && window.innerWidth < 768) {
+              setShowLeftSidebar(false);
+            }
+          }}
         />
       </div>
 
@@ -239,14 +268,21 @@ export function ChatView({ initialConversationId }: ChatViewProps) {
 
       {/* 3. Right Column: Source Citation Panel */}
       {showSourcePanel && (
-        <div className="w-80 sm:w-96 shrink-0 h-full overflow-hidden transition-all duration-200">
-          <SourcePanel
-            citations={displayedCitations}
-            activeCitationIndex={activeCitation?.index}
-            onSelectCitation={(citation) => setActiveCitation(citation)}
-            onClose={() => setShowSourcePanel(false)}
+        <>
+          <div
+            onClick={() => setShowSourcePanel(false)}
+            className="fixed inset-0 bg-black/40 backdrop-blur-xs z-30 md:hidden transition-opacity"
+            aria-hidden="true"
           />
-        </div>
+          <div className="fixed inset-y-0 right-0 w-full sm:w-96 max-w-[88vw] bg-surface border-l border-border shadow-xl z-30 md:static md:shadow-none md:z-auto md:w-80 lg:w-96 shrink-0 h-full overflow-hidden transition-all duration-200">
+            <SourcePanel
+              citations={displayedCitations}
+              activeCitationIndex={activeCitation?.index}
+              onSelectCitation={(citation) => setActiveCitation(citation)}
+              onClose={() => setShowSourcePanel(false)}
+            />
+          </div>
+        </>
       )}
     </div>
   );

@@ -35,8 +35,17 @@ export function CollectionCard({
 
   return (
     <article
+      tabIndex={0}
+      role="button"
+      aria-label={`${collection.name}. ${t("collections.openCollection")}`}
       onClick={() => onSelect(collection)}
-      className="group relative flex flex-col justify-between rounded-2xl border border-border/80 bg-surface p-5 hover:border-accent/50 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer shadow-2xs select-none"
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onSelect(collection);
+        }
+      }}
+      className="group relative flex flex-col justify-between rounded-2xl border border-border/80 bg-surface p-5 hover:border-accent/50 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer shadow-2xs select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
     >
       <div>
         {/* Top Header: Icon, Name, and Menu */}
