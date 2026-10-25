@@ -14,7 +14,7 @@ export const sendMessageSchema = z.object({
   conversationId: z.string().uuid().optional(),
   content: z.string().min(1, "Nội dung câu hỏi không được để trống").max(4000),
   collectionId: z.string().uuid().optional(),
-  topK: z.number().int().min(1).max(20).default(5),
+  topK: z.number().int().min(1).max(20).optional(),
 });
 
 export type SendMessagePayload = z.infer<typeof sendMessageSchema>;
