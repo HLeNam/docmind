@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import {
   MessageSquare,
@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/features/auth";
 import { useCollections } from "@/features/collections";
+import { SettingsDialog } from "@/features/settings";
 import type { ConversationItem } from "../schemas/conversation-schemas";
 import { useConversations } from "../hooks/use-conversations";
 import { DeleteConversationDialog } from "./delete-conversation-dialog";
@@ -96,7 +97,6 @@ export function ConversationList({
   onToggleCollapse,
 }: ConversationListProps) {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { data: collections = [] } = useCollections();
   const { data, isLoading } = useConversations();
@@ -106,6 +106,7 @@ export function ConversationList({
     useState<ConversationItem | null>(null);
   const [conversationToDelete, setConversationToDelete] =
     useState<ConversationItem | null>(null);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const filteredItems = useMemo(() => {
     const items = data?.items ?? [];
@@ -314,7 +315,7 @@ export function ConversationList({
                 <p className="text-2xs text-fg-muted font-mono">{user.membership.role}</p>
               </div>
               <DropdownMenuItem
-                onClick={() => navigate({ to: "/settings" })}
+                onClick={() => setIsSettingsOpen(true)}
                 className="flex items-center gap-2 text-xs cursor-pointer"
               >
                 <Settings className="size-3.5 text-fg-muted" />
@@ -335,6 +336,12 @@ export function ConversationList({
           </DropdownMenu>
         </div>
       )}
+
+      {/* Settings In-Context Modal */}
+      <SettingsDialog
+        open={isSettingsOpen}
+        onOpenChange={setIsSettingsOpen}
+      />
 
       {/* Dialogs */}
       {conversationToRename && (
