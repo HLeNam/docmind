@@ -177,6 +177,17 @@
       "noChunks": "Chưa có đoạn trích nào cho tài liệu này.",
       "searchInChunks": "Tìm kiếm trong các đoạn trích...",
       "viewOriginalFromCitation": "Xem trong tài liệu gốc",
+      "wrapText": "Tự động xuống dòng",
+      "unwrapText": "Thu gọn dòng",
+      "copyCell": "Sao chép ô",
+      "cellCopied": "Đã sao chép",
+      "searchSheet": "Tìm kiếm ô...",
+      "emptyCell": "(Ô trống)",
+      "selectCellPrompt": "Bấm vào ô bất kỳ để xem và bôi đen nội dung",
+      "autoFitColumn": "Kéo để đổi độ rộng, hoặc nhấp đúp để tự vừa nội dung",
+      "expandInspector": "Mở rộng ô xem",
+      "collapseInspector": "Thu gọn ô xem",
+      "rowsAndCols": "{{rows}} hàng × {{cols}} cột",
       "close": "Đóng"
     },
     "status": {

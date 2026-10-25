@@ -1,7 +1,20 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { Loader2, AlertCircle, Search, Table, FileSpreadsheet } from "lucide-react";
+import {
+  Loader2,
+  AlertCircle,
+  Search,
+  Table,
+  FileSpreadsheet,
+  WrapText,
+  Copy,
+  Check,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { cn } from "cn";
 
 interface SpreadsheetViewerProps {
   blob: Blob;
@@ -12,6 +25,15 @@ interface ParsedSheet {
   name: string;
   data: (string | number | boolean | null)[][];
 }
+
+interface SelectedCell {
+  row: number;
+  col: number;
+}
+
+const DEFAULT_COLUMN_WIDTH = 150;
+const MIN_COLUMN_WIDTH = 60;
+const MAX_COLUMN_WIDTH = 800;
 
 function getColumnLetter(colIndex: number): string {
   let letter = "";
@@ -30,6 +52,19 @@ export function SpreadsheetViewer({ blob, filename }: SpreadsheetViewerProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Interactive controls state
+  const [selectedCell, setSelectedCell] = useState<SelectedCell | null>(null);
+  const [isWrapText, setIsWrapText] = useState(false);
+  const [isInspectorExpanded, setIsInspectorExpanded] = useState(false);
+  const [hasCopied, setHasCopied] = useState(false);
+
+  // Column widths per sheet: { [sheetIndex]: { [colIndex]: widthInPx } }
+  const [columnWidthsBySheet, setColumnWidthsBySheet] = useState<
+    Record<number, Record<number, number>>
+  >({});
+
+  const gridContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -53,6 +88,7 @@ export function SpreadsheetViewer({ blob, filename }: SpreadsheetViewerProps) {
         if (!cancelled) {
           setSheets(parsed);
           setActiveSheetIndex(0);
+          setSelectedCell(parsed[0]?.data?.length > 0 ? { row: 0, col: 0 } : null);
           setIsLoading(false);
         }
       } catch (err) {
@@ -72,13 +108,13 @@ export function SpreadsheetViewer({ blob, filename }: SpreadsheetViewerProps) {
 
   const currentSheet = sheets[activeSheetIndex] || null;
 
-  // Compute maximum number of columns in the current sheet
+  // Maximum number of columns in the current sheet
   const maxCols = useMemo(() => {
     if (!currentSheet?.data) return 0;
     return currentSheet.data.reduce((max, row) => Math.max(max, row.length), 0);
   }, [currentSheet]);
 
-  // Filter rows by search
+  // Filter rows by search query
   const filteredRows = useMemo(() => {
     if (!currentSheet?.data) return [];
     if (!searchQuery.trim()) return currentSheet.data;
@@ -87,6 +123,156 @@ export function SpreadsheetViewer({ blob, filename }: SpreadsheetViewerProps) {
       row.some((cell) => cell !== null && String(cell).toLowerCase().includes(query))
     );
   }, [currentSheet, searchQuery]);
+
+  // Derived effective selected cell (handles filtered rows or empty sheets without an effect)
+  const effectiveSelectedCell = useMemo(() => {
+    if (!selectedCell || filteredRows.length === 0) return null;
+    const row = Math.min(selectedCell.row, filteredRows.length - 1);
+    const col = Math.min(selectedCell.col, Math.max(0, maxCols - 1));
+    return { row, col };
+  }, [selectedCell, filteredRows.length, maxCols]);
+
+  // Get current width for a specific column in the active sheet
+  const getColWidth = useCallback(
+    (colIdx: number) => {
+      return (
+        columnWidthsBySheet[activeSheetIndex]?.[colIdx] ?? DEFAULT_COLUMN_WIDTH
+      );
+    },
+    [columnWidthsBySheet, activeSheetIndex]
+  );
+
+  // Column resize drag handler
+  const handleResizeStart = useCallback(
+    (colIdx: number, e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const startX = e.clientX;
+      const startWidth = getColWidth(colIdx);
+
+      const handleMouseMove = (moveEvent: MouseEvent) => {
+        const deltaX = moveEvent.clientX - startX;
+        const newWidth = Math.max(
+          MIN_COLUMN_WIDTH,
+          Math.min(MAX_COLUMN_WIDTH, startWidth + deltaX)
+        );
+
+        setColumnWidthsBySheet((prev) => ({
+          ...prev,
+          [activeSheetIndex]: {
+            ...(prev[activeSheetIndex] || {}),
+            [colIdx]: newWidth,
+          },
+        }));
+      };
+
+      const handleMouseUp = () => {
+        document.removeEventListener("mousemove", handleMouseMove);
+        document.removeEventListener("mouseup", handleMouseUp);
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+      };
+
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+    },
+    [activeSheetIndex, getColWidth]
+  );
+
+  // Double click on column separator auto-fits width to content
+  const handleAutoFitColumn = useCallback(
+    (colIdx: number) => {
+      if (!currentSheet?.data) return;
+      let maxLen = getColumnLetter(colIdx).length;
+      for (const row of currentSheet.data) {
+        const val = row[colIdx];
+        if (val !== undefined && val !== null) {
+          const len = String(val).length;
+          if (len > maxLen) maxLen = len;
+        }
+      }
+      // Estimate ~8.5px per character + 32px padding, clamped
+      const fitWidth = Math.min(550, Math.max(80, Math.round(maxLen * 8.5 + 32)));
+
+      setColumnWidthsBySheet((prev) => ({
+        ...prev,
+        [activeSheetIndex]: {
+          ...(prev[activeSheetIndex] || {}),
+          [colIdx]: fitWidth,
+        },
+      }));
+    },
+    [currentSheet, activeSheetIndex]
+  );
+
+  // Selected cell content string
+  const selectedCellContent = useMemo(() => {
+    if (!effectiveSelectedCell || !filteredRows[effectiveSelectedCell.row]) return "";
+    const raw = filteredRows[effectiveSelectedCell.row][effectiveSelectedCell.col];
+    return raw !== undefined && raw !== null ? String(raw) : "";
+  }, [effectiveSelectedCell, filteredRows]);
+
+  // Copy selected cell content
+  const handleCopyCell = useCallback(async () => {
+    if (!selectedCellContent) return;
+    try {
+      await navigator.clipboard.writeText(selectedCellContent);
+      setHasCopied(true);
+      setTimeout(() => setHasCopied(false), 2000);
+    } catch {
+      // Fallback
+    }
+  }, [selectedCellContent]);
+
+  // Keyboard navigation for spreadsheet grid
+  const handleGridKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (!effectiveSelectedCell || filteredRows.length === 0) return;
+
+      const { row, col } = effectiveSelectedCell;
+      let newRow = row;
+      let newCol = col;
+      let handled = false;
+
+      switch (e.key) {
+        case "ArrowUp":
+          newRow = Math.max(0, row - 1);
+          handled = true;
+          break;
+        case "ArrowDown":
+          newRow = Math.min(filteredRows.length - 1, row + 1);
+          handled = true;
+          break;
+        case "ArrowLeft":
+          newCol = Math.max(0, col - 1);
+          handled = true;
+          break;
+        case "ArrowRight":
+          newCol = Math.min(maxCols - 1, col + 1);
+          handled = true;
+          break;
+        case "Home":
+          newCol = 0;
+          handled = true;
+          break;
+        case "End":
+          newCol = maxCols - 1;
+          handled = true;
+          break;
+        default:
+          break;
+      }
+
+      if (handled) {
+        e.preventDefault();
+        setSelectedCell({ row: newRow, col: newCol });
+      }
+    },
+    [effectiveSelectedCell, filteredRows.length, maxCols]
+  );
 
   if (isLoading) {
     return (
@@ -107,36 +293,177 @@ export function SpreadsheetViewer({ blob, filename }: SpreadsheetViewerProps) {
     );
   }
 
+  const selectedCoordinate = effectiveSelectedCell
+    ? `${getColumnLetter(effectiveSelectedCell.col)}${effectiveSelectedCell.row + 1}`
+    : "—";
+
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-surface">
-      {/* Top Controls: Search & Sheet Stats */}
-      <div className="flex items-center justify-between gap-4 px-4 py-2.5 border-b border-border bg-surface shrink-0">
-        <div className="flex items-center gap-2 text-xs text-fg-muted">
-          <FileSpreadsheet className="size-4 text-success" aria-hidden="true" />
-          <span className="font-medium text-fg truncate max-w-[200px]" title={filename}>
+      {/* Top Controls: Search, Wrap Toggle, & Sheet Stats */}
+      <div className="flex items-center justify-between gap-3 px-4 py-2 border-b border-border bg-surface shrink-0">
+        <div className="flex items-center gap-2 text-xs text-fg-muted min-w-0">
+          <FileSpreadsheet className="size-4 text-success shrink-0" aria-hidden="true" />
+          <span className="font-medium text-fg truncate max-w-[180px]" title={filename}>
             {filename}
           </span>
           <span className="text-border">|</span>
-          <span className="font-mono text-[11px]">
-            {filteredRows.length} hàng × {maxCols} cột
+          <span className="font-mono text-[11px] whitespace-nowrap">
+            {t("documents.viewer.rowsAndCols", {
+              rows: filteredRows.length,
+              cols: maxCols,
+            })}
           </span>
         </div>
 
-        <div className="relative w-64 max-w-[50%]">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-fg-muted pointer-events-none" />
-          <Input
-            type="search"
-            placeholder="Tìm kiếm ô..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-7 pl-8 text-xs bg-surface-muted/50"
-          />
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Wrap Text Toggle Button */}
+          <Button
+            type="button"
+            variant={isWrapText ? "default" : "outline"}
+            size="xs"
+            onClick={() => setIsWrapText((prev) => !prev)}
+            title={
+              isWrapText
+                ? t("documents.viewer.unwrapText")
+                : t("documents.viewer.wrapText")
+            }
+            className="h-7 text-xs gap-1.5"
+          >
+            <WrapText className="size-3.5" aria-hidden="true" />
+            <span className="hidden sm:inline">
+              {isWrapText
+                ? t("documents.viewer.unwrapText")
+                : t("documents.viewer.wrapText")}
+            </span>
+          </Button>
+
+          {/* Search Input */}
+          <div className="relative w-56">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-fg-muted pointer-events-none" />
+            <Input
+              type="search"
+              placeholder={t("documents.viewer.searchSheet")}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-7 pl-8 text-xs bg-surface-muted/50"
+            />
+          </div>
         </div>
       </div>
 
-      {/* Main Spreadsheet Grid */}
-      <div className="flex-1 overflow-auto relative">
-        <table className="border-collapse text-xs w-full min-w-max select-text font-mono">
+      {/* Formula / Cell Content Inspector Bar */}
+      <div className="flex items-start gap-2 px-3 py-1.5 border-b border-border bg-surface-muted/40 shrink-0 text-xs">
+        {/* Cell Coordinate Chip */}
+        <div
+          className="flex items-center justify-center min-w-[54px] h-7 px-2 bg-surface border border-border rounded font-mono font-semibold text-[11px] text-accent select-none shrink-0 shadow-2xs"
+          title={`Ô ${selectedCoordinate}`}
+        >
+          {selectedCoordinate}
+        </div>
+
+        {/* fx symbol */}
+        <span
+          className="font-serif italic font-bold text-fg-muted text-xs select-none shrink-0 self-center px-1"
+          aria-hidden="true"
+        >
+          fx
+        </span>
+
+        {/* Cell Content Textarea (Selectable & Highlightable) */}
+        <div className="flex-1 relative flex items-center min-w-0">
+          <textarea
+            readOnly
+            rows={isInspectorExpanded ? 4 : 1}
+            value={selectedCellContent}
+            placeholder={
+              effectiveSelectedCell
+                ? t("documents.viewer.emptyCell")
+                : t("documents.viewer.selectCellPrompt")
+            }
+            aria-label="Nội dung ô"
+            className={cn(
+              "w-full px-2.5 py-1 text-xs font-sans text-fg bg-surface border border-border rounded focus:outline-none focus:ring-1 focus:ring-accent resize-none select-text shadow-2xs transition-all leading-relaxed",
+              isInspectorExpanded
+                ? "h-24 overflow-y-auto whitespace-pre-wrap"
+                : "h-7 overflow-x-auto whitespace-nowrap overflow-y-hidden"
+            )}
+          />
+        </div>
+
+        {/* Toggle Expand Bar (if content is long or multiline) */}
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          onClick={() => setIsInspectorExpanded((prev) => !prev)}
+          className="size-7 shrink-0 text-fg-muted hover:text-fg"
+          title={
+            isInspectorExpanded
+              ? t("documents.viewer.collapseInspector")
+              : t("documents.viewer.expandInspector")
+          }
+          aria-label={
+            isInspectorExpanded
+              ? t("documents.viewer.collapseInspector")
+              : t("documents.viewer.expandInspector")
+          }
+        >
+          {isInspectorExpanded ? (
+            <ChevronUp className="size-3.5" />
+          ) : (
+            <ChevronDown className="size-3.5" />
+          )}
+        </Button>
+
+        {/* 1-Click Copy Cell Content Button */}
+        <Button
+          type="button"
+          variant="outline"
+          size="xs"
+          disabled={!effectiveSelectedCell || !selectedCellContent}
+          onClick={handleCopyCell}
+          className="h-7 px-2 text-xs shrink-0 gap-1.5"
+          title={
+            hasCopied
+              ? t("documents.viewer.cellCopied")
+              : t("documents.viewer.copyCell")
+          }
+        >
+          {hasCopied ? (
+            <>
+              <Check className="size-3.5 text-success" />
+              <span className="text-success font-medium hidden sm:inline">
+                {t("documents.viewer.cellCopied")}
+              </span>
+            </>
+          ) : (
+            <>
+              <Copy className="size-3.5 text-fg-muted" />
+              <span className="hidden sm:inline">
+                {t("documents.viewer.copyCell")}
+              </span>
+            </>
+          )}
+        </Button>
+      </div>
+
+      {/* Main Spreadsheet Grid Container */}
+      <div
+        ref={gridContainerRef}
+        tabIndex={0}
+        onKeyDown={handleGridKeyDown}
+        className="flex-1 overflow-auto relative focus:outline-none"
+        aria-label="Bảng tính"
+      >
+        <table className="border-collapse text-xs select-text font-mono table-fixed min-w-full">
+          <colgroup>
+            {/* Sticky Row Index Column */}
+            <col style={{ width: 48 }} />
+            {/* Dynamic Sized Columns */}
+            {Array.from({ length: maxCols }).map((_, colIdx) => (
+              <col key={colIdx} style={{ width: getColWidth(colIdx) }} />
+            ))}
+          </colgroup>
           <thead className="sticky top-0 z-10 bg-surface-muted border-b border-border">
             <tr>
               {/* Top-left corner cell */}
@@ -147,40 +474,78 @@ export function SpreadsheetViewer({ blob, filename }: SpreadsheetViewerProps) {
               {Array.from({ length: maxCols }).map((_, colIdx) => (
                 <th
                   key={colIdx}
-                  className="px-3 py-1.5 border-r border-border text-center text-[11px] font-semibold text-fg-muted select-none min-w-[100px]"
+                  style={{ width: getColWidth(colIdx) }}
+                  className="relative px-3 py-1.5 border-r border-border text-center text-[11px] font-semibold text-fg-muted select-none group"
                 >
-                  {getColumnLetter(colIdx)}
+                  <div className="truncate px-1 select-none">
+                    {getColumnLetter(colIdx)}
+                  </div>
+                  {/* Interactive Column Resize Handle Divider */}
+                  <div
+                    role="separator"
+                    aria-orientation="vertical"
+                    tabIndex={-1}
+                    title={t("documents.viewer.autoFitColumn")}
+                    onMouseDown={(e) => handleResizeStart(colIdx, e)}
+                    onDoubleClick={() => handleAutoFitColumn(colIdx)}
+                    className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-accent active:bg-accent group-hover:bg-border-strong/60 transition-colors z-20 select-none"
+                  />
                 </th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {filteredRows.map((row, rowIdx) => (
-              <tr key={rowIdx} className="hover:bg-surface-muted/50 transition-colors">
-                {/* Row number cell (1, 2, 3...) */}
-                <td className="sticky left-0 z-10 px-2 py-1 bg-surface-muted border-r border-border text-center text-[10px] text-fg-muted font-normal select-none">
-                  {rowIdx + 1}
+            {filteredRows.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={maxCols + 1}
+                  className="p-8 text-center text-xs text-fg-muted font-sans"
+                >
+                  {t("documents.noFilteredResults")}
                 </td>
-                {/* Cell values */}
-                {Array.from({ length: maxCols }).map((_, colIdx) => {
-                  const cellValue = row[colIdx];
-                  const displayValue =
-                    cellValue !== undefined && cellValue !== null
-                      ? String(cellValue)
-                      : "";
-
-                  return (
-                    <td
-                      key={colIdx}
-                      className="px-3 py-1 border-r border-border/60 text-fg whitespace-nowrap truncate max-w-xs font-sans text-xs"
-                      title={displayValue}
-                    >
-                      {displayValue}
-                    </td>
-                  );
-                })}
               </tr>
-            ))}
+            ) : (
+              filteredRows.map((row, rowIdx) => (
+                <tr
+                  key={rowIdx}
+                  className="hover:bg-surface-muted/40 transition-colors"
+                >
+                  {/* Row number cell (1, 2, 3...) */}
+                  <td className="sticky left-0 z-10 px-2 py-1 bg-surface-muted border-r border-border text-center text-[10px] text-fg-muted font-normal select-none">
+                    {rowIdx + 1}
+                  </td>
+                  {/* Cells */}
+                  {Array.from({ length: maxCols }).map((_, colIdx) => {
+                    const cellValue = row[colIdx];
+                    const displayValue =
+                      cellValue !== undefined && cellValue !== null
+                        ? String(cellValue)
+                        : "";
+                    const isSelected =
+                      effectiveSelectedCell?.row === rowIdx &&
+                      effectiveSelectedCell?.col === colIdx;
+
+                    return (
+                      <td
+                        key={colIdx}
+                        onClick={() => setSelectedCell({ row: rowIdx, col: colIdx })}
+                        style={{ width: getColWidth(colIdx) }}
+                        className={cn(
+                          "px-3 py-1.5 border-r border-border/60 text-fg font-sans text-xs select-text cursor-cell transition-colors",
+                          isWrapText
+                            ? "whitespace-pre-wrap break-words align-top"
+                            : "whitespace-nowrap truncate align-middle",
+                          isSelected &&
+                            "ring-2 ring-accent ring-inset bg-accent-soft/40 font-medium z-10"
+                        )}
+                      >
+                        {displayValue}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
@@ -195,12 +560,16 @@ export function SpreadsheetViewer({ blob, filename }: SpreadsheetViewerProps) {
               <button
                 key={sheet.name}
                 type="button"
-                onClick={() => setActiveSheetIndex(index)}
-                className={`px-3 py-1 text-xs font-medium rounded-md whitespace-nowrap transition-colors ${
+                onClick={() => {
+                  setActiveSheetIndex(index);
+                  setSelectedCell({ row: 0, col: 0 });
+                }}
+                className={cn(
+                  "px-3 py-1 text-xs font-medium rounded-md whitespace-nowrap transition-colors",
                   isActive
                     ? "bg-surface text-accent shadow-2xs border border-border"
                     : "text-fg-muted hover:text-fg hover:bg-surface/50"
-                }`}
+                )}
               >
                 {sheet.name}
               </button>

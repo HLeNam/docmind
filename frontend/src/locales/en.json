@@ -155,6 +155,17 @@
       "noChunks": "No chunks found for this document.",
       "searchInChunks": "Search in chunks...",
       "viewOriginalFromCitation": "View in original document",
+      "wrapText": "Wrap text",
+      "unwrapText": "No wrap",
+      "copyCell": "Copy cell",
+      "cellCopied": "Copied",
+      "searchSheet": "Search in sheet...",
+      "emptyCell": "(Empty cell)",
+      "selectCellPrompt": "Click any cell to view and select text",
+      "autoFitColumn": "Drag to resize, or double-click to auto-fit",
+      "expandInspector": "Expand cell viewer",
+      "collapseInspector": "Collapse cell viewer",
+      "rowsAndCols": "{{rows}} rows × {{cols}} cols",
       "close": "Close"
     },
     "status": {
