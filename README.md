@@ -180,7 +180,7 @@ Bạn có thể đăng ký tài khoản mới trực tiếp tại `http://localh
   - Vùng kéo thả tải lên nhiều file, kiểm soát định dạng & kích thước.
   - Socket.IO Realtime hiển thị tiến độ phân tích văn bản từng bước.
   - Bảng tài liệu, badge trạng thái kèm lý do lỗi, nút tái chỉ mục.
-- [ ] **Phase F2: Trợ lý Chat & Trích dẫn minh bạch (AI Chat & Citations)**
+- [x] **Phase F2: Trợ lý Chat & Trích dẫn minh bạch (AI Chat & Citations)**
   - Bố cục 3 cột chuyên nghiệp: Lịch sử $\leftrightarrow$ Chat Stream $\leftrightarrow$ Panel đối soát nguồn.
   - Stream câu trả lời SSE, chip trích dẫn tương tác highlight vị trí tài liệu gốc.
   - Lịch sử hội thoại nhóm theo ngày, tìm kiếm và quản lý phiên chat.
