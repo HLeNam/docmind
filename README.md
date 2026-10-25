@@ -184,11 +184,11 @@ Bạn có thể đăng ký tài khoản mới trực tiếp tại `http://localh
   - Bố cục 3 cột chuyên nghiệp: Lịch sử $\leftrightarrow$ Chat Stream $\leftrightarrow$ Panel đối soát nguồn.
   - Stream câu trả lời SSE, chip trích dẫn tương tác highlight vị trí tài liệu gốc.
   - Lịch sử hội thoại nhóm theo ngày, tìm kiếm và quản lý phiên chat.
-- [ ] **Phase F3: Cài đặt & Tích hợp Doanh nghiệp (Settings & Integrations)**
-  - Quản lý thành viên nhóm, phân quyền RBAC và gửi lời mời qua email.
-  - Cổng nhà phát triển: Quản lý API Key có scoped permission.
-  - Tích hợp Slack Bot tự động trả lời câu hỏi trực tiếp trên các kênh nội bộ.
-  - Bảng đồng hồ theo dõi hạn mức sử dụng (Usage Meter).
+- [x] **Phase F3: Cài đặt & Tích hợp Doanh nghiệp (Settings & Integrations)**
+  - Quản lý thành viên nhóm, phân quyền RBAC và gửi lời mời qua email/link chấp nhận `/accept-invite`.
+  - Cổng nhà phát triển: Quản lý API Key có scoped permission theo từng bộ sưu tập.
+  - Tích hợp Slack Bot tự động trả lời câu hỏi trực tiếp trên các kênh nội bộ kèm ánh xạ channel.
+  - Bảng đồng hồ theo dõi token tiêu thụ (LLM & Embedding) và chi phí ước tính theo ngày (Usage Meter).
 - [ ] **Phase F4: Hoàn thiện & Tối ưu hóa (Polish & Launch)**
   - Rà soát toàn diện trợ năng WCAG 2.2 AA (axe automated tests).
   - Tối ưu hiệu năng tải trang, kiểm thử E2E với Playwright.
