@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { Readable } from 'stream';
 import {
   S3Client,
   PutObjectCommand,
@@ -127,7 +128,7 @@ export class StorageService {
   }
 
   async getObjectStream(key: string): Promise<{
-    body: NodeJS.ReadableStream;
+    body: Readable;
     contentType?: string;
     contentLength?: number;
   }> {
@@ -136,7 +137,7 @@ export class StorageService {
         new GetObjectCommand({ Bucket: this.bucket, Key: key }),
       );
       return {
-        body: result.Body as unknown as NodeJS.ReadableStream,
+        body: result.Body as unknown as Readable,
         contentType: result.ContentType,
         contentLength: result.ContentLength,
       };
