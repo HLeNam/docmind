@@ -40,7 +40,7 @@ export function CollectionList({
         {[1, 2, 3].map((i) => (
           <div
             key={i}
-            className="flex flex-col justify-between rounded-xl border border-border bg-surface p-5 h-44 shadow-xs"
+            className="flex flex-col justify-between rounded-2xl border border-border bg-surface p-5 h-44 shadow-2xs"
           >
             <div>
               <div className="flex items-center gap-3">

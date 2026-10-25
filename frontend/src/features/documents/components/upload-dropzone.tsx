@@ -137,10 +137,10 @@ export function UploadDropzone({
         onDragOver={onDragOver}
         onDragLeave={onDragLeave}
         onDrop={onDrop}
-        className={`relative flex flex-col items-center justify-center p-6 sm:p-8 rounded-xl border-2 border-dashed transition-all duration-200 text-center ${
+        className={`relative flex flex-col items-center justify-center p-6 sm:p-8 rounded-2xl border-2 border-dashed transition-all duration-200 text-center ${
           isDragOver
-            ? "border-accent bg-accent-soft/40"
-            : "border-border bg-surface hover:bg-surface-muted/20"
+            ? "border-accent bg-accent-soft/60 shadow-inner ring-4 ring-accent/15 scale-[1.01]"
+            : "border-border/90 bg-surface hover:border-accent/50 hover:bg-surface-muted/30"
         } ${disabled ? "opacity-50 pointer-events-none" : ""}`}
       >
         <input
@@ -154,15 +154,15 @@ export function UploadDropzone({
           id="document-file-input"
         />
 
-        <div className="flex size-11 items-center justify-center rounded-xl bg-accent-soft text-accent border border-accent/20 mb-3 shadow-2xs">
+        <div className="flex size-12 items-center justify-center rounded-2xl bg-accent-soft text-accent border border-accent/25 mb-3.5 shadow-2xs">
           {isUploading ? (
-            <Loader2 className="size-5 animate-spin" aria-hidden="true" />
+            <Loader2 className="size-6 animate-spin" aria-hidden="true" />
           ) : (
-            <UploadCloud className="size-5" aria-hidden="true" />
+            <UploadCloud className="size-6" aria-hidden="true" />
           )}
         </div>
 
-        <div className="space-y-1">
+        <div className="space-y-1.5 max-w-md">
           <p className="text-sm font-medium text-fg">
             <span>{t("documents.dropzoneText")} </span>
             <button
@@ -174,9 +174,21 @@ export function UploadDropzone({
               {t("documents.dropzoneBrowse")}
             </button>
           </p>
-          <p className="text-xs text-fg-muted">
+          <p className="text-xs text-fg-muted leading-relaxed">
             {t("documents.uploadDescription")}
           </p>
+        </div>
+
+        {/* Format Badges */}
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-1.5" aria-hidden="true">
+          {["PDF", "DOCX", "PPTX", "XLSX", "CSV", "TXT", "MD"].map((fmt) => (
+            <span
+              key={fmt}
+              className="px-2 py-0.5 rounded-md bg-surface-muted border border-border/80 text-[10px] font-mono font-medium text-fg-muted"
+            >
+              {fmt}
+            </span>
+          ))}
         </div>
 
         {isUploading && (

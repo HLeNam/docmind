@@ -159,16 +159,38 @@ export function ChatView({ initialConversationId }: ChatViewProps) {
           <div className="max-w-3xl mx-auto space-y-4">
             {/* If fresh conversation with no messages yet */}
             {conversationMessages.length === 0 && !isStreaming && !pendingPrompt ? (
-              <div className="text-center py-16 px-4 space-y-4 max-w-lg mx-auto">
-                <div className="flex size-12 mx-auto items-center justify-center rounded-2xl bg-accent-soft text-accent border border-accent/20 shadow-xs">
-                  <Sparkles className="size-6" aria-hidden="true" />
+              <div className="text-center py-12 px-4 space-y-6 max-w-xl mx-auto">
+                <div className="flex size-14 mx-auto items-center justify-center rounded-2xl bg-accent-soft text-accent border border-accent/20 shadow-xs">
+                  <Sparkles className="size-7" aria-hidden="true" />
                 </div>
-                <h3 className="font-semibold text-lg text-fg tracking-tight">
-                  {t("chat.emptyChatTitle")}
-                </h3>
-                <p className="text-xs sm:text-sm text-fg-muted leading-relaxed">
-                  {t("chat.emptyChatSubtitle")}
-                </p>
+                <div className="space-y-2">
+                  <h3 className="font-semibold text-xl text-fg tracking-tight">
+                    {t("chat.emptyChatTitle")}
+                  </h3>
+                  <p className="text-xs sm:text-sm text-fg-muted leading-relaxed max-w-md mx-auto">
+                    {t("chat.emptyChatSubtitle")}
+                  </p>
+                </div>
+
+                {/* Prompt Starters */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2 text-left">
+                  {[
+                    "Tóm tắt các chỉ số quan trọng trong tài liệu mới nhất",
+                    "Phân tích dữ liệu doanh thu và tăng trưởng định kỳ",
+                    "Kiểm tra các điều khoản pháp lý và bảo mật",
+                    "Tìm kiếm các trích dẫn về quy trình vận hành",
+                  ].map((starter, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => handleSend(starter)}
+                      className="p-3 rounded-xl border border-border bg-surface hover:border-accent hover:bg-accent-soft/20 text-xs text-fg-muted hover:text-fg transition-all duration-150 shadow-2xs group flex items-start gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                    >
+                      <Sparkles className="size-3.5 text-accent shrink-0 mt-0.5 group-hover:scale-110 transition-transform" aria-hidden="true" />
+                      <span className="line-clamp-2 leading-relaxed">{starter}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
             ) : null}
 

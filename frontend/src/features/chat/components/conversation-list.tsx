@@ -98,9 +98,9 @@ export function ConversationList({
     if (!searchQuery.trim()) return items;
     const q = searchQuery.toLowerCase();
     return items.filter(
-      (c) =>
-        (c.title && c.title.toLowerCase().includes(q)) ||
-        (c.preview && c.preview.toLowerCase().includes(q))
+      (item) =>
+        item.title?.toLowerCase().includes(q) ||
+        item.preview?.toLowerCase().includes(q)
     );
   }, [data?.items, searchQuery]);
 
@@ -110,14 +110,18 @@ export function ConversationList({
   );
 
   return (
-    <div className="flex flex-col h-full bg-surface border-r border-border w-full">
-      {/* Header & New Chat button */}
-      <div className="p-3 border-b border-border space-y-2.5">
+    <aside
+      aria-label={t("chat.conversations")}
+      className="flex flex-col h-full bg-surface-muted/30 border-r border-border w-full select-none"
+    >
+      {/* Top action: New Chat button & Search */}
+      <div className="p-3 border-b border-border space-y-2">
         <Button
+          type="button"
           variant="default"
           size="sm"
           onClick={onNewConversation}
-          className="w-full justify-start gap-2 shadow-xs"
+          className="w-full justify-start gap-2 shadow-xs rounded-xl"
         >
           <Plus className="size-4 shrink-0" aria-hidden="true" />
           <span>{t("chat.newConversation")}</span>
@@ -130,7 +134,7 @@ export function ConversationList({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={t("common.search")}
-            className="h-8 pl-8 text-xs bg-surface-muted/40"
+            className="h-8 pl-8 text-xs bg-surface border-border/80 rounded-lg"
           />
         </div>
       </div>
@@ -138,20 +142,22 @@ export function ConversationList({
       {/* Conversations scroll area */}
       <div className="flex-1 overflow-y-auto p-2 space-y-4">
         {isLoading ? (
-          <div className="space-y-2 p-2">
+          <div className="space-y-2 p-1">
             {[1, 2, 3, 4, 5].map((i) => (
-              <Skeleton key={i} className="h-9 w-full rounded-lg" />
+              <Skeleton key={i} className="h-9 w-full rounded-xl" />
             ))}
           </div>
         ) : filteredItems.length === 0 ? (
-          <div className="p-6 text-center text-xs text-fg-muted">
-            <MessageSquare className="size-6 mx-auto mb-2 text-fg-muted/40" />
+          <div className="p-6 text-center text-xs text-fg-muted space-y-2">
+            <div className="flex size-10 mx-auto items-center justify-center rounded-xl bg-surface-muted text-fg-muted/60">
+              <MessageSquare className="size-5" aria-hidden="true" />
+            </div>
             <p>{t("chat.emptyHistory")}</p>
           </div>
         ) : (
           groups.map((group) => (
             <div key={group.label} className="space-y-1">
-              <h4 className="px-2 text-[11px] font-semibold text-fg-muted uppercase tracking-wider">
+              <h4 className="px-2 text-[10px] font-semibold text-fg-muted uppercase tracking-wider">
                 {group.label}
               </h4>
               <div className="space-y-0.5">
@@ -162,33 +168,34 @@ export function ConversationList({
                   return (
                     <div
                       key={item.id}
-                      className={`group relative flex items-center justify-between rounded-lg px-2.5 py-2 text-xs transition-colors cursor-pointer ${
-                        isActive
-                          ? "bg-accent-soft text-accent font-medium"
-                          : "text-fg hover:bg-surface-muted"
-                      }`}
-                      onClick={() => onSelectConversation(item.id)}
+                      className="group relative flex items-center rounded-xl transition-all"
                     >
-                      <div className="flex items-center gap-2 min-w-0 flex-1 pr-1">
+                      <button
+                        type="button"
+                        onClick={() => onSelectConversation(item.id)}
+                        className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-xl text-xs text-left transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent ${
+                          isActive
+                            ? "bg-surface text-fg font-medium shadow-2xs border border-border"
+                            : "text-fg-muted hover:text-fg hover:bg-surface-muted/60"
+                        }`}
+                      >
                         <MessageSquare
                           className={`size-3.5 shrink-0 ${
                             isActive ? "text-accent" : "text-fg-muted"
                           }`}
                           aria-hidden="true"
                         />
-                        <span className="truncate" title={title}>
+                        <span className="truncate flex-1 pr-6" title={title}>
                           {title}
                         </span>
-                      </div>
+                      </button>
 
-                      <div
-                        className="opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity"
-                        onClick={(e) => e.stopPropagation()}
-                      >
+                      <div className="absolute right-1.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                         <DropdownMenu>
                           <DropdownMenuTrigger
                             render={
                               <Button
+                                type="button"
                                 variant="ghost"
                                 size="icon-xs"
                                 className="size-6 text-fg-muted hover:text-fg"
@@ -224,23 +231,27 @@ export function ConversationList({
         )}
       </div>
 
-      {/* Modals */}
-      <RenameConversationDialog
-        conversation={conversationToRename}
-        open={!!conversationToRename}
-        onOpenChange={(open) => !open && setConversationToRename(null)}
-      />
+      {/* Dialogs */}
+      {conversationToRename && (
+        <RenameConversationDialog
+          conversation={conversationToRename}
+          open={!!conversationToRename}
+          onOpenChange={(open) => !open && setConversationToRename(null)}
+        />
+      )}
 
-      <DeleteConversationDialog
-        conversation={conversationToDelete}
-        open={!!conversationToDelete}
-        onOpenChange={(open) => !open && setConversationToDelete(null)}
-        onDeleted={() => {
-          if (conversationToDelete && activeConversationId === conversationToDelete.id) {
-            onSelectConversation(null);
-          }
-        }}
-      />
-    </div>
+      {conversationToDelete && (
+        <DeleteConversationDialog
+          conversation={conversationToDelete}
+          open={!!conversationToDelete}
+          onOpenChange={(open) => !open && setConversationToDelete(null)}
+          onDeleted={() => {
+            if (activeConversationId === conversationToDelete.id) {
+              onNewConversation();
+            }
+          }}
+        />
+      )}
+    </aside>
   );
 }

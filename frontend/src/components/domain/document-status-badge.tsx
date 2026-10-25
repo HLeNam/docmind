@@ -25,25 +25,25 @@ export function DocumentStatusBadge({
     INDEXED: {
       label: t("documents.status.indexed"),
       icon: CheckCircle2,
-      style: "bg-success-soft text-success",
+      style: "bg-success-soft text-success border border-success/25 shadow-2xs",
       iconStyle: "text-success",
     },
     PROCESSING: {
       label: t("documents.status.processing"),
       icon: Loader2,
-      style: "bg-warning-soft text-warning",
+      style: "bg-warning-soft text-warning border border-warning/30 shadow-2xs",
       iconStyle: "animate-spin text-warning",
     },
     PENDING: {
       label: t("documents.status.pending"),
       icon: Clock,
-      style: "bg-surface-muted text-fg-muted",
+      style: "bg-surface-muted text-fg-muted border border-border/80 shadow-2xs",
       iconStyle: "text-fg-muted",
     },
     FAILED: {
       label: t("documents.status.failed"),
       icon: AlertCircle,
-      style: "bg-danger-soft text-danger",
+      style: "bg-danger-soft text-danger border border-danger/25 shadow-2xs",
       iconStyle: "text-danger",
     },
   }[status];

@@ -34,22 +34,42 @@ interface DocumentTableProps {
   onUploadClick?: () => void;
 }
 
-function getFileIcon(filename: string) {
+function getFileBadge(filename: string) {
   const ext = filename.split(".").pop()?.toLowerCase();
   switch (ext) {
     case "pdf":
-      return <FileText className="size-4 text-red-500/80 shrink-0" aria-hidden="true" />;
+      return (
+        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-danger-soft text-danger border border-danger/25 shadow-2xs">
+          <FileText className="size-4" aria-hidden="true" />
+        </div>
+      );
     case "xlsx":
     case "csv":
-      return <FileSpreadsheet className="size-4 text-emerald-500/80 shrink-0" aria-hidden="true" />;
+      return (
+        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-success-soft text-success border border-success/25 shadow-2xs">
+          <FileSpreadsheet className="size-4" aria-hidden="true" />
+        </div>
+      );
     case "docx":
     case "doc":
-      return <FileText className="size-4 text-sky-500/80 shrink-0" aria-hidden="true" />;
+      return (
+        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent border border-accent/25 shadow-2xs">
+          <FileText className="size-4" aria-hidden="true" />
+        </div>
+      );
     case "txt":
     case "md":
-      return <FileCode className="size-4 text-amber-500/80 shrink-0" aria-hidden="true" />;
+      return (
+        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-warning-soft text-warning border border-warning/25 shadow-2xs">
+          <FileCode className="size-4" aria-hidden="true" />
+        </div>
+      );
     default:
-      return <File className="size-4 text-fg-muted shrink-0" aria-hidden="true" />;
+      return (
+        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-surface-muted text-fg-muted border border-border/80 shadow-2xs">
+          <File className="size-4" aria-hidden="true" />
+        </div>
+      );
   }
 }
 
@@ -181,14 +201,12 @@ export function DocumentTable({
               return (
                 <tr
                   key={doc.id}
-                  className="hover:bg-surface-muted/30 transition-colors"
+                  className="hover:bg-surface-muted/40 transition-colors group"
                 >
                   {/* Filename & Icon */}
                   <td className="py-3.5 px-4">
-                    <div className="flex items-center gap-2.5 max-w-sm sm:max-w-md">
-                      <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-surface-muted border border-border">
-                        {getFileIcon(doc.filename)}
-                      </div>
+                    <div className="flex items-center gap-3 max-w-sm sm:max-w-md">
+                      {getFileBadge(doc.filename)}
                       <div className="min-w-0">
                         <p
                           className="font-medium text-fg truncate text-sm"
@@ -246,7 +264,7 @@ export function DocumentTable({
                           }
                           title={t("documents.reindex")}
                           aria-label={t("documents.reindex")}
-                          className="text-fg-muted hover:text-fg"
+                          className="text-fg-muted hover:text-accent hover:bg-accent-soft/60"
                         >
                           <RotateCw
                             className={`size-3.5 ${
@@ -263,7 +281,7 @@ export function DocumentTable({
                           onClick={() => onDeleteRequest(doc)}
                           title={t("common.delete")}
                           aria-label={t("common.delete")}
-                          className="text-fg-muted hover:text-danger hover:bg-danger-soft"
+                          className="text-fg-muted hover:text-danger hover:bg-danger-soft/60"
                         >
                           <Trash2 className="size-3.5" aria-hidden="true" />
                         </Button>
