@@ -50,3 +50,12 @@ export const ALLOWED_MIME_EXTENSIONS = [
 
 export const MAX_DOCUMENT_SIZE = 50 * 1024 * 1024; // 50MB
 export const MAX_TABULAR_SIZE = 10 * 1024 * 1024; // 10MB
+
+export interface DocumentChunk {
+  id: string;
+  documentId: string;
+  chunkIndex: number;
+  pageNumber: number | null;
+  headingContext: string | null;
+  content: string;
+}

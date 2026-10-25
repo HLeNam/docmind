@@ -1,5 +1,6 @@
-import { apiClient } from "@/lib/api-client";
+import { apiClient, apiFetchBlob, type BlobResult } from "@/lib/api-client";
 import type {
+  DocumentChunk,
   DocumentResponse,
   DocumentStatusResponse,
 } from "../schemas/document-schemas";
@@ -27,6 +28,14 @@ export const documentsApi = {
 
   async getStatus(id: string): Promise<DocumentStatusResponse> {
     return apiClient<DocumentStatusResponse>(`/documents/${id}/status`);
+  },
+
+  async getFile(id: string): Promise<BlobResult> {
+    return apiFetchBlob(`/documents/${id}/file`);
+  },
+
+  async getChunks(id: string): Promise<DocumentChunk[]> {
+    return apiClient<DocumentChunk[]>(`/documents/${id}/chunks`);
   },
 
   async reindex(id: string): Promise<{ id: string; status: string }> {

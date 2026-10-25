@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { X, FileText, Bookmark, CheckCircle2 } from "lucide-react";
+import { X, FileText, Bookmark, CheckCircle2, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { ChatCitation } from "@/features/chat/schemas/chat-schemas";
 
@@ -7,6 +7,7 @@ interface SourcePanelProps {
   citations: ChatCitation[];
   activeCitationIndex?: number | null;
   onSelectCitation?: (citation: ChatCitation) => void;
+  onViewDocument?: (citation: ChatCitation) => void;
   onClose?: () => void;
 }
 
@@ -14,6 +15,7 @@ export function SourcePanel({
   citations,
   activeCitationIndex,
   onSelectCitation,
+  onViewDocument,
   onClose,
 }: SourcePanelProps) {
   const { t } = useTranslation();
@@ -147,6 +149,25 @@ export function SourcePanel({
                   </div>
                 </div>
               </div>
+
+              {/* View in document button */}
+              {onViewDocument && (
+                <div className="mt-3 pt-2.5 border-t border-border/60 flex items-center justify-end">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="xs"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onViewDocument(citation);
+                    }}
+                    className="text-[11px] h-6 px-2 text-accent hover:text-accent hover:bg-accent-soft gap-1"
+                  >
+                    <Eye className="size-3" aria-hidden="true" />
+                    <span>{t("documents.viewer.viewOriginalFromCitation")}</span>
+                  </Button>
+                </div>
+              )}
             </button>
           );
         })}

@@ -10,6 +10,7 @@ import {
 import { cn } from "cn";
 import { Button } from "@/components/ui/button";
 import { SourcePanel } from "@/components/domain/source-panel";
+import { DocumentViewerModal } from "@/components/domain/document-viewer-modal";
 import { ConversationList } from "./conversation-list";
 import { ChatMessageItem } from "./chat-message-item";
 import { ChatInput } from "./chat-input";
@@ -35,6 +36,7 @@ export function ChatView({ initialConversationId }: ChatViewProps) {
   });
   const [showSourcePanel, setShowSourcePanel] = useState(false);
   const [activeCitation, setActiveCitation] = useState<ChatCitation | null>(null);
+  const [viewingCitation, setViewingCitation] = useState<ChatCitation | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -330,11 +332,22 @@ export function ChatView({ initialConversationId }: ChatViewProps) {
               citations={displayedCitations}
               activeCitationIndex={activeCitation?.index}
               onSelectCitation={(citation) => setActiveCitation(citation)}
+              onViewDocument={(citation) => setViewingCitation(citation)}
               onClose={() => setShowSourcePanel(false)}
             />
           </div>
         </>
       )}
+
+      {/* In-app Document Viewer Modal */}
+      <DocumentViewerModal
+        open={!!viewingCitation}
+        onOpenChange={(open) => !open && setViewingCitation(null)}
+        documentId={viewingCitation?.documentId ?? null}
+        filename={viewingCitation?.filename ?? ""}
+        initialPage={viewingCitation?.pageNumber}
+        initialChunkIndex={viewingCitation?.chunkIndex}
+      />
     </div>
   );
 }

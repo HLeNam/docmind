@@ -104,3 +104,21 @@ export function useDocumentRealtimeProgress(collectionId?: string) {
     clearProgress,
   };
 }
+
+export function useDocumentFile(documentId?: string | null) {
+  return useQuery({
+    queryKey: ["documents", "file", documentId],
+    queryFn: () => documentsApi.getFile(documentId!),
+    enabled: !!documentId,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useDocumentChunks(documentId?: string | null) {
+  return useQuery({
+    queryKey: ["documents", "chunks", documentId],
+    queryFn: () => documentsApi.getChunks(documentId!),
+    enabled: !!documentId,
+    staleTime: 5 * 60 * 1000,
+  });
+}

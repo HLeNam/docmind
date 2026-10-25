@@ -126,6 +126,26 @@ export class StorageService {
     }
   }
 
+  async getObjectStream(key: string): Promise<{
+    body: NodeJS.ReadableStream;
+    contentType?: string;
+    contentLength?: number;
+  }> {
+    try {
+      const result = await this.client.send(
+        new GetObjectCommand({ Bucket: this.bucket, Key: key }),
+      );
+      return {
+        body: result.Body as unknown as NodeJS.ReadableStream,
+        contentType: result.ContentType,
+        contentLength: result.ContentLength,
+      };
+    } catch (err) {
+      this.logger.error(`Download stream failed: ${key}`, err as Error);
+      throw new InternalAppException(ErrorCode.STORAGE_DOWNLOAD_FAILED);
+    }
+  }
+
   // Dùng cho nút "tải file gốc" trên FE — presigned URL để client tải thẳng từ S3/MinIO, không
   // phải proxy qua backend (tránh tốn băng thông + memory của app server cho file lớn).
   async getSignedDownloadUrl(

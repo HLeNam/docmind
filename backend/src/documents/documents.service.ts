@@ -216,4 +216,68 @@ export class DocumentsService {
     await this.queue.add('process', { documentId: document.id }, JOB_OPTS);
     return { id: documentId, status: 'PENDING' };
   }
+
+  async getFile(caller: AccessTokenPayload, documentId: string) {
+    const document = await this.prisma.runInTenantContext(
+      caller.tenantId,
+      async (tx) => {
+        const doc = await tx.document.findUnique({
+          where: { id: documentId },
+          select: {
+            id: true,
+            filename: true,
+            fileUrl: true,
+            mimeType: true,
+            collectionId: true,
+          },
+        });
+        if (!doc) throw new NotFoundAppException('Document not found');
+        await this.collectionsService.assertCollectionAccessible(
+          caller,
+          doc.collectionId,
+        );
+        return doc;
+      },
+    );
+
+    const { body, contentType, contentLength } =
+      await this.storage.getObjectStream(document.fileUrl);
+
+    return {
+      stream: body,
+      filename: document.filename,
+      mimeType: document.mimeType || contentType || 'application/octet-stream',
+      contentLength,
+    };
+  }
+
+  async getChunks(caller: AccessTokenPayload, documentId: string) {
+    return this.prisma.runInTenantContext(caller.tenantId, async (tx) => {
+      const doc = await tx.document.findUnique({
+        where: { id: documentId },
+        select: {
+          id: true,
+          collectionId: true,
+        },
+      });
+      if (!doc) throw new NotFoundAppException('Document not found');
+      await this.collectionsService.assertCollectionAccessible(
+        caller,
+        doc.collectionId,
+      );
+
+      return tx.documentChunk.findMany({
+        where: { documentId },
+        select: {
+          id: true,
+          documentId: true,
+          chunkIndex: true,
+          pageNumber: true,
+          headingContext: true,
+          content: true,
+        },
+        orderBy: { chunkIndex: 'asc' },
+      });
+    });
+  }
 }

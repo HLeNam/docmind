@@ -7,9 +7,12 @@ import {
   Param,
   Post,
   Query,
+  Res,
+  StreamableFile,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import {
   ApiBearerAuth,
   ApiBody,
@@ -28,6 +31,7 @@ import {
   UploadDocumentMetaSchema,
   DocumentResponseSchema,
   DocumentStatusResponseSchema,
+  DocumentChunkResponseSchema,
 } from './schemas/document.schema.js';
 import { ApiZodResponse } from '../common/swagger/api-zod-response.decorator.js';
 import { ApiErrorResponse } from '../common/swagger/api-error-response.decorator.js';
@@ -126,6 +130,47 @@ export class DocumentsController {
   )
   getStatus(@CurrentUser() user: AccessTokenPayload, @Param('id') id: string) {
     return this.documentsService.getStatus(user, id);
+  }
+
+  @Get(':id/file')
+  @ApiOperation({
+    summary: 'Stream document file content for in-browser preview or download',
+  })
+  @ApiErrorResponse(
+    HttpStatus.NOT_FOUND,
+    'Document not found or access denied.',
+  )
+  async getFile(
+    @CurrentUser() user: AccessTokenPayload,
+    @Param('id') id: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    const file = await this.documentsService.getFile(user, id);
+    res.set({
+      'Content-Type': file.mimeType,
+      'Content-Disposition': `inline; filename="${encodeURIComponent(file.filename)}"`,
+      ...(file.contentLength
+        ? { 'Content-Length': file.contentLength.toString() }
+        : {}),
+    });
+    return new StreamableFile(file.stream);
+  }
+
+  @Get(':id/chunks')
+  @ApiOperation({
+    summary: 'Get parsed chunks of a document for preview and reference',
+  })
+  @ApiZodResponse({
+    status: HttpStatus.OK,
+    description: 'Document chunks',
+    schema: z.array(DocumentChunkResponseSchema),
+  })
+  @ApiErrorResponse(
+    HttpStatus.NOT_FOUND,
+    'Document not found or access denied.',
+  )
+  getChunks(@CurrentUser() user: AccessTokenPayload, @Param('id') id: string) {
+    return this.documentsService.getChunks(user, id);
   }
 
   @Roles('OWNER', 'ADMIN')

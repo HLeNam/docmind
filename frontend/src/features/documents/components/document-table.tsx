@@ -12,13 +12,14 @@ import {
   FilePlus,
   Loader2,
   Search,
-  ExternalLink,
+  Eye,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DocumentStatusBadge } from "@/components/domain/document-status-badge";
 import { EmptyState } from "@/components/domain/empty-state";
+import { DocumentViewerModal } from "@/components/domain/document-viewer-modal";
 import type {
   DocumentProgressEvent,
   DocumentResponse,
@@ -94,6 +95,7 @@ export function DocumentTable({
   const [statusFilter, setStatusFilter] = useState<
     "ALL" | "INDEXED" | "PROCESSING" | "FAILED"
   >("ALL");
+  const [viewingDoc, setViewingDoc] = useState<DocumentResponse | null>(null);
 
   const filteredDocuments = useMemo(() => {
     if (!documents) return [];
@@ -261,11 +263,9 @@ export function DocumentTable({
                   <th scope="col" className="py-3 px-4 font-medium">
                     {t("documents.tableHeader.createdAt")}
                   </th>
-                  {canManage && (
-                    <th scope="col" className="py-3 px-4 text-right font-medium">
-                      {t("documents.tableHeader.actions")}
-                    </th>
-                  )}
+                  <th scope="col" className="py-3 px-4 text-right font-medium">
+                    {t("documents.tableHeader.actions")}
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -291,12 +291,14 @@ export function DocumentTable({
                         <div className="flex items-center gap-3 max-w-sm sm:max-w-md">
                           {getFileBadge(doc.filename)}
                           <div className="min-w-0">
-                            <p
-                              className="font-medium text-fg truncate text-sm"
+                            <button
+                              type="button"
+                              onClick={() => setViewingDoc(doc)}
+                              className="font-medium text-fg hover:text-accent truncate text-sm text-left transition-colors block max-w-full"
                               title={doc.filename}
                             >
                               {doc.filename}
-                            </p>
+                            </button>
                             {liveProgress &&
                               liveProgress.phase !== "completed" &&
                               liveProgress.phase !== "failed" && (
@@ -332,24 +334,22 @@ export function DocumentTable({
                       </td>
 
                       {/* Actions */}
-                      {canManage && (
-                        <td className="py-3.5 px-4 whitespace-nowrap text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            {/* Open Original File if URL available */}
-                            {doc.fileUrl && (
-                              <a
-                                href={doc.fileUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex size-6 items-center justify-center rounded-md text-fg-muted hover:text-accent hover:bg-accent-soft/60 transition-colors"
-                                title={t("documents.openOriginal")}
-                                aria-label={t("documents.openOriginal")}
-                              >
-                                <ExternalLink className="size-3.5" aria-hidden="true" />
-                              </a>
-                            )}
+                      <td className="py-3.5 px-4 whitespace-nowrap text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          {/* In-app Document Viewer Button */}
+                          <Button
+                            variant="ghost"
+                            size="icon-xs"
+                            onClick={() => setViewingDoc(doc)}
+                            title={t("documents.viewDocument")}
+                            aria-label={t("documents.viewDocument")}
+                            className="text-fg-muted hover:text-accent hover:bg-accent-soft/60"
+                          >
+                            <Eye className="size-3.5" aria-hidden="true" />
+                          </Button>
 
-                            {/* Re-index button */}
+                          {/* Re-index button */}
+                          {canManage && (
                             <Button
                               variant="ghost"
                               size="icon-xs"
@@ -370,8 +370,10 @@ export function DocumentTable({
                                 aria-hidden="true"
                               />
                             </Button>
+                          )}
 
-                            {/* Delete button */}
+                          {/* Delete button */}
+                          {canManage && (
                             <Button
                               variant="ghost"
                               size="icon-xs"
@@ -382,9 +384,9 @@ export function DocumentTable({
                             >
                               <Trash2 className="size-3.5" aria-hidden="true" />
                             </Button>
-                          </div>
-                        </td>
-                      )}
+                          )}
+                        </div>
+                      </td>
                     </tr>
                   );
                 })}
@@ -393,6 +395,14 @@ export function DocumentTable({
           </div>
         </div>
       )}
+
+      {/* In-app Document Viewer Modal */}
+      <DocumentViewerModal
+        open={!!viewingDoc}
+        onOpenChange={(open) => !open && setViewingDoc(null)}
+        documentId={viewingDoc?.id ?? null}
+        filename={viewingDoc?.filename ?? ""}
+      />
     </div>
   );
 }
