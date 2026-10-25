@@ -18,6 +18,7 @@ import {
   AlertCircle,
   Loader2,
   RefreshCw,
+  Presentation,
 } from "lucide-react";
 import {
   Dialog,
@@ -33,6 +34,10 @@ import {
   useDocumentChunks,
 } from "@/features/documents/hooks/use-documents";
 import type { DocumentChunk } from "@/features/documents/schemas/document-schemas";
+import { DocxViewer } from "./viewers/docx-viewer";
+import { SpreadsheetViewer } from "./viewers/spreadsheet-viewer";
+import { PresentationViewer } from "./viewers/presentation-viewer";
+import { MarkdownViewer } from "./viewers/markdown-viewer";
 
 interface DocumentViewerModalProps {
   open: boolean;
@@ -43,12 +48,26 @@ interface DocumentViewerModalProps {
   initialChunkIndex?: number | null;
 }
 
-function getFileType(filename: string): "pdf" | "image" | "text" | "office" | "unknown" {
+function getFileType(
+  filename: string
+):
+  | "pdf"
+  | "image"
+  | "docx"
+  | "spreadsheet"
+  | "pptx"
+  | "markdown"
+  | "text"
+  | "unknown" {
   const ext = filename.split(".").pop()?.toLowerCase();
   if (ext === "pdf") return "pdf";
-  if (["png", "jpg", "jpeg", "webp", "gif", "svg"].includes(ext || "")) return "image";
-  if (["txt", "md", "csv", "json"].includes(ext || "")) return "text";
-  if (["docx", "doc", "xlsx", "xls", "pptx", "ppt"].includes(ext || "")) return "office";
+  if (["png", "jpg", "jpeg", "webp", "gif", "svg"].includes(ext || ""))
+    return "image";
+  if (ext === "docx" || ext === "doc") return "docx";
+  if (["xlsx", "xls", "csv"].includes(ext || "")) return "spreadsheet";
+  if (ext === "pptx" || ext === "ppt") return "pptx";
+  if (ext === "md") return "markdown";
+  if (["txt", "json"].includes(ext || "")) return "text";
   return "unknown";
 }
 
@@ -61,15 +80,28 @@ function getFileBadge(filename: string) {
           <FileText className="size-3.5" aria-hidden="true" />
         </div>
       );
-    case "office":
+    case "docx":
+      return (
+        <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent border border-accent/25">
+          <FileText className="size-3.5" aria-hidden="true" />
+        </div>
+      );
+    case "spreadsheet":
       return (
         <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-success-soft text-success border border-success/25">
           <FileSpreadsheet className="size-3.5" aria-hidden="true" />
         </div>
       );
-    case "text":
+    case "pptx":
       return (
         <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-warning-soft text-warning border border-warning/25">
+          <Presentation className="size-3.5" aria-hidden="true" />
+        </div>
+      );
+    case "markdown":
+    case "text":
+      return (
+        <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-surface-muted text-fg-muted border border-border">
           <FileCode className="size-3.5" aria-hidden="true" />
         </div>
       );
@@ -100,10 +132,8 @@ function DocumentViewerContent({
   const { t } = useTranslation();
   const fileType = useMemo(() => getFileType(filename), [filename]);
 
-  // Tab: 'original' vs 'chunks'
-  const [activeTab, setActiveTab] = useState<"original" | "chunks">(
-    fileType === "office" ? "chunks" : "original"
-  );
+  // Tab: 'original' vs 'chunks' - defaults to 'original' for all supported formats!
+  const [activeTab, setActiveTab] = useState<"original" | "chunks">("original");
 
   // Image zoom and rotation
   const [zoom, setZoom] = useState(1);
@@ -150,7 +180,7 @@ function DocumentViewerContent({
 
   useEffect(() => {
     let cancelled = false;
-    if (blob && fileType === "text") {
+    if (blob && (fileType === "text" || fileType === "markdown")) {
       blob
         .text()
         .then((text) => {
@@ -381,16 +411,28 @@ function DocumentViewerContent({
         {activeTab === "original" ? (
           /* TAB 1: ORIGINAL FILE VIEW */
           <div className="flex-1 flex flex-col min-h-0 relative">
-            {isFileLoading ? (
+            {/* 1. PPTX Presentation Viewer (Uses structured slide chunks) */}
+            {fileType === "pptx" ? (
+              <PresentationViewer
+                chunks={chunksData || []}
+                filename={filename}
+                initialSlideNumber={initialPage}
+              />
+            ) : isFileLoading ? (
               <div className="flex-1 flex flex-col items-center justify-center p-8 space-y-4">
-                <Loader2 className="size-8 text-accent animate-spin" aria-hidden="true" />
-                <p className="text-sm text-fg-muted">{t("documents.viewer.loading")}</p>
+                <Loader2
+                  className="size-8 text-accent animate-spin"
+                  aria-hidden="true"
+                />
+                <p className="text-sm text-fg-muted">
+                  {t("documents.viewer.loading")}
+                </p>
                 <div className="w-64 max-w-full space-y-2">
                   <Skeleton className="h-4 w-full" />
                   <Skeleton className="h-4 w-3/4" />
                 </div>
               </div>
-            ) : isFileError || !objectUrl ? (
+            ) : isFileError || !blob ? (
               <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-3">
                 <div className="flex size-12 items-center justify-center rounded-2xl bg-danger-soft text-danger border border-danger/20">
                   <AlertCircle className="size-6" aria-hidden="true" />
@@ -416,6 +458,15 @@ function DocumentViewerContent({
                 className="w-full h-full border-0 bg-surface"
                 title={filename}
               />
+            ) : fileType === "docx" ? (
+              /* WORD (.DOCX) VIEWER: High-fidelity DOM renderer via docx-preview */
+              <DocxViewer blob={blob} filename={filename} />
+            ) : fileType === "spreadsheet" ? (
+              /* EXCEL / CSV (.XLSX / .CSV) VIEWER: Interactive multi-sheet grid */
+              <SpreadsheetViewer blob={blob} filename={filename} />
+            ) : fileType === "markdown" && textContent !== null ? (
+              /* MARKDOWN (.MD) VIEWER: Formatted preview + raw toggle */
+              <MarkdownViewer content={textContent} filename={filename} />
             ) : fileType === "image" ? (
               /* IMAGE VIEWER: with interactive Zoom & Rotate controls */
               <div className="flex-1 flex flex-col min-h-0">
@@ -471,7 +522,7 @@ function DocumentViewerContent({
                 {/* Image Canvas */}
                 <div className="flex-1 overflow-auto flex items-center justify-center p-6 bg-surface-muted/60">
                   <img
-                    src={objectUrl}
+                    src={objectUrl || ""}
                     alt={filename}
                     className="max-w-none transition-transform duration-150 rounded-lg shadow-md"
                     style={{
@@ -481,11 +532,13 @@ function DocumentViewerContent({
                 </div>
               </div>
             ) : fileType === "text" ? (
-              /* TEXT / MARKDOWN VIEWER: Syntax reader with line numbers & copy */
+              /* TEXT VIEWER: Syntax reader with line numbers & copy */
               <div className="flex-1 flex flex-col min-h-0 bg-surface">
                 <div className="flex items-center justify-between px-4 py-2 bg-surface-muted/40 border-b border-border shrink-0">
                   <span className="text-xs text-fg-muted font-mono">
-                    {textContent ? `${textContent.split("\n").length} dòng` : ""}
+                    {textContent
+                      ? `${textContent.split("\n").length} dòng`
+                      : ""}
                   </span>
                   {textContent && (
                     <Button
@@ -497,7 +550,10 @@ function DocumentViewerContent({
                     >
                       {copiedText ? (
                         <>
-                          <Check className="size-3.5 text-accent" aria-hidden="true" />
+                          <Check
+                            className="size-3.5 text-accent"
+                            aria-hidden="true"
+                          />
                           <span>{t("documents.viewer.copied")}</span>
                         </>
                       ) : (
@@ -514,42 +570,22 @@ function DocumentViewerContent({
                 </pre>
               </div>
             ) : (
-              /* OFFICE DOCUMENT FALLBACK: Info banner + Switch to chunks */
+              /* FALLBACK RAW TEXT */
               <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-4 max-w-lg mx-auto">
-                <div className="flex size-14 items-center justify-center rounded-2xl bg-success-soft text-success border border-success/20 shadow-xs">
-                  <FileSpreadsheet className="size-7" aria-hidden="true" />
+                <div className="flex size-14 items-center justify-center rounded-2xl bg-surface-muted text-accent border border-border">
+                  <File className="size-7" aria-hidden="true" />
                 </div>
-                <div className="space-y-1">
-                  <h3 className="font-semibold text-sm text-fg">
-                    {filename}
-                  </h3>
-                  <p className="text-xs text-fg-muted leading-relaxed">
-                    {t("documents.viewer.officeNotice")}
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-3 pt-2">
-                  <Button
-                    type="button"
-                    variant="default"
-                    size="sm"
-                    onClick={() => setActiveTab("chunks")}
-                    className="gap-2"
-                  >
-                    <Layers className="size-4" aria-hidden="true" />
-                    <span>{t("documents.viewer.tabChunks")}</span>
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleDownload}
-                    className="gap-2"
-                  >
-                    <Download className="size-4" aria-hidden="true" />
-                    <span>{t("documents.viewer.download")}</span>
-                  </Button>
-                </div>
+                <h3 className="font-semibold text-sm text-fg">{filename}</h3>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDownload}
+                  className="gap-2"
+                >
+                  <Download className="size-4" aria-hidden="true" />
+                  <span>{t("documents.viewer.download")}</span>
+                </Button>
               </div>
             )}
           </div>
@@ -586,7 +622,10 @@ function DocumentViewerContent({
                 </div>
               ) : isChunksError ? (
                 <div className="flex flex-col items-center justify-center p-8 text-center space-y-3 text-fg-muted">
-                  <AlertCircle className="size-6 text-danger" aria-hidden="true" />
+                  <AlertCircle
+                    className="size-6 text-danger"
+                    aria-hidden="true"
+                  />
                   <p className="text-xs">{t("documents.viewer.loadError")}</p>
                   <Button
                     type="button"
@@ -599,7 +638,10 @@ function DocumentViewerContent({
                 </div>
               ) : filteredChunks.length === 0 ? (
                 <div className="flex flex-col items-center justify-center p-8 text-center text-fg-muted space-y-2">
-                  <Layers className="size-6 text-fg-muted/60" aria-hidden="true" />
+                  <Layers
+                    className="size-6 text-fg-muted/60"
+                    aria-hidden="true"
+                  />
                   <p className="text-xs">{t("documents.viewer.noChunks")}</p>
                 </div>
               ) : (
