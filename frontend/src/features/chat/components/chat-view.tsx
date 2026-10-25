@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import {
-  PanelLeftClose,
   PanelLeft,
   Bookmark,
   Sparkles,
@@ -147,7 +146,7 @@ export function ChatView({ initialConversationId }: ChatViewProps) {
   };
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden bg-bg relative">
+    <div className="flex h-screen overflow-hidden bg-bg relative">
       {/* 1. Left Column: Conversation History Sidebar */}
       {/* Mobile Backdrop for left sidebar */}
       {showLeftSidebar && (
@@ -169,6 +168,7 @@ export function ChatView({ initialConversationId }: ChatViewProps) {
       >
         <ConversationList
           activeConversationId={activeConversationId}
+          onToggleCollapse={() => setShowLeftSidebar(false)}
           onSelectConversation={(id) => {
             handleSelectConversation(id);
             if (typeof window !== "undefined" && window.innerWidth < 768) {
@@ -189,22 +189,20 @@ export function ChatView({ initialConversationId }: ChatViewProps) {
         {/* Top Chat Bar */}
         <div className="h-12 border-b border-border bg-surface px-4 flex items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-2 min-w-0">
-            <Button
-              variant="ghost"
-              size="icon-xs"
-              onClick={() => setShowLeftSidebar((prev) => !prev)}
-              title={showLeftSidebar ? "Thu gọn sidebar" : "Mở rộng sidebar"}
-              aria-label="Toggle sidebar"
-              className="text-fg-muted hover:text-fg"
-            >
-              {showLeftSidebar ? (
-                <PanelLeftClose className="size-4" />
-              ) : (
+            {!showLeftSidebar && (
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                onClick={() => setShowLeftSidebar(true)}
+                title={t("common.openSidebar") || "Mở sidebar"}
+                aria-label="Open sidebar"
+                className="text-fg-muted hover:text-fg"
+              >
                 <PanelLeft className="size-4" />
-              )}
-            </Button>
+              </Button>
+            )}
 
-            <span className="font-medium text-xs sm:text-sm text-fg truncate">
+            <span className="font-semibold text-xs sm:text-sm text-fg truncate">
               {activeConversationId ? t("chat.title") : t("chat.newConversation")}
             </span>
           </div>

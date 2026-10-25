@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import {
   MessageSquare,
@@ -9,16 +9,23 @@ import {
   Pencil,
   Trash2,
   Folder,
+  PanelLeftClose,
+  Settings,
+  LogOut,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DocMindLogo } from "@/components/ui/docmind-logo";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useAuth } from "@/features/auth";
+import { useCollections } from "@/features/collections";
 import type { ConversationItem } from "../schemas/conversation-schemas";
 import { useConversations } from "../hooks/use-conversations";
 import { DeleteConversationDialog } from "./delete-conversation-dialog";
@@ -28,6 +35,7 @@ interface ConversationListProps {
   activeConversationId?: string | null;
   onSelectConversation: (id: string | null) => void;
   onNewConversation: () => void;
+  onToggleCollapse?: () => void;
 }
 
 interface GroupedConversations {
@@ -85,8 +93,12 @@ export function ConversationList({
   activeConversationId,
   onSelectConversation,
   onNewConversation,
+  onToggleCollapse,
 }: ConversationListProps) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
+  const { data: collections = [] } = useCollections();
   const { data, isLoading } = useConversations();
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -116,8 +128,34 @@ export function ConversationList({
       aria-label={t("chat.conversations")}
       className="flex flex-col h-full bg-surface-muted/30 border-r border-border w-full select-none"
     >
-      {/* Top action: New Chat button & Search */}
-      <div className="p-3 border-b border-border space-y-2">
+      {/* 1. Brand Header with Logo & Collapse button (ChatGPT style) */}
+      <div className="h-12 px-3 border-b border-border flex items-center justify-between gap-2 shrink-0 bg-surface/50">
+        <Link to="/" className="flex items-center gap-2 outline-none group">
+          <div className="flex size-7 items-center justify-center rounded-lg bg-surface border border-border text-fg shadow-2xs group-hover:border-accent/40 transition-colors">
+            <DocMindLogo size={18} className="text-fg" />
+          </div>
+          <span className="font-heading font-semibold text-sm text-fg tracking-tight">
+            DocMind
+          </span>
+        </Link>
+
+        {onToggleCollapse && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            onClick={onToggleCollapse}
+            title={t("common.closeSidebar") || "Thu gọn sidebar"}
+            aria-label="Close sidebar"
+            className="text-fg-muted hover:text-fg"
+          >
+            <PanelLeftClose className="size-4" />
+          </Button>
+        )}
+      </div>
+
+      {/* 2. Top Actions: New Chat, Search, & Collections Knowledge link */}
+      <div className="p-3 border-b border-border space-y-2 shrink-0">
         <Button
           type="button"
           variant="default"
@@ -128,6 +166,24 @@ export function ConversationList({
           <Plus className="size-4 shrink-0" aria-hidden="true" />
           <span>{t("chat.newConversation")}</span>
         </Button>
+
+        {/* Quick link to Collections / Knowledge Base */}
+        <Link
+          to="/collections"
+          className="flex items-center justify-between p-2 rounded-xl border border-border/80 bg-surface hover:bg-surface-muted hover:border-accent/40 transition-all text-xs font-medium text-fg shadow-2xs group"
+        >
+          <div className="flex items-center gap-2 truncate">
+            <div className="flex size-6 items-center justify-center rounded-md bg-accent-soft text-accent shrink-0">
+              <Folder className="size-3.5" aria-hidden="true" />
+            </div>
+            <span className="truncate">{t("collections.title")}</span>
+          </div>
+          {collections.length > 0 && (
+            <span className="font-mono text-2xs px-1.5 py-0.5 rounded-full bg-surface-muted text-fg-muted border border-border/80 shrink-0">
+              {collections.length}
+            </span>
+          )}
+        </Link>
 
         {/* Search input */}
         <div className="relative">
@@ -141,7 +197,7 @@ export function ConversationList({
         </div>
       </div>
 
-      {/* Conversations scroll area */}
+      {/* 3. Conversations scroll area */}
       <div className="flex-1 overflow-y-auto p-2 space-y-4">
         {isLoading ? (
           <div className="space-y-2 p-1">
@@ -170,55 +226,47 @@ export function ConversationList({
                   return (
                     <div
                       key={item.id}
-                      className="group relative flex items-center rounded-xl transition-all"
+                      className={`group relative flex items-center justify-between rounded-xl px-2.5 py-2 text-xs transition-colors cursor-pointer ${
+                        isActive
+                          ? "bg-surface text-accent font-medium shadow-2xs border border-border"
+                          : "text-fg-muted hover:bg-surface/60 hover:text-fg"
+                      }`}
+                      onClick={() => onSelectConversation(item.id)}
                     >
-                      <button
-                        type="button"
-                        onClick={() => onSelectConversation(item.id)}
-                        className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-xl text-xs text-left transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent ${
-                          isActive
-                            ? "bg-surface text-fg font-medium shadow-2xs border border-border"
-                            : "text-fg-muted hover:text-fg hover:bg-surface-muted/60"
-                        }`}
-                      >
-                        <MessageSquare
-                          className={`size-3.5 shrink-0 ${
-                            isActive ? "text-accent" : "text-fg-muted"
-                          }`}
-                          aria-hidden="true"
-                        />
-                        <span className="truncate flex-1 pr-6" title={title}>
-                          {title}
-                        </span>
-                      </button>
+                      <div className="flex items-center gap-2 min-w-0 pr-6">
+                        <MessageSquare className="size-3.5 shrink-0 opacity-70" />
+                        <span className="truncate">{title}</span>
+                      </div>
 
-                      <div className="absolute right-1.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                      {/* Dropdown Menu actions */}
+                      <div
+                        className="absolute right-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <DropdownMenu>
                           <DropdownMenuTrigger
                             render={
-                              <Button
+                              <button
                                 type="button"
-                                variant="ghost"
-                                size="icon-xs"
-                                className="size-6 text-fg-muted hover:text-fg"
-                                aria-label="Thao tác"
+                                className="flex size-6 items-center justify-center rounded-lg hover:bg-surface-muted text-fg-muted hover:text-fg"
                               />
                             }
                           >
-                            <MoreVertical className="size-3" />
+                            <MoreVertical className="size-3.5" />
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
+                          <DropdownMenuContent align="end" className="w-36">
                             <DropdownMenuItem
                               onClick={() => setConversationToRename(item)}
+                              className="text-xs gap-2 cursor-pointer"
                             >
-                              <Pencil className="size-3.5 mr-2" aria-hidden="true" />
+                              <Pencil className="size-3.5" />
                               <span>{t("chat.renameConversation")}</span>
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              variant="destructive"
                               onClick={() => setConversationToDelete(item)}
+                              className="text-xs gap-2 text-danger focus:text-danger cursor-pointer"
                             >
-                              <Trash2 className="size-3.5 mr-2" aria-hidden="true" />
+                              <Trash2 className="size-3.5" />
                               <span>{t("chat.deleteConversation")}</span>
                             </DropdownMenuItem>
                           </DropdownMenuContent>
@@ -233,16 +281,60 @@ export function ConversationList({
         )}
       </div>
 
-      {/* Footer quick link to Collections */}
-      <div className="p-2 border-t border-border bg-surface/60 shrink-0">
-        <Link
-          to="/collections"
-          className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-fg-muted hover:text-fg hover:bg-surface-muted transition-colors"
-        >
-          <Folder className="size-3.5 text-accent shrink-0" aria-hidden="true" />
-          <span className="truncate">{t("collections.title")}</span>
-        </Link>
-      </div>
+      {/* 4. Bottom Profile & Workspace Footer (ChatGPT style) */}
+      {user && (
+        <div className="p-2 border-t border-border bg-surface/80 shrink-0">
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <button
+                  type="button"
+                  className="w-full flex items-center justify-between p-1.5 rounded-xl hover:bg-surface-muted text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent group"
+                />
+              }
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="flex size-7 items-center justify-center rounded-full bg-accent-soft text-accent border border-accent/20 font-semibold text-xs shrink-0">
+                  {user.identity.email.charAt(0).toUpperCase()}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-medium text-fg truncate">
+                    {user.identity.email}
+                  </p>
+                  <p className="text-2xs text-fg-muted font-mono truncate">
+                    {user.tenant.name} • {user.membership.role}
+                  </p>
+                </div>
+              </div>
+              <MoreVertical className="size-3.5 text-fg-muted group-hover:text-fg shrink-0" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" side="top" className="w-56 mb-1">
+              <div className="px-2 py-1.5 border-b border-border text-xs">
+                <p className="font-semibold text-fg truncate">{user.tenant.name}</p>
+                <p className="text-2xs text-fg-muted font-mono">{user.membership.role}</p>
+              </div>
+              <DropdownMenuItem
+                onClick={() => navigate({ to: "/settings" })}
+                className="flex items-center gap-2 text-xs cursor-pointer"
+              >
+                <Settings className="size-3.5 text-fg-muted" />
+                <span>{t("settings.title")}</span>
+              </DropdownMenuItem>
+              <div className="px-2 py-1.5 flex items-center justify-between border-t border-border">
+                <span className="text-xs text-fg-muted">{t("common.theme")}</span>
+                <ThemeToggle />
+              </div>
+              <DropdownMenuItem
+                onClick={() => logout()}
+                className="flex items-center gap-2 text-xs text-danger focus:text-danger cursor-pointer border-t border-border"
+              >
+                <LogOut className="size-3.5" />
+                <span>{t("auth.logout")}</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      )}
 
       {/* Dialogs */}
       {conversationToRename && (

@@ -7,7 +7,10 @@
     "save": "Lưu thay đổi",
     "cancel": "Huỷ",
     "delete": "Xoá",
-    "search": "Tìm kiếm..."
+    "search": "Tìm kiếm...",
+    "openSidebar": "Mở rộng thanh bên",
+    "closeSidebar": "Thu gọn thanh bên",
+    "theme": "Giao diện"
   },
   "auth": {
     "login": "Đăng nhập",
