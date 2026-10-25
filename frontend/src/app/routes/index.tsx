@@ -9,6 +9,7 @@ import {
   Plus,
   Folder,
   MessageSquare,
+  Settings,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DocMindLogo } from "@/components/ui/docmind-logo";
@@ -93,6 +94,14 @@ function HomePage() {
               >
                 <MessageSquare className="size-3.5" aria-hidden="true" />
                 <span>{t("chat.title")}</span>
+              </Link>
+
+              <Link
+                to="/settings"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-fg-muted hover:text-fg hover:bg-surface-muted transition-colors"
+              >
+                <Settings className="size-3.5" aria-hidden="true" />
+                <span>{t("settings.title")}</span>
               </Link>
             </nav>
           </div>
