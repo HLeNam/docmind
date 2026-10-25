@@ -5,6 +5,7 @@ import {
   PanelLeft,
   Bookmark,
   Sparkles,
+  Download,
 } from "lucide-react";
 import { cn } from "cn";
 import { Button } from "@/components/ui/button";
@@ -103,6 +104,39 @@ export function ChatView({ initialConversationId }: ChatViewProps) {
 
   const conversationMessages = messagesData?.items || [];
 
+  const handleExportMarkdown = () => {
+    if (conversationMessages.length === 0) return;
+
+    let md = `# DocMind — ${t("chat.title")}\n\n`;
+    md += `*Ngày xuất: ${new Date().toLocaleString("vi-VN")}*\n\n---\n\n`;
+
+    for (const msg of conversationMessages) {
+      if (msg.role === "USER") {
+        md += `### 👤 Người dùng:\n\n${msg.content}\n\n`;
+      } else {
+        md += `### 🤖 Trợ lý DocMind:\n\n${msg.content}\n\n`;
+        if (msg.citations && msg.citations.length > 0) {
+          md += `**Nguồn trích dẫn:**\n\n`;
+          for (const c of msg.citations) {
+            md += `- [${c.index}] **${c.filename}** (trang ${c.pageNumber || 1}) — Độ khớp: ${Math.round(c.score * 100)}%\n`;
+          }
+          md += `\n`;
+        }
+      }
+      md += `---\n\n`;
+    }
+
+    const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `docmind-chat-${activeConversationId || "export"}.md`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden bg-bg relative">
       {/* 1. Left Column: Conversation History Sidebar */}
@@ -166,21 +200,38 @@ export function ChatView({ initialConversationId }: ChatViewProps) {
             </span>
           </div>
 
-          {/* Source Panel Toggle */}
-          <Button
-            variant={showSourcePanel ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => setShowSourcePanel((prev) => !prev)}
-            className="text-xs gap-1.5 h-7 px-2"
-          >
-            <Bookmark className="size-3.5 text-accent" aria-hidden="true" />
-            <span className="hidden sm:inline">{t("chat.citations")}</span>
-            {displayedCitations.length > 0 && (
-              <span className="font-mono text-[10px] px-1 py-0.2 rounded-full bg-accent-soft text-accent">
-                {displayedCitations.length}
-              </span>
+          <div className="flex items-center gap-1.5">
+            {/* Export Markdown Button */}
+            {conversationMessages.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleExportMarkdown}
+                className="text-xs gap-1.5 h-7 px-2 text-fg-muted hover:text-fg"
+                title={t("chat.exportMarkdown")}
+                aria-label={t("chat.exportMarkdown")}
+              >
+                <Download className="size-3.5" aria-hidden="true" />
+                <span className="hidden md:inline">{t("chat.exportMarkdown")}</span>
+              </Button>
             )}
-          </Button>
+
+            {/* Source Panel Toggle */}
+            <Button
+              variant={showSourcePanel ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => setShowSourcePanel((prev) => !prev)}
+              className="text-xs gap-1.5 h-7 px-2"
+            >
+              <Bookmark className="size-3.5 text-accent" aria-hidden="true" />
+              <span className="hidden sm:inline">{t("chat.citations")}</span>
+              {displayedCitations.length > 0 && (
+                <span className="font-mono text-[10px] px-1 py-0.2 rounded-full bg-accent-soft text-accent">
+                  {displayedCitations.length}
+                </span>
+              )}
+            </Button>
+          </div>
         </div>
 
         {/* Messages Stream Scroll Area */}

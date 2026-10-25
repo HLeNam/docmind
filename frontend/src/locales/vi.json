@@ -147,6 +147,13 @@
       "createdAt": "Ngày tải lên",
       "actions": "Thao tác"
     },
+    "searchPlaceholder": "Tìm kiếm tài liệu theo tên...",
+    "openOriginal": "Mở tệp gốc",
+    "filterAll": "Tất cả",
+    "filterIndexed": "Sẵn sàng",
+    "filterProcessing": "Đang xử lý",
+    "filterFailed": "Lỗi",
+    "noFilteredResults": "Không tìm thấy tài liệu nào khớp với bộ lọc.",
     "status": {
       "pending": "Chờ xử lý",
       "uploaded": "Đã tải lên",
@@ -160,6 +167,8 @@
   "chat": {
     "title": "Hội thoại AI",
     "newConversation": "Hội thoại mới",
+    "exportMarkdown": "Xuất hội thoại (.md)",
+    "exportSuccess": "Đã tải xuống tệp Markdown thành công.",
     "searching": "Đang tìm kiếm trong tài liệu...",
     "stop": "Dừng",
     "citations": "Nguồn trích dẫn",

@@ -125,6 +125,13 @@
       "createdAt": "Uploaded At",
       "actions": "Actions"
     },
+    "searchPlaceholder": "Search documents by name...",
+    "openOriginal": "Open original file",
+    "filterAll": "All",
+    "filterIndexed": "Ready",
+    "filterProcessing": "Processing",
+    "filterFailed": "Failed",
+    "noFilteredResults": "No documents match the filter.",
     "status": {
       "pending": "Pending",
       "uploaded": "Uploaded",
@@ -138,6 +145,8 @@
   "chat": {
     "title": "AI Assistant",
     "newConversation": "New conversation",
+    "exportMarkdown": "Export chat (.md)",
+    "exportSuccess": "Markdown file downloaded successfully.",
     "searching": "Searching documents...",
     "stop": "Stop",
     "citations": "Citations",
