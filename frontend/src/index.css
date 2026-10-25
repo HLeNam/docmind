@@ -129,7 +129,11 @@
         outline-offset: 2px;
     }
     ::selection {
-        background: var(--accent-soft);
+        background: var(--accent);
+        color: var(--accent-fg);
+    }
+    input, textarea {
+        caret-color: var(--accent);
     }
 
     /* Thanh cuộn tinh tế đồng bộ toàn hệ thống theo token */

@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { FolderPlus, AlertCircle, RefreshCw } from "lucide-react";
+import { FolderPlus, AlertCircle, RefreshCw, Search } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/domain/empty-state";
 import { CollectionCard } from "./collection-card";
 import { DeleteCollectionDialog } from "./delete-collection-dialog";
@@ -27,6 +28,18 @@ export function CollectionList({
   const [collectionToDelete, setCollectionToDelete] =
     useState<CollectionResponse | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredCollections = useMemo(() => {
+    if (!collections) return [];
+    if (!searchQuery.trim()) return collections;
+    const q = searchQuery.toLowerCase();
+    return collections.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        (c.description && c.description.toLowerCase().includes(q))
+    );
+  }, [collections, searchQuery]);
 
   const handleDeleteRequest = (collection: CollectionResponse) => {
     setCollectionToDelete(collection);
@@ -95,40 +108,102 @@ export function CollectionList({
   // 3. Empty State
   if (!collections || collections.length === 0) {
     return (
-      <EmptyState
-        icon={FolderPlus}
-        title={t("collections.emptyTitle")}
-        description={
-          canManage
-            ? t("collections.emptyDescription")
-            : t("collections.emptyMemberDescription")
-        }
-        action={
-          canManage
-            ? {
-                label: t("collections.emptyAction"),
-                onClick: onCreateClick,
-              }
-            : undefined
-        }
-      />
+      <div className="space-y-6">
+        <EmptyState
+          icon={FolderPlus}
+          title={t("collections.emptyTitle")}
+          description={
+            canManage
+              ? t("collections.emptyDescription")
+              : t("collections.emptyMemberDescription")
+          }
+          action={
+            canManage
+              ? {
+                  label: t("collections.emptyAction"),
+                  onClick: onCreateClick,
+                }
+              : undefined
+          }
+        />
+
+        {/* 3-Step Value Orientation Flow */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto pt-2">
+          <div className="p-4 rounded-2xl border border-border/80 bg-surface shadow-2xs space-y-2">
+            <div className="flex size-7 items-center justify-center rounded-lg bg-accent-soft text-accent text-xs font-bold font-mono">
+              1
+            </div>
+            <h4 className="font-semibold text-sm text-fg tracking-tight">Tạo bộ sưu tập</h4>
+            <p className="text-xs text-fg-muted leading-relaxed">
+              Phân nhóm tài liệu theo dự án, phòng ban hoặc đề tài cần tra cứu.
+            </p>
+          </div>
+
+          <div className="p-4 rounded-2xl border border-border/80 bg-surface shadow-2xs space-y-2">
+            <div className="flex size-7 items-center justify-center rounded-lg bg-accent-soft text-accent text-xs font-bold font-mono">
+              2
+            </div>
+            <h4 className="font-semibold text-sm text-fg tracking-tight">Tải tài liệu lên</h4>
+            <p className="text-xs text-fg-muted leading-relaxed">
+              Hỗ trợ PDF, Word, Excel, Slide và hình ảnh với OCR trích xuất thông minh.
+            </p>
+          </div>
+
+          <div className="p-4 rounded-2xl border border-border/80 bg-surface shadow-2xs space-y-2">
+            <div className="flex size-7 items-center justify-center rounded-lg bg-accent-soft text-accent text-xs font-bold font-mono">
+              3
+            </div>
+            <h4 className="font-semibold text-sm text-fg tracking-tight">Hỏi đáp AI có trích dẫn</h4>
+            <p className="text-xs text-fg-muted leading-relaxed">
+              Truy vấn thông tin chính xác, câu trả lời luôn đi kèm trang nguồn đối chứng.
+            </p>
+          </div>
+        </div>
+      </div>
     );
   }
 
   // 4. Data State
   return (
-    <>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {collections.map((collection) => (
-          <CollectionCard
-            key={collection.id}
-            collection={collection}
-            canManage={canManage}
-            onSelect={onSelectCollection}
-            onDelete={handleDeleteRequest}
-          />
-        ))}
-      </div>
+    <div className="space-y-4">
+      {/* Search filter if there are multiple collections */}
+      {collections.length > 2 && (
+        <div className="flex items-center justify-between gap-3">
+          <div className="relative w-full max-w-xs">
+            <Search
+              className="size-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-fg-muted pointer-events-none"
+              aria-hidden="true"
+            />
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Tìm kiếm bộ sưu tập..."
+              className="pl-8.5 h-8.5 text-xs rounded-xl"
+            />
+          </div>
+          <span className="text-xs font-mono text-fg-muted shrink-0">
+            {filteredCollections.length} / {collections.length} bộ sưu tập
+          </span>
+        </div>
+      )}
+
+      {filteredCollections.length === 0 ? (
+        <div className="p-8 text-center text-xs text-fg-muted border border-dashed border-border rounded-2xl bg-surface/50">
+          Không tìm thấy bộ sưu tập nào khớp với từ khóa "{searchQuery}".
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredCollections.map((collection) => (
+            <CollectionCard
+              key={collection.id}
+              collection={collection}
+              canManage={canManage}
+              onSelect={onSelectCollection}
+              onDelete={handleDeleteRequest}
+            />
+          ))}
+        </div>
+      )}
 
       <DeleteCollectionDialog
         collection={collectionToDelete}
@@ -136,6 +211,6 @@ export function CollectionList({
         onOpenChange={setIsDeleteDialogOpen}
         onDeleted={() => setCollectionToDelete(null)}
       />
-    </>
+    </div>
   );
 }

@@ -108,10 +108,10 @@ function SettingsPage() {
         <div className="space-y-6">
           {/* Page Title */}
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-fg">
+            <h1 className="text-2xl font-bold tracking-tight text-fg text-balance">
               {t("settings.title")}
             </h1>
-            <p className="text-xs sm:text-sm text-fg-muted mt-1">
+            <p className="text-xs sm:text-sm text-fg-muted mt-1 text-pretty">
               {t("settings.subtitle")}
             </p>
           </div>

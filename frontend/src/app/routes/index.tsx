@@ -76,10 +76,10 @@ function HomePage() {
             {/* Header section */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-6 border-b border-border">
               <div className="space-y-1">
-                <h1 className="text-2xl font-semibold text-fg tracking-tight">
+                <h1 className="text-2xl font-semibold text-fg tracking-tight text-balance">
                   {t("collections.title")}
                 </h1>
-                <p className="text-sm text-fg-muted max-w-xl">
+                <p className="text-sm text-fg-muted max-w-xl text-pretty">
                   {t("collections.subtitle")}
                 </p>
               </div>

@@ -79,7 +79,7 @@ export function CollectionDocumentsView({
           </nav>
 
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-semibold text-fg tracking-tight flex items-center gap-2.5">
+            <h1 className="text-2xl font-semibold text-fg tracking-tight flex items-center gap-2.5 text-balance">
               <FolderOpen className="size-6 text-accent" aria-hidden="true" />
               <span>{collection.name}</span>
             </h1>
@@ -91,7 +91,7 @@ export function CollectionDocumentsView({
           </div>
 
           {collection.description && (
-            <p className="text-sm text-fg-muted max-w-2xl">
+            <p className="text-sm text-fg-muted max-w-2xl text-pretty">
               {collection.description}
             </p>
           )}
