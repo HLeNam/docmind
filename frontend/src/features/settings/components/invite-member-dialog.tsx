@@ -82,7 +82,7 @@ export function InviteMemberDialog({
 
   const handleCopyInviteLink = async () => {
     if (!createdInvitation) return;
-    const inviteUrl = `${window.location.origin}/invitations/${createdInvitation.token}`;
+    const inviteUrl = `${window.location.origin}/accept-invite?token=${createdInvitation.token}`;
     try {
       await navigator.clipboard.writeText(inviteUrl);
       setCopiedLink(true);
@@ -127,7 +127,7 @@ export function InviteMemberDialog({
               <div className="flex items-center gap-2">
                 <Input
                   readOnly
-                  value={`${window.location.origin}/invitations/${createdInvitation.token}`}
+                  value={`${window.location.origin}/accept-invite?token=${createdInvitation.token}`}
                   className="h-8 font-mono text-xs bg-surface"
                 />
                 <Button

@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AcceptInviteRouteImport } from './routes/accept-invite'
 import { Route as ChatRouteImport } from './routes/chat'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as RegisterRouteImport } from './routes/register'
@@ -19,6 +20,11 @@ import { Route as InvitationsTokenRouteImport } from './routes/invitations.$toke
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AcceptInviteRoute = AcceptInviteRouteImport.update({
+  id: '/accept-invite',
+  path: '/accept-invite',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ChatRoute = ChatRouteImport.update({
@@ -49,6 +55,7 @@ const InvitationsTokenRoute = InvitationsTokenRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/accept-invite': typeof AcceptInviteRoute
   '/chat': typeof ChatRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
@@ -57,6 +64,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/accept-invite': typeof AcceptInviteRoute
   '/chat': typeof ChatRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
@@ -66,6 +74,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/accept-invite': typeof AcceptInviteRoute
   '/chat': typeof ChatRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
@@ -75,13 +84,26 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/chat' | '/login' | '/register' | '/settings' | '/invitations/$token'
+    | '/'
+    | '/accept-invite'
+    | '/chat'
+    | '/login'
+    | '/register'
+    | '/settings'
+    | '/invitations/$token'
   fileRoutesByTo: FileRoutesByTo
   to:
-    '/' | '/chat' | '/login' | '/register' | '/settings' | '/invitations/$token'
+    | '/'
+    | '/accept-invite'
+    | '/chat'
+    | '/login'
+    | '/register'
+    | '/settings'
+    | '/invitations/$token'
   id:
     | '__root__'
     | '/'
+    | '/accept-invite'
     | '/chat'
     | '/login'
     | '/register'
@@ -91,6 +113,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AcceptInviteRoute: typeof AcceptInviteRoute
   ChatRoute: typeof ChatRoute
   LoginRoute: typeof LoginRoute
   RegisterRoute: typeof RegisterRoute
@@ -105,6 +128,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/accept-invite': {
+      id: '/accept-invite'
+      path: '/accept-invite'
+      fullPath: '/accept-invite'
+      preLoaderRoute: typeof AcceptInviteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/chat': {
@@ -147,6 +177,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AcceptInviteRoute: AcceptInviteRoute,
   ChatRoute: ChatRoute,
   LoginRoute: LoginRoute,
   RegisterRoute: RegisterRoute,
