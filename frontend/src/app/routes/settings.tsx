@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DocMindLogo } from "@/components/ui/docmind-logo";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useAuth } from "@/features/auth";
 import {
   MembersSettingsTab,
@@ -166,6 +167,8 @@ function SettingsPage() {
               </span>
             </div>
 
+            <ThemeToggle />
+
             <Button
               variant="ghost"
               size="sm"
@@ -180,7 +183,7 @@ function SettingsPage() {
       </header>
 
       {/* Main Settings Content */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-8">
+      <main id="main-content" className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-8">
         <div className="space-y-6">
           {/* Page Title */}
           <div>

@@ -189,9 +189,11 @@ Bạn có thể đăng ký tài khoản mới trực tiếp tại `http://localh
   - Cổng nhà phát triển: Quản lý API Key có scoped permission theo từng bộ sưu tập.
   - Tích hợp Slack Bot tự động trả lời câu hỏi trực tiếp trên các kênh nội bộ kèm ánh xạ channel.
   - Bảng đồng hồ theo dõi token tiêu thụ (LLM & Embedding) và chi phí ước tính theo ngày (Usage Meter).
-- [ ] **Phase F4: Hoàn thiện & Tối ưu hóa (Polish & Launch)**
-  - Rà soát toàn diện trợ năng WCAG 2.2 AA (axe automated tests).
-  - Tối ưu hiệu năng tải trang, kiểm thử E2E với Playwright.
+- [x] **Phase F4: Hoàn thiện & Tối ưu hóa (Polish & Launch)**
+  - Nút chuyển đổi giao diện Sáng/Tối (Dark Mode Toggle) lưu trữ trạng thái và tự động nhận diện hệ thống.
+  - Bổ sung Skip Link truy cập nhanh và rà soát phím bấm đạt chuẩn trợ năng WCAG 2.2 AA.
+  - Hạ tầng kiểm thử tự động Vitest + Testing Library + vitest-axe với 20/20 test cases vượt qua.
+  - Kịch bản kiểm thử luồng người dùng E2E với Playwright và Axe-Core.
 
 ---
 
