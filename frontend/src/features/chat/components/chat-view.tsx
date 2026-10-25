@@ -134,6 +134,14 @@ export function ChatView({ initialConversationId }: ChatViewProps) {
 
   const conversationMessages = messagesData?.items || [];
 
+  const isPendingPromptAlreadyRendered = Boolean(
+    pendingPrompt &&
+      conversationMessages.length > 0 &&
+      conversationMessages[conversationMessages.length - 1].role === "USER" &&
+      conversationMessages[conversationMessages.length - 1].content.trim() ===
+        pendingPrompt.trim()
+  );
+
   const handleExportMarkdown = () => {
     if (conversationMessages.length === 0) return;
 
@@ -345,7 +353,7 @@ export function ChatView({ initialConversationId }: ChatViewProps) {
             ))}
 
             {/* Render live pending user prompt while stream is initializing */}
-            {isStreaming && pendingPrompt && (
+            {isStreaming && pendingPrompt && !isPendingPromptAlreadyRendered && (
               <ChatMessageItem role="USER" content={pendingPrompt} />
             )}
 
