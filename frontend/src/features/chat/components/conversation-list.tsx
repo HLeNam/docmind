@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import {
   MessageSquare,
@@ -7,6 +8,7 @@ import {
   MoreVertical,
   Pencil,
   Trash2,
+  Folder,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -229,6 +231,17 @@ export function ConversationList({
             </div>
           ))
         )}
+      </div>
+
+      {/* Footer quick link to Collections */}
+      <div className="p-2 border-t border-border bg-surface/60 shrink-0">
+        <Link
+          to="/collections"
+          className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-fg-muted hover:text-fg hover:bg-surface-muted transition-colors"
+        >
+          <Folder className="size-3.5 text-accent shrink-0" aria-hidden="true" />
+          <span className="truncate">{t("collections.title")}</span>
+        </Link>
       </div>
 
       {/* Dialogs */}

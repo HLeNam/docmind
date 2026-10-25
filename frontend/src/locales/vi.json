@@ -230,6 +230,10 @@
     "allCollections": "Tất cả bộ sưu tập",
     "searchCollection": "Tìm bộ sưu tập...",
     "shiftEnterHint": "Shift + Enter xuống dòng",
+    "onboardingTitle": "Bắt đầu với kho tri thức của bạn",
+    "onboardingSubtitle": "DocMind cần ít nhất một tài liệu để bắt đầu tra cứu và trích dẫn. Hãy tạo bộ sưu tập hoặc tải tệp đầu tiên lên để bắt đầu trò chuyện cùng AI.",
+    "onboardingUploadButton": "Quản lý & Tải tài liệu lên",
+    "onboardingBadge": "Hỗ trợ PDF, DOCX, PPTX, XLSX, OCR...",
     "rewrittenQueryNotice": "Đã hiểu câu hỏi là:"
   },
   "settings": {

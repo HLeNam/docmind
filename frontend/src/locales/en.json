@@ -208,6 +208,10 @@
     "allCollections": "All collections",
     "searchCollection": "Search collections...",
     "shiftEnterHint": "Shift + Enter for new line",
+    "onboardingTitle": "Get started with your knowledge base",
+    "onboardingSubtitle": "DocMind needs at least one document to retrieve and cite answers. Create a collection or upload your first file to start chatting with AI.",
+    "onboardingUploadButton": "Manage & Upload documents",
+    "onboardingBadge": "Supports PDF, DOCX, PPTX, XLSX, OCR...",
     "rewrittenQueryNotice": "Understood as:"
   },
   "settings": {

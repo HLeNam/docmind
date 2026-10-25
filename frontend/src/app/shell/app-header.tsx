@@ -25,11 +25,11 @@ export function AppHeader({ activeTab }: AppHeaderProps) {
 
   const resolvedTab =
     activeTab ||
-    (currentPath.startsWith("/chat")
-      ? "chat"
+    (currentPath.startsWith("/collections")
+      ? "collections"
       : currentPath.startsWith("/settings")
         ? "settings"
-        : "collections");
+        : "chat");
 
   if (!user) return null;
 
@@ -57,21 +57,6 @@ export function AppHeader({ activeTab }: AppHeaderProps) {
           <nav aria-label="Main" className="flex items-center gap-0.5 sm:gap-1">
             <Link
               to="/"
-              title={t("collections.title")}
-              aria-label={t("collections.title")}
-              className={cn(
-                "flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-medium transition-all shrink-0",
-                resolvedTab === "collections"
-                  ? "bg-accent-soft text-accent font-semibold shadow-2xs border border-accent/20"
-                  : "text-fg-muted hover:text-fg hover:bg-surface-muted/60"
-              )}
-            >
-              <Folder className="size-4 sm:size-3.5 shrink-0" aria-hidden="true" />
-              <span className="hidden sm:inline">{t("collections.title")}</span>
-            </Link>
-
-            <Link
-              to="/chat"
               title={t("chat.title")}
               aria-label={t("chat.title")}
               className={cn(
@@ -83,6 +68,21 @@ export function AppHeader({ activeTab }: AppHeaderProps) {
             >
               <MessageSquare className="size-4 sm:size-3.5 shrink-0" aria-hidden="true" />
               <span className="hidden sm:inline">{t("chat.title")}</span>
+            </Link>
+
+            <Link
+              to="/collections"
+              title={t("collections.title")}
+              aria-label={t("collections.title")}
+              className={cn(
+                "flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-medium transition-all shrink-0",
+                resolvedTab === "collections"
+                  ? "bg-accent-soft text-accent font-semibold shadow-2xs border border-accent/20"
+                  : "text-fg-muted hover:text-fg hover:bg-surface-muted/60"
+              )}
+            >
+              <Folder className="size-4 sm:size-3.5 shrink-0" aria-hidden="true" />
+              <span className="hidden sm:inline">{t("collections.title")}</span>
             </Link>
 
             <Link
