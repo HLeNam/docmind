@@ -284,12 +284,12 @@ function DocumentViewerContent({
             </h2>
             <div className="flex items-center gap-2 text-xs text-fg-muted mt-0.5">
               {initialPage && (
-                <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-accent-soft text-accent border border-accent/20">
+                <span className="font-mono text-2xs px-1.5 py-0.5 rounded bg-accent-soft text-accent border border-accent/20">
                   {t("documents.viewer.page")} {initialPage}
                 </span>
               )}
               {chunksData && (
-                <span className="text-[11px]">
+                <span className="text-2xs">
                   {t("documents.viewer.chunksCount", {
                     count: chunksData.length,
                   })}
@@ -328,7 +328,7 @@ function DocumentViewerContent({
               <Layers className="size-3.5" aria-hidden="true" />
               <span>{t("documents.viewer.tabChunks")}</span>
               {chunksData && (
-                <span className="font-mono text-[10px] px-1 rounded bg-accent-soft text-accent">
+                <span className="font-mono text-2xs px-1.5 py-0.5 rounded bg-accent-soft text-accent leading-none">
                   {chunksData.length}
                 </span>
               )}
@@ -671,14 +671,14 @@ function DocumentViewerContent({
                       {/* Chunk Meta Header */}
                       <div className="flex items-center justify-between gap-2 pb-2 mb-2 border-b border-border/60">
                         <div className="flex items-center gap-2">
-                          <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-md bg-accent-soft text-accent border border-accent/20">
+                          <span className="font-mono text-2xs font-bold px-2 py-0.5 rounded-md bg-accent-soft text-accent border border-accent/20">
                             {t("documents.viewer.chunkIndex", {
                               index: chunk.chunkIndex,
                             })}
                           </span>
 
                           {chunk.pageNumber && (
-                            <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-surface-muted border border-border text-fg-muted">
+                            <span className="font-mono text-2xs px-1.5 py-0.5 rounded bg-surface-muted border border-border text-fg-muted">
                               {t("documents.viewer.page")} {chunk.pageNumber}
                             </span>
                           )}

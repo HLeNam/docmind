@@ -105,7 +105,7 @@ export function CollectionCard({
       <div className="mt-5 pt-3 border-t border-border/60 flex items-center justify-between text-xs text-fg-muted">
         <span
           title={new Date(collection.createdAt).toLocaleString("vi-VN")}
-          className="inline-flex items-center gap-1.5 tabular-nums text-[11px]"
+          className="inline-flex items-center gap-1.5 tabular-nums text-2xs"
         >
           <Calendar className="size-3 text-fg-muted/70" aria-hidden="true" />
           <span>{formattedDate}</span>

@@ -235,7 +235,7 @@ export function InviteMemberDialog({
                       <User className="size-3.5 text-fg-muted" aria-hidden="true" />
                       <span>{t("auth.roleMember")}</span>
                     </div>
-                    <p className="text-[11px] text-fg-muted leading-tight">
+                    <p className="text-2xs text-fg-muted leading-tight">
                       {t("settings.roleMemberDesc")}
                     </p>
                   </button>
@@ -259,7 +259,7 @@ export function InviteMemberDialog({
                       <Shield className="size-3.5 text-accent" aria-hidden="true" />
                       <span>{t("auth.roleAdmin")}</span>
                     </div>
-                    <p className="text-[11px] text-fg-muted leading-tight">
+                    <p className="text-2xs text-fg-muted leading-tight">
                       {t("settings.roleAdminDesc")}
                     </p>
                   </button>

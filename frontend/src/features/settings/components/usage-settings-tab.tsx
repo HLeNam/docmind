@@ -121,7 +121,7 @@ export function UsageSettingsTab() {
               <div className="text-2xl font-bold tracking-tight text-fg font-mono">
                 {totals.tokens.toLocaleString()}
               </div>
-              <div className="text-[11px] text-fg-muted">
+              <div className="text-2xs text-fg-muted">
                 {t("settings.recordsCount", { count: totals.records.toLocaleString() })}
               </div>
             </div>
@@ -137,7 +137,7 @@ export function UsageSettingsTab() {
               <div className="text-2xl font-bold tracking-tight text-fg font-mono">
                 {totals.byType.GENERATION.tokens.toLocaleString()}
               </div>
-              <div className="text-[11px] text-fg-muted">
+              <div className="text-2xs text-fg-muted">
                 ${totals.byType.GENERATION.costUsd.toFixed(4)} USD
               </div>
             </div>
@@ -153,7 +153,7 @@ export function UsageSettingsTab() {
               <div className="text-2xl font-bold tracking-tight text-fg font-mono">
                 {totals.byType.EMBEDDING.tokens.toLocaleString()}
               </div>
-              <div className="text-[11px] text-fg-muted">
+              <div className="text-2xs text-fg-muted">
                 ${totals.byType.EMBEDDING.costUsd.toFixed(4)} USD
               </div>
             </div>
@@ -169,7 +169,7 @@ export function UsageSettingsTab() {
               <div className="text-2xl font-bold tracking-tight text-fg font-mono">
                 ${totals.costUsd.toFixed(4)}
               </div>
-              <div className="text-[11px] text-fg-muted">
+              <div className="text-2xs text-fg-muted">
                 UTC {usage.from} → {usage.to}
               </div>
             </div>
@@ -222,7 +222,7 @@ export function UsageSettingsTab() {
                               : "bg-surface-muted"
                           }`}
                         />
-                        <span className="text-[9px] text-fg-muted font-mono whitespace-nowrap">
+                        <span className="text-2xs text-fg-muted font-mono whitespace-nowrap">
                           {dateFormatted}
                         </span>
                       </div>

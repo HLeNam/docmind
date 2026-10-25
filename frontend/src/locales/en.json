@@ -206,6 +206,8 @@
     "emptyChatSubtitle": "Ask questions to retrieve, synthesize, and cite exact sources from your knowledge base.",
     "askInCollection": "In collection",
     "allCollections": "All collections",
+    "searchCollection": "Search collections...",
+    "shiftEnterHint": "Shift + Enter for new line",
     "rewrittenQueryNotice": "Understood as:"
   },
   "settings": {

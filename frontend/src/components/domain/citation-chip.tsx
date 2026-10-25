@@ -33,7 +33,7 @@ export function CitationChip({
             type="button"
             onClick={() => onClick?.(citation)}
             aria-label={ariaLabel}
-            className={`inline-flex items-center justify-center font-mono text-[11px] font-bold text-accent bg-accent-soft hover:bg-accent hover:text-accent-fg border border-accent/25 px-1.5 py-0.5 rounded-md transition-all cursor-pointer select-none mx-0.5 align-baseline shadow-2xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent ${
+            className={`inline-flex items-center justify-center font-mono text-2xs font-bold text-accent bg-accent-soft hover:bg-accent hover:text-accent-fg border border-accent/25 px-1.5 py-0.5 rounded-md transition-all cursor-pointer select-none mx-0.5 align-baseline shadow-2xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent ${
               isActive ? "ring-2 ring-accent bg-accent text-accent-fg" : ""
             }`}
           />
@@ -46,7 +46,7 @@ export function CitationChip({
           <FileText className="size-3.5 shrink-0 text-accent" aria-hidden="true" />
           <span className="truncate">{citation.filename}</span>
         </div>
-        <div className="flex items-center justify-between text-[11px] text-fg-muted pt-1 border-t border-border">
+        <div className="flex items-center justify-between text-2xs text-fg-muted pt-1 border-t border-border">
           <span>
             {pageLabel || headingLabel || "Tài liệu đính kèm"}
           </span>

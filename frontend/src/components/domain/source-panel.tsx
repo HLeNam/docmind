@@ -67,7 +67,7 @@ export function SourcePanel({
             <h3 className="font-semibold text-sm text-fg tracking-tight">
               {t("chat.citations")}
             </h3>
-            <span className="font-mono text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-accent-soft text-accent">
+            <span className="font-mono text-2xs font-semibold px-1.5 py-0.5 rounded-full bg-accent-soft text-accent">
               {citations.length}
             </span>
           </div>
@@ -112,7 +112,7 @@ export function SourcePanel({
                   [{citation.index}]
                 </span>
 
-                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-accent tabular-nums bg-accent-soft/50 px-2 py-0.5 rounded-full">
+                <span className="inline-flex items-center gap-1 text-2xs font-medium text-accent tabular-nums bg-accent-soft/50 px-2 py-0.5 rounded-full">
                   <CheckCircle2 className="size-3 text-accent" aria-hidden="true" />
                   <span>{matchPercent}% khớp</span>
                 </span>
@@ -132,15 +132,15 @@ export function SourcePanel({
                   </h4>
 
                   {/* Location metadata (page or heading) */}
-                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] text-fg-muted">
+                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-2xs text-fg-muted">
                     {citation.pageNumber && (
-                      <span className="px-1.5 py-0.5 rounded-md bg-surface-muted border border-border/80 font-mono text-[10px]">
+                      <span className="px-1.5 py-0.5 rounded-md bg-surface-muted border border-border/80 font-mono text-2xs">
                         Trang {citation.pageNumber}
                       </span>
                     )}
                     {citation.headingContext && (
                       <span
-                        className="truncate max-w-[180px] italic text-[10px] text-fg-muted"
+                        className="truncate max-w-[180px] italic text-2xs text-fg-muted"
                         title={citation.headingContext}
                       >
                         {citation.headingContext}
@@ -161,7 +161,7 @@ export function SourcePanel({
                       e.stopPropagation();
                       onViewDocument(citation);
                     }}
-                    className="text-[11px] h-6 px-2 text-accent hover:text-accent hover:bg-accent-soft gap-1"
+                    className="text-2xs h-6 px-2 text-accent hover:text-accent hover:bg-accent-soft gap-1"
                   >
                     <Eye className="size-3" aria-hidden="true" />
                     <span>{t("documents.viewer.viewOriginalFromCitation")}</span>

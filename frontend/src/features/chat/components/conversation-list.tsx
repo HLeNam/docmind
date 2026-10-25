@@ -157,7 +157,7 @@ export function ConversationList({
         ) : (
           groups.map((group) => (
             <div key={group.label} className="space-y-1">
-              <h4 className="px-2 text-[10px] font-semibold text-fg-muted uppercase tracking-wider">
+              <h4 className="px-2 text-2xs font-semibold text-fg-muted uppercase tracking-wider">
                 {group.label}
               </h4>
               <div className="space-y-0.5">

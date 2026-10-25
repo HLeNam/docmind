@@ -237,6 +237,13 @@ export function SpreadsheetViewer({ blob, filename }: SpreadsheetViewerProps) {
       let newCol = col;
       let handled = false;
 
+      // Shortcut: Ctrl+Shift+F (or Cmd+Shift+F) to toggle formula bar expand/collapse
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === "F" || e.key === "f")) {
+        e.preventDefault();
+        setIsInspectorExpanded((prev) => !prev);
+        return;
+      }
+
       switch (e.key) {
         case "ArrowUp":
           newRow = Math.max(0, row - 1);
@@ -288,7 +295,7 @@ export function SpreadsheetViewer({ blob, filename }: SpreadsheetViewerProps) {
       <div className="flex-1 flex flex-col items-center justify-center p-12 text-center space-y-3 max-w-md mx-auto">
         <AlertCircle className="size-8 text-danger" aria-hidden="true" />
         <p className="text-xs text-fg font-medium">{t("documents.viewer.loadError")}</p>
-        <p className="text-[11px] text-fg-muted">{error || "No sheets found"}</p>
+        <p className="text-2xs text-fg-muted">{error || "No sheets found"}</p>
       </div>
     );
   }
@@ -303,11 +310,11 @@ export function SpreadsheetViewer({ blob, filename }: SpreadsheetViewerProps) {
       <div className="flex items-center justify-between gap-3 px-4 py-2 border-b border-border bg-surface shrink-0">
         <div className="flex items-center gap-2 text-xs text-fg-muted min-w-0">
           <FileSpreadsheet className="size-4 text-success shrink-0" aria-hidden="true" />
-          <span className="font-medium text-fg truncate max-w-[180px]" title={filename}>
+          <span className="font-medium text-fg truncate max-w-44" title={filename}>
             {filename}
           </span>
           <span className="text-border">|</span>
-          <span className="font-mono text-[11px] whitespace-nowrap">
+          <span className="font-mono text-2xs whitespace-nowrap">
             {t("documents.viewer.rowsAndCols", {
               rows: filteredRows.length,
               cols: maxCols,
@@ -355,7 +362,7 @@ export function SpreadsheetViewer({ blob, filename }: SpreadsheetViewerProps) {
       <div className="flex items-start gap-2 px-3 py-1.5 border-b border-border bg-surface-muted/40 shrink-0 text-xs">
         {/* Cell Coordinate Chip */}
         <div
-          className="flex items-center justify-center min-w-[54px] h-7 px-2 bg-surface border border-border rounded font-mono font-semibold text-[11px] text-accent select-none shrink-0 shadow-2xs"
+          className="flex items-center justify-center w-14 min-w-14 h-7 px-2 bg-surface border border-border rounded font-mono font-semibold text-2xs text-accent select-none shrink-0 shadow-2xs"
           title={`Ô ${selectedCoordinate}`}
         >
           {selectedCoordinate}
@@ -363,7 +370,13 @@ export function SpreadsheetViewer({ blob, filename }: SpreadsheetViewerProps) {
 
         {/* fx symbol */}
         <span
-          className="font-serif italic font-bold text-fg-muted text-xs select-none shrink-0 self-center px-1"
+          onDoubleClick={() => setIsInspectorExpanded((prev) => !prev)}
+          className="font-serif italic font-bold text-fg-muted text-xs select-none shrink-0 self-center px-1 cursor-pointer hover:text-accent transition-colors"
+          title={
+            isInspectorExpanded
+              ? t("documents.viewer.collapseInspector")
+              : t("documents.viewer.expandInspector")
+          }
           aria-hidden="true"
         >
           fx
@@ -467,7 +480,7 @@ export function SpreadsheetViewer({ blob, filename }: SpreadsheetViewerProps) {
           <thead className="sticky top-0 z-10 bg-surface-muted border-b border-border">
             <tr>
               {/* Top-left corner cell */}
-              <th className="sticky left-0 z-20 w-12 px-2 py-1.5 bg-surface-muted border-r border-border text-center text-[10px] text-fg-muted font-normal select-none">
+              <th className="sticky left-0 z-20 w-12 px-2 py-1.5 bg-surface-muted border-r border-border text-center text-2xs text-fg-muted font-normal select-none">
                 #
               </th>
               {/* Column header letters (A, B, C...) */}
@@ -475,7 +488,7 @@ export function SpreadsheetViewer({ blob, filename }: SpreadsheetViewerProps) {
                 <th
                   key={colIdx}
                   style={{ width: getColWidth(colIdx) }}
-                  className="relative px-3 py-1.5 border-r border-border text-center text-[11px] font-semibold text-fg-muted select-none group"
+                  className="relative px-3 py-1.5 border-r border-border text-center text-2xs font-semibold text-fg-muted select-none group"
                 >
                   <div className="truncate px-1 select-none">
                     {getColumnLetter(colIdx)}
@@ -511,7 +524,7 @@ export function SpreadsheetViewer({ blob, filename }: SpreadsheetViewerProps) {
                   className="hover:bg-surface-muted/40 transition-colors"
                 >
                   {/* Row number cell (1, 2, 3...) */}
-                  <td className="sticky left-0 z-10 px-2 py-1 bg-surface-muted border-r border-border text-center text-[10px] text-fg-muted font-normal select-none">
+                  <td className="sticky left-0 z-10 px-2 py-1 bg-surface-muted border-r border-border text-center text-2xs text-fg-muted font-normal select-none">
                     {rowIdx + 1}
                   </td>
                   {/* Cells */}

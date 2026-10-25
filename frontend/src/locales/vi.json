@@ -228,6 +228,8 @@
     "emptyChatSubtitle": "Đặt câu hỏi để AI tra cứu, tổng hợp và dẫn chứng nguồn chính xác từ kho tài liệu của bạn.",
     "askInCollection": "Trong bộ sưu tập",
     "allCollections": "Tất cả bộ sưu tập",
+    "searchCollection": "Tìm bộ sưu tập...",
+    "shiftEnterHint": "Shift + Enter xuống dòng",
     "rewrittenQueryNotice": "Đã hiểu câu hỏi là:"
   },
   "settings": {

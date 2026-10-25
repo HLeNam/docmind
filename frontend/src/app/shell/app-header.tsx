@@ -122,7 +122,7 @@ export function AppHeader({ activeTab }: AppHeaderProps) {
             </span>
             <span
               className={cn(
-                "px-1.5 py-0.5 rounded-md text-[10px] font-mono uppercase font-semibold",
+                "px-1.5 py-0.5 rounded-md text-2xs font-mono uppercase font-semibold",
                 isElevatedRole
                   ? "bg-accent-soft text-accent border border-accent/25"
                   : "bg-surface-muted text-fg-muted border border-border"

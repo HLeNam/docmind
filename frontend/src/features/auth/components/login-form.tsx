@@ -198,7 +198,7 @@ export function LoginForm({ redirectTo = "/" }: LoginFormProps) {
                 className="h-9"
                 {...register("tenantSlug")}
               />
-              <p className="text-[11px] text-fg-muted">
+              <p className="text-2xs text-fg-muted">
                 {t("auth.tenantSlugHelp")}
               </p>
             </div>

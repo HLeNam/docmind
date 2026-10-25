@@ -228,7 +228,7 @@ export function ChatView({ initialConversationId }: ChatViewProps) {
               <Bookmark className="size-3.5 text-accent" aria-hidden="true" />
               <span className="hidden sm:inline">{t("chat.citations")}</span>
               {displayedCitations.length > 0 && (
-                <span className="font-mono text-[10px] px-1 py-0.2 rounded-full bg-accent-soft text-accent">
+                <span className="font-mono text-2xs px-1.5 py-0.5 rounded-full bg-accent-soft text-accent leading-none">
                   {displayedCitations.length}
                 </span>
               )}

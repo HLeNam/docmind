@@ -184,7 +184,7 @@ export function UploadDropzone({
           {["PDF", "DOCX", "PPTX", "XLSX", "CSV", "TXT", "MD"].map((fmt) => (
             <span
               key={fmt}
-              className="px-2 py-0.5 rounded-md bg-surface-muted border border-border/80 text-[10px] font-mono font-medium text-fg-muted"
+              className="px-2 py-0.5 rounded-md bg-surface-muted border border-border/80 text-2xs font-mono font-medium text-fg-muted"
             >
               {fmt}
             </span>

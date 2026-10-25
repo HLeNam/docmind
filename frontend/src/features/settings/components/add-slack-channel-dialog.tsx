@@ -123,7 +123,7 @@ export function AddSlackChannelDialog({
                   {errors.channelId.message}
                 </p>
               )}
-              <div className="flex items-start gap-1.5 text-[11px] text-fg-muted">
+              <div className="flex items-start gap-1.5 text-2xs text-fg-muted">
                 <Info className="size-3.5 text-accent shrink-0 mt-0.5" aria-hidden="true" />
                 <span>{t("settings.slackChannelIdHelp")}</span>
               </div>

@@ -221,7 +221,7 @@ export function DocumentTable({
                 }`}
               >
                 <span>{labels[filter]}</span>
-                <span className="font-mono text-[10px] text-fg-muted">
+                <span className="font-mono text-2xs text-fg-muted">
                   ({count})
                 </span>
               </button>

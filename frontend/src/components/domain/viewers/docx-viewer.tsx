@@ -114,7 +114,7 @@ export function DocxViewer({ blob, filename }: DocxViewerProps) {
           <div className="flex flex-col items-center justify-center p-12 text-center space-y-3 max-w-md">
             <AlertCircle className="size-8 text-danger" aria-hidden="true" />
             <p className="text-xs text-fg font-medium">{t("documents.viewer.loadError")}</p>
-            <p className="text-[11px] text-fg-muted">{error}</p>
+            <p className="text-2xs text-fg-muted">{error}</p>
           </div>
         )}
 

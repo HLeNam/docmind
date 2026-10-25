@@ -123,7 +123,7 @@ export function PresentationViewer({
             <Presentation className="size-3.5 text-accent" />
             <span>Danh sách Slide</span>
           </span>
-          <span className="text-[11px] font-mono text-fg-muted">
+          <span className="text-2xs font-mono text-fg-muted">
             {slides.length} slides
           </span>
         </div>
@@ -142,14 +142,14 @@ export function PresentationViewer({
                     : "border-border bg-surface hover:bg-surface-muted/60 text-fg-muted hover:text-fg"
                 }`}
               >
-                <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-surface-muted text-accent border border-border shrink-0 mt-0.5">
+                <span className="font-mono text-2xs font-bold px-1.5 py-0.5 rounded bg-surface-muted text-accent border border-border shrink-0 mt-0.5">
                   {slide.slideNumber}
                 </span>
                 <div className="min-w-0 flex-1">
                   <h4 className="font-medium text-xs truncate">
                     {slide.title}
                   </h4>
-                  <p className="text-[10px] text-fg-muted truncate mt-0.5">
+                  <p className="text-2xs text-fg-muted truncate mt-0.5">
                     {slide.content[0]?.slice(0, 45) || "Nội dung slide..."}
                   </p>
                 </div>
@@ -168,7 +168,7 @@ export function PresentationViewer({
               {/* Slide Header */}
               <div className="flex items-start justify-between gap-4 border-b border-border/80 pb-4">
                 <div className="min-w-0">
-                  <span className="text-[11px] font-mono font-semibold text-accent uppercase tracking-wider block mb-1">
+                  <span className="text-2xs font-mono font-semibold text-accent uppercase tracking-wider block mb-1">
                     {filename}
                   </span>
                   <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-fg tracking-tight">

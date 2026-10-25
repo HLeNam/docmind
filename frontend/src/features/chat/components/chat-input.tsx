@@ -1,7 +1,8 @@
-import { useState, useRef, type KeyboardEvent, type FormEvent } from "react";
+import { useState, useRef, useMemo, type KeyboardEvent, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowUp, Square, Folder, Check, ChevronDown } from "lucide-react";
+import { ArrowUp, Square, Folder, Check, ChevronDown, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   DropdownMenu,
@@ -27,10 +28,17 @@ export function ChatInput({
   const { t } = useTranslation();
   const [content, setContent] = useState("");
   const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null);
+  const [collectionSearch, setCollectionSearch] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const { data: collections = [] } = useCollections();
   const selectedCollection = collections.find((c) => c.id === selectedCollectionId);
+
+  const filteredCollections = useMemo(() => {
+    if (!collectionSearch.trim()) return collections;
+    const q = collectionSearch.toLowerCase();
+    return collections.filter((c) => c.name.toLowerCase().includes(q));
+  }, [collections, collectionSearch]);
 
   const hasContent = content.trim().length > 0;
 
@@ -103,45 +111,67 @@ export function ChatInput({
               </span>
               <ChevronDown className="size-3 text-fg-muted shrink-0" aria-hidden="true" />
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-64 max-h-56 overflow-y-auto">
-              <DropdownMenuItem
-                onClick={() => setSelectedCollectionId(null)}
-                className="flex items-center justify-between text-xs"
-              >
-                <div className="flex items-center gap-2">
-                  <Folder className="size-3.5 text-fg-muted" aria-hidden="true" />
-                  <span>{t("chat.allCollections")}</span>
+            <DropdownMenuContent align="start" className="w-64 max-h-64 flex flex-col p-0">
+              {collections.length > 4 && (
+                <div className="p-1.5 border-b border-border bg-surface shrink-0">
+                  <div className="relative">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3 text-fg-muted pointer-events-none" />
+                    <Input
+                      type="search"
+                      placeholder={t("chat.searchCollection")}
+                      value={collectionSearch}
+                      onChange={(e) => setCollectionSearch(e.target.value)}
+                      className="h-6 pl-6 pr-2 text-2xs bg-surface-muted/50"
+                    />
+                  </div>
                 </div>
-                {!selectedCollectionId && (
-                  <Check className="size-3.5 text-accent" aria-hidden="true" />
-                )}
-              </DropdownMenuItem>
+              )}
+              <div className="overflow-y-auto max-h-48 p-1">
+                <DropdownMenuItem
+                  onClick={() => {
+                    setSelectedCollectionId(null);
+                    setCollectionSearch("");
+                  }}
+                  className="flex items-center justify-between text-xs"
+                >
+                  <div className="flex items-center gap-2">
+                    <Folder className="size-3.5 text-fg-muted" aria-hidden="true" />
+                    <span>{t("chat.allCollections")}</span>
+                  </div>
+                  {!selectedCollectionId && (
+                    <Check className="size-3.5 text-accent" aria-hidden="true" />
+                  )}
+                </DropdownMenuItem>
 
-              {collections.map((col) => {
-                const isSelected = selectedCollectionId === col.id;
-                return (
-                  <DropdownMenuItem
-                    key={col.id}
-                    onClick={() => setSelectedCollectionId(col.id)}
-                    className="flex items-center justify-between text-xs"
-                  >
-                    <div className="flex items-center gap-2 truncate">
-                      <Folder className="size-3.5 text-accent shrink-0" aria-hidden="true" />
-                      <span className="truncate">{col.name}</span>
-                    </div>
-                    {isSelected && (
-                      <Check className="size-3.5 text-accent" aria-hidden="true" />
-                    )}
-                  </DropdownMenuItem>
-                );
-              })}
+                {filteredCollections.map((col) => {
+                  const isSelected = selectedCollectionId === col.id;
+                  return (
+                    <DropdownMenuItem
+                      key={col.id}
+                      onClick={() => {
+                        setSelectedCollectionId(col.id);
+                        setCollectionSearch("");
+                      }}
+                      className="flex items-center justify-between text-xs"
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        <Folder className="size-3.5 text-accent shrink-0" aria-hidden="true" />
+                        <span className="truncate">{col.name}</span>
+                      </div>
+                      {isSelected && (
+                        <Check className="size-3.5 text-accent" aria-hidden="true" />
+                      )}
+                    </DropdownMenuItem>
+                  );
+                })}
+              </div>
             </DropdownMenuContent>
           </DropdownMenu>
 
           {/* Right Action: Helper text + Send / Stop Button */}
           <div className="flex items-center gap-2.5">
-            <span className="hidden sm:inline text-[11px] text-fg-muted/60">
-              Shift + Enter xuống dòng
+            <span className="hidden sm:inline text-2xs text-fg-muted/60">
+              {t("chat.shiftEnterHint")}
             </span>
 
             {isStreaming ? (

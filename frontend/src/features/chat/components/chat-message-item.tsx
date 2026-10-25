@@ -159,7 +159,7 @@ export function ChatMessageItem({
       <div className="flex-1 max-w-[68ch] min-w-0 space-y-2.5">
         {/* Rewritten query indicator */}
         {rewrittenQuery && (
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface-muted/70 text-[11px] text-fg-muted border border-border/70 mb-1">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface-muted/70 text-2xs text-fg-muted border border-border/70 mb-1">
             <Sparkles className="size-3 text-accent shrink-0" aria-hidden="true" />
             <span className="font-medium">{t("chat.rewrittenQueryNotice")}</span>
             <span className="italic text-fg font-medium">"{rewrittenQuery}"</span>
@@ -191,7 +191,7 @@ export function ChatMessageItem({
         {/* Cited Sources Strip below assistant answer */}
         {!isStreaming && citations && citations.length > 0 && (
           <div className="pt-2.5 border-t border-border/60 space-y-2">
-            <span className="text-[11px] font-medium text-fg-muted flex items-center gap-1.5">
+            <span className="text-2xs font-medium text-fg-muted flex items-center gap-1.5">
               <FileText className="size-3 text-accent" aria-hidden="true" />
               <span>{t("chat.citations")}:</span>
             </span>
@@ -201,14 +201,14 @@ export function ChatMessageItem({
                   key={c.index}
                   type="button"
                   onClick={() => onCitationClick?.(c)}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-border/80 bg-surface hover:bg-surface-muted hover:border-accent/50 text-[11px] text-fg transition-all text-left shadow-2xs group/cite focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-border/80 bg-surface hover:bg-surface-muted hover:border-accent/50 text-2xs text-fg transition-all text-left shadow-2xs group/cite focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
                 >
                   <span className="font-mono font-semibold text-accent">[{c.index}]</span>
                   <span className="truncate max-w-[140px] font-medium">{c.filename}</span>
                   {c.pageNumber && (
-                    <span className="text-fg-muted text-[10px]">p.{c.pageNumber}</span>
+                    <span className="text-fg-muted text-2xs">p.{c.pageNumber}</span>
                   )}
-                  <span className="text-accent text-[10px] font-mono font-medium ml-0.5">
+                  <span className="text-accent text-2xs font-mono font-medium ml-0.5">
                     {Math.round(c.score * 100)}%
                   </span>
                 </button>
