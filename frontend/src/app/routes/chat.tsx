@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DocMindLogo } from "@/components/ui/docmind-logo";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useAuth } from "@/features/auth";
 import { ChatView } from "@/features/chat";
 
@@ -114,6 +115,8 @@ function ChatPage() {
               </span>
             </div>
 
+            <ThemeToggle />
+
             <Button
               variant="ghost"
               size="sm"
@@ -128,7 +131,7 @@ function ChatPage() {
       </header>
 
       {/* Main Chat Workspace */}
-      <main className="flex-1 overflow-hidden">
+      <main id="main-content" className="flex-1 overflow-hidden">
         <ChatView />
       </main>
     </div>

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DocMindLogo } from "@/components/ui/docmind-logo";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useAuth } from "@/features/auth";
 import {
   CollectionList,
@@ -124,6 +125,8 @@ function HomePage() {
               </span>
             </div>
 
+            <ThemeToggle />
+
             <Button
               variant="ghost"
               size="sm"
@@ -138,7 +141,7 @@ function HomePage() {
       </header>
 
       {/* Main Container */}
-      <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main id="main-content" className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {selectedCollection ? (
           <CollectionDocumentsView
             collection={selectedCollection}
