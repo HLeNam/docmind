@@ -215,6 +215,13 @@
     "onboardingSubtitle": "DocMind needs at least one document to retrieve and cite answers. Create a collection or upload your first file to start chatting with AI.",
     "onboardingUploadButton": "Manage & Upload documents",
     "onboardingBadge": "Supports PDF, DOCX, PPTX, XLSX, OCR...",
+    "attachFiles": "Attach documents",
+    "dragDropHeadline": "Drop documents here to start chatting",
+    "dragDropHint": "Supports PDF, DOCX, XLSX, PPTX, CSV, TXT and Markdown",
+    "uploadingFiles": "Uploading {{count}} documents...",
+    "removeAttachment": "Remove document",
+    "defaultCollectionName": "Uploaded Documents",
+    "defaultFilePrompt": "Please summarize and analyze the key points of the attached documents.",
     "rewrittenQueryNotice": "Understood as:"
   },
   "settings": {

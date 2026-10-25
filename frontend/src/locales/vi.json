@@ -237,6 +237,13 @@
     "onboardingSubtitle": "DocMind cần ít nhất một tài liệu để bắt đầu tra cứu và trích dẫn. Hãy tạo bộ sưu tập hoặc tải tệp đầu tiên lên để bắt đầu trò chuyện cùng AI.",
     "onboardingUploadButton": "Quản lý & Tải tài liệu lên",
     "onboardingBadge": "Hỗ trợ PDF, DOCX, PPTX, XLSX, OCR...",
+    "attachFiles": "Đính kèm tài liệu",
+    "dragDropHeadline": "Thả tài liệu vào đây để bắt đầu hỏi đáp",
+    "dragDropHint": "Hỗ trợ PDF, DOCX, XLSX, PPTX, CSV, TXT và Markdown",
+    "uploadingFiles": "Đang tải lên {{count}} tài liệu...",
+    "removeAttachment": "Gỡ tài liệu",
+    "defaultCollectionName": "Tài liệu tải lên",
+    "defaultFilePrompt": "Hãy tóm tắt và phân tích nội dung chính của các tài liệu tôi vừa đính kèm.",
     "rewrittenQueryNotice": "Đã hiểu câu hỏi là:"
   },
   "settings": {

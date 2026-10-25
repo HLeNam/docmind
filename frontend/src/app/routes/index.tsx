@@ -1,18 +1,25 @@
 import { useEffect } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
+import { z } from "zod";
 import { Loader2 } from "lucide-react";
 import { DocMindLogo } from "@/components/ui/docmind-logo";
 import { useAuth } from "@/features/auth";
 import { ChatView } from "@/features/chat";
 
+const homeSearchSchema = z.object({
+  c: z.string().optional(),
+});
+
 export const Route = createFileRoute("/")({
+  validateSearch: (search) => homeSearchSchema.parse(search),
   component: HomePageChat,
 });
 
 function HomePageChat() {
   const { t } = useTranslation();
   const { user, isAuthenticated, isLoading } = useAuth();
+  const search = Route.useSearch();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -44,7 +51,7 @@ function HomePageChat() {
   return (
     <div className="h-screen w-screen overflow-hidden bg-bg text-fg">
       <main id="main-content" className="h-full w-full overflow-hidden">
-        <ChatView />
+        <ChatView initialConversationId={search.c} />
       </main>
     </div>
   );

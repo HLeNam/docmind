@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, type DragEvent } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
   PanelLeft,
@@ -8,12 +9,23 @@ import {
   Download,
   FolderPlus,
   Upload,
+  UploadCloud,
 } from "lucide-react";
-import { cn } from "cn";
 import { Button } from "@/components/ui/button";
 import { SourcePanel } from "@/components/domain/source-panel";
 import { DocumentViewerModal } from "@/components/domain/document-viewer-modal";
-import { useCollections } from "@/features/collections";
+import {
+  useCollections,
+  useCreateCollection,
+  COLLECTIONS_QUERY_KEY,
+} from "@/features/collections";
+import {
+  documentsApi,
+  getDocumentsQueryKey,
+  ALLOWED_MIME_EXTENSIONS,
+  MAX_DOCUMENT_SIZE,
+  MAX_TABULAR_SIZE,
+} from "@/features/documents";
 import { ConversationList } from "./conversation-list";
 import { ChatMessageItem } from "./chat-message-item";
 import { ChatInput } from "./chat-input";
@@ -28,6 +40,9 @@ interface ChatViewProps {
 export function ChatView({ initialConversationId }: ChatViewProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const createCollectionMutation = useCreateCollection();
+
   const [activeConversationId, setActiveConversationId] = useState<string | null>(
     initialConversationId || null
   );
@@ -44,7 +59,21 @@ export function ChatView({ initialConversationId }: ChatViewProps) {
   const [activeCitation, setActiveCitation] = useState<ChatCitation | null>(null);
   const [viewingCitation, setViewingCitation] = useState<ChatCitation | null>(null);
 
+  // File attachment & Drag and Drop state
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const [isUploadingFiles, setIsUploadingFiles] = useState(false);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const [isDraggingOverWindow, setIsDraggingOverWindow] = useState(false);
+  const dragCounter = useRef(0);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const [prevInitialId, setPrevInitialId] = useState(initialConversationId);
+  if (initialConversationId !== prevInitialId) {
+    setPrevInitialId(initialConversationId);
+    setActiveConversationId(initialConversationId || null);
+    setActiveCitation(null);
+  }
 
   // TanStack Query for messages in active conversation
   const { data: messagesData, isLoading: isLoadingMessages } =
@@ -64,20 +93,35 @@ export function ChatView({ initialConversationId }: ChatViewProps) {
   } = useChatStream({
     onConversationCreated: (newId) => {
       setActiveConversationId(newId);
+      navigate({
+        to: "/",
+        search: { c: newId },
+        replace: true,
+      });
     },
   });
 
-  // Keep active conversation id synchronized
+  // Keep active conversation id synchronized and push to URL
   const handleSelectConversation = (id: string | null) => {
     setActiveConversationId(id);
     setStreamConvId(id);
     setActiveCitation(null);
+    navigate({
+      to: "/",
+      search: { c: id || undefined },
+      replace: false,
+    });
   };
 
   const handleNewConversation = () => {
     setActiveConversationId(null);
     setStreamConvId(null);
     setActiveCitation(null);
+    navigate({
+      to: "/",
+      search: { c: undefined },
+      replace: false,
+    });
   };
 
   const handleCitationClick = (citation: ChatCitation) => {
@@ -85,11 +129,137 @@ export function ChatView({ initialConversationId }: ChatViewProps) {
     setShowSourcePanel(true);
   };
 
-  const handleSend = (content: string, collectionId?: string) => {
+  const validateFile = (file: File): string | null => {
+    const extension = `.${file.name.split(".").pop()?.toLowerCase()}`;
+    const isAllowed = ALLOWED_MIME_EXTENSIONS.some(
+      (ext) => ext.toLowerCase() === extension
+    );
+
+    if (!isAllowed) {
+      return t("documents.fileInvalidType", { name: file.name });
+    }
+
+    const isTabular = extension === ".xlsx" || extension === ".csv";
+    const maxSize = isTabular ? MAX_TABULAR_SIZE : MAX_DOCUMENT_SIZE;
+    const maxSizeMb = isTabular ? 10 : 50;
+
+    if (file.size > maxSize) {
+      return t("documents.fileTooLarge", {
+        name: file.name,
+        maxSize: maxSizeMb,
+      });
+    }
+
+    return null;
+  };
+
+  const handleAddFiles = (newFiles: File[]) => {
+    setFileError(null);
+    const validFiles: File[] = [];
+
+    for (const file of newFiles) {
+      const error = validateFile(file);
+      if (error) {
+        setFileError(error);
+        return;
+      }
+      const isDuplicate = attachedFiles.some(
+        (f) => f.name === file.name && f.size === file.size
+      );
+      if (!isDuplicate) {
+        validFiles.push(file);
+      }
+    }
+
+    if (validFiles.length > 0) {
+      setAttachedFiles((prev) => [...prev, ...validFiles]);
+    }
+  };
+
+  const handleRemoveFile = (index: number) => {
+    setAttachedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // Full window drag and drop handlers
+  const handleDragEnter = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current += 1;
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      setIsDraggingOverWindow(true);
+    }
+  };
+
+  const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current -= 1;
+    if (dragCounter.current <= 0) {
+      dragCounter.current = 0;
+      setIsDraggingOverWindow(false);
+    }
+  };
+
+  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current = 0;
+    setIsDraggingOverWindow(false);
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleAddFiles(Array.from(e.dataTransfer.files));
+    }
+  };
+
+  const handleSend = async (content: string, collectionId?: string) => {
+    let targetCollectionId = collectionId;
+
+    if (attachedFiles.length > 0) {
+      setIsUploadingFiles(true);
+      setFileError(null);
+      try {
+        if (!targetCollectionId) {
+          if (collections.length > 0) {
+            targetCollectionId = collections[0].id;
+          } else {
+            const newCol = await createCollectionMutation.mutateAsync({
+              name: t("chat.defaultCollectionName") || "Tài liệu tải lên",
+            });
+            targetCollectionId = newCol.id;
+          }
+        }
+
+        for (const file of attachedFiles) {
+          await documentsApi.upload(targetCollectionId, file);
+        }
+
+        queryClient.invalidateQueries({
+          queryKey: getDocumentsQueryKey(targetCollectionId),
+        });
+        queryClient.invalidateQueries({
+          queryKey: COLLECTIONS_QUERY_KEY,
+        });
+
+        setAttachedFiles([]);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : t("errors.GENERIC");
+        setFileError(message);
+        setIsUploadingFiles(false);
+        return;
+      } finally {
+        setIsUploadingFiles(false);
+      }
+    }
+
     sendMessage({
       content,
       conversationId: activeConversationId || undefined,
-      collectionId,
+      collectionId: targetCollectionId,
     });
   };
 
@@ -138,7 +308,7 @@ export function ChatView({ initialConversationId }: ChatViewProps) {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `docmind-chat-${activeConversationId || "export"}.md`;
+    link.download = `docmind-conversation-${activeConversationId || "new"}.md`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -146,7 +316,35 @@ export function ChatView({ initialConversationId }: ChatViewProps) {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-bg relative">
+    <div
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      className="flex h-screen overflow-hidden bg-bg relative"
+    >
+      {/* Full-Window Drag and Drop Backdrop Overlay */}
+      {isDraggingOverWindow && (
+        <div
+          className="absolute inset-0 z-40 bg-bg/85 backdrop-blur-xs flex flex-col items-center justify-center p-6 pointer-events-none transition-all duration-200 animate-in fade-in-0"
+          aria-hidden="true"
+        >
+          <div className="w-full max-w-xl h-72 border-2 border-dashed border-accent rounded-3xl bg-accent-soft/30 flex flex-col items-center justify-center gap-4 text-center p-6 shadow-lg">
+            <div className="size-16 rounded-2xl bg-accent-soft border border-accent/20 flex items-center justify-center text-accent shadow-xs">
+              <UploadCloud className="size-8 animate-bounce" />
+            </div>
+            <div className="space-y-1.5">
+              <p className="text-base sm:text-lg font-semibold text-fg">
+                {t("chat.dragDropHeadline")}
+              </p>
+              <p className="text-xs text-fg-muted">
+                {t("chat.dragDropHint")}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 1. Left Column: Conversation History Sidebar */}
       {/* Mobile Backdrop for left sidebar */}
       {showLeftSidebar && (
@@ -158,13 +356,11 @@ export function ChatView({ initialConversationId }: ChatViewProps) {
       )}
 
       <div
-        className={cn(
-          "h-full overflow-hidden transition-all duration-200 z-30 shrink-0",
-          "fixed inset-y-0 left-0 w-72 bg-surface border-r border-border shadow-xl md:static md:shadow-none md:z-auto",
+        className={`fixed inset-y-0 left-0 z-30 md:static md:z-auto transition-all duration-200 shrink-0 ${
           showLeftSidebar
-            ? "translate-x-0 md:w-64 lg:w-72"
-            : "-translate-x-full md:translate-x-0 md:w-0 md:hidden"
-        )}
+            ? "w-72 sm:w-80 translate-x-0"
+            : "-translate-x-full md:translate-x-0 md:w-0 overflow-hidden"
+        }`}
       >
         <ConversationList
           activeConversationId={activeConversationId}
@@ -184,8 +380,8 @@ export function ChatView({ initialConversationId }: ChatViewProps) {
         />
       </div>
 
-      {/* 2. Middle Column: Main Chat Area */}
-      <div className="flex-1 flex flex-col h-full min-w-0 bg-bg">
+      {/* 2. Main Chat Thread Area */}
+      <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden bg-bg">
         {/* Top Chat Bar */}
         <div className="h-12 border-b border-border bg-surface px-4 flex items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-2 min-w-0">
@@ -207,23 +403,22 @@ export function ChatView({ initialConversationId }: ChatViewProps) {
             </span>
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 shrink-0">
             {/* Export Markdown Button */}
             {conversationMessages.length > 0 && (
               <Button
                 variant="ghost"
-                size="sm"
+                size="icon-xs"
                 onClick={handleExportMarkdown}
-                className="text-xs gap-1.5 h-7 px-2 text-fg-muted hover:text-fg"
                 title={t("chat.exportMarkdown")}
                 aria-label={t("chat.exportMarkdown")}
+                className="text-fg-muted hover:text-fg"
               >
-                <Download className="size-3.5" aria-hidden="true" />
-                <span className="hidden md:inline">{t("chat.exportMarkdown")}</span>
+                <Download className="size-4" />
               </Button>
             )}
 
-            {/* Source Panel Toggle */}
+            {/* Toggle Source Citations Panel */}
             <Button
               variant={showSourcePanel ? "secondary" : "ghost"}
               size="sm"
@@ -354,6 +549,11 @@ export function ChatView({ initialConversationId }: ChatViewProps) {
           isStreaming={isStreaming}
           onStop={stopStreaming}
           disabled={isLoadingMessages}
+          attachedFiles={attachedFiles}
+          onAddFiles={handleAddFiles}
+          onRemoveFile={handleRemoveFile}
+          isUploadingFiles={isUploadingFiles}
+          fileError={fileError}
         />
       </div>
 
