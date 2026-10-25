@@ -158,9 +158,31 @@
     }
   },
   "chat": {
-    "newConversation": "Cuộc hội thoại mới",
-    "searching": "Đang tìm trong tài liệu...",
+    "title": "Hội thoại AI",
+    "newConversation": "Hội thoại mới",
+    "searching": "Đang tìm kiếm trong tài liệu...",
     "stop": "Dừng",
-    "citations": "Nguồn trích dẫn"
+    "citations": "Nguồn trích dẫn",
+    "sourcePanelTitle": "Nguồn trích dẫn đối soát",
+    "noCitations": "Câu trả lời này không có trích dẫn nguồn đính kèm.",
+    "inputPlaceholder": "Hỏi bất cứ điều gì về tài liệu của bạn...",
+    "send": "Gửi câu hỏi",
+    "retryAnswer": "Thử lại câu trả lời",
+    "copy": "Sao chép",
+    "copied": "Đã sao chép",
+    "conversations": "Lịch sử hội thoại",
+    "deleteConversation": "Xóa hội thoại",
+    "deleteConfirm": "Bạn có chắc chắn muốn xóa cuộc hội thoại này? Toàn bộ tin nhắn sẽ bị xóa vĩnh viễn.",
+    "renameConversation": "Đổi tên hội thoại",
+    "today": "Hôm nay",
+    "yesterday": "Hôm qua",
+    "last7Days": "7 ngày trước",
+    "older": "Cũ hơn",
+    "emptyHistory": "Chưa có cuộc hội thoại nào",
+    "emptyChatTitle": "Hỏi đáp thông minh cùng DocMind",
+    "emptyChatSubtitle": "Đặt câu hỏi để AI tra cứu, tổng hợp và dẫn chứng nguồn chính xác từ kho tài liệu của bạn.",
+    "askInCollection": "Trong bộ sưu tập",
+    "allCollections": "Tất cả bộ sưu tập",
+    "rewrittenQueryNotice": "Đã hiểu câu hỏi là:"
   }
 }

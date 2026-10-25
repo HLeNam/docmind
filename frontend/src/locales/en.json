@@ -136,9 +136,31 @@
     }
   },
   "chat": {
+    "title": "AI Assistant",
     "newConversation": "New conversation",
-    "searching": "Searching in documents...",
+    "searching": "Searching documents...",
     "stop": "Stop",
-    "citations": "Citations"
+    "citations": "Citations",
+    "sourcePanelTitle": "Source Citations",
+    "noCitations": "No source citations attached to this answer.",
+    "inputPlaceholder": "Ask anything about your documents...",
+    "send": "Send message",
+    "retryAnswer": "Retry answer",
+    "copy": "Copy",
+    "copied": "Copied",
+    "conversations": "Conversations",
+    "deleteConversation": "Delete conversation",
+    "deleteConfirm": "Are you sure you want to delete this conversation? All messages will be permanently removed.",
+    "renameConversation": "Rename conversation",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "last7Days": "Last 7 days",
+    "older": "Older",
+    "emptyHistory": "No conversations yet",
+    "emptyChatTitle": "Intelligent Q&A with DocMind",
+    "emptyChatSubtitle": "Ask questions to retrieve, synthesize, and cite exact sources from your knowledge base.",
+    "askInCollection": "In collection",
+    "allCollections": "All collections",
+    "rewrittenQueryNotice": "Understood as:"
   }
 }
