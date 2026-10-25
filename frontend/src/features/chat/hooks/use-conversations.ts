@@ -8,10 +8,14 @@ import type {
 
 export const CONVERSATIONS_QUERY_KEY = ["conversations"] as const;
 
-export function useConversations(cursor?: string, limit = 50) {
+export function useConversations(
+  cursor?: string,
+  limit = 50,
+  collectionId?: string
+) {
   return useQuery<ConversationListResponse, Error>({
-    queryKey: [...CONVERSATIONS_QUERY_KEY, { cursor, limit }],
-    queryFn: () => conversationsApi.list(cursor, limit),
+    queryKey: [...CONVERSATIONS_QUERY_KEY, { cursor, limit, collectionId }],
+    queryFn: () => conversationsApi.list(cursor, limit, collectionId),
   });
 }
 

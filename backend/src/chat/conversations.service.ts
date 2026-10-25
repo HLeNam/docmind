@@ -43,7 +43,10 @@ export class ConversationsService {
   async list(caller: AccessTokenPayload, query: ListConversationsQueryDto) {
     const rows = await this.prisma.runInTenantContext(caller.tenantId, (tx) =>
       tx.conversation.findMany({
-        where: { membershipId: caller.membershipId },
+        where: {
+          membershipId: caller.membershipId,
+          ...(query.collectionId ? { collectionId: query.collectionId } : {}),
+        },
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         take: query.limit + 1, // lấy dư 1 dòng để biết còn trang sau hay không
         ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
@@ -66,6 +69,7 @@ export class ConversationsService {
         const last = c.messages[0];
         return {
           id: c.id,
+          collectionId: c.collectionId,
           title: c.title,
           createdAt: c.createdAt.toISOString(),
           lastMessageAt: last ? last.createdAt.toISOString() : null,

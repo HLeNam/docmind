@@ -88,6 +88,7 @@ export class ChatService {
       caller,
       dto.conversationId,
       dto.content,
+      dto.collectionId,
     );
 
     const recentHistory = await this.prisma.runInTenantContext(
@@ -214,6 +215,7 @@ export class ChatService {
     caller: AccessTokenPayload,
     conversationId: string | undefined,
     firstMessage: string,
+    collectionId?: string,
   ) {
     if (!conversationId) {
       return this.prisma.runInTenantContext(caller.tenantId, (tx) =>
@@ -222,6 +224,7 @@ export class ChatService {
           data: {
             tenantId: caller.tenantId,
             membershipId: caller.membershipId,
+            collectionId: collectionId || null,
             title: deriveConversationTitle(firstMessage),
           },
         }),

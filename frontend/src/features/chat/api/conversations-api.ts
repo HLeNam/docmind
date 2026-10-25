@@ -7,9 +7,14 @@ import type {
 } from "../schemas/conversation-schemas";
 
 export const conversationsApi = {
-  async list(cursor?: string, limit = 20): Promise<ConversationListResponse> {
+  async list(
+    cursor?: string,
+    limit = 20,
+    collectionId?: string
+  ): Promise<ConversationListResponse> {
     const params: Record<string, string | number> = { limit };
     if (cursor) params.cursor = cursor;
+    if (collectionId) params.collectionId = collectionId;
     return apiClient<ConversationListResponse>("/chat/conversations", {
       params,
     });

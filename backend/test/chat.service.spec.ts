@@ -110,7 +110,27 @@ describe('ChatService.prepare', () => {
       data: {
         tenantId: 'tenant-1',
         membershipId: 'member-1',
+        collectionId: null,
         title: 'câu hỏi',
+      },
+    });
+    expect(result.conversationId).toBe('conv-new');
+  });
+
+  it('creates a new Conversation with collectionId when provided', async () => {
+    const { service, tx } = buildService();
+
+    const result = await service.prepare(CALLER, {
+      content: 'câu hỏi theo collection',
+      collectionId: 'col-456',
+    });
+
+    expect(tx.conversation.create).toHaveBeenCalledWith({
+      data: {
+        tenantId: 'tenant-1',
+        membershipId: 'member-1',
+        collectionId: 'col-456',
+        title: 'câu hỏi theo collection',
       },
     });
     expect(result.conversationId).toBe('conv-new');

@@ -12,6 +12,9 @@ import {
   PanelLeftClose,
   Settings,
   LogOut,
+  Filter,
+  Check,
+  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -99,7 +102,26 @@ export function ConversationList({
   const { t } = useTranslation();
   const { user, logout } = useAuth();
   const { data: collections = [] } = useCollections();
-  const { data, isLoading } = useConversations();
+  const [selectedFilterCollectionId, setSelectedFilterCollectionId] =
+    useState<string | null>(null);
+  const { data, isLoading } = useConversations(
+    undefined,
+    50,
+    selectedFilterCollectionId || undefined
+  );
+
+  const selectedFilterCollection = useMemo(
+    () => collections.find((c) => c.id === selectedFilterCollectionId),
+    [collections, selectedFilterCollectionId]
+  );
+
+  const collectionsMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const c of collections) {
+      map.set(c.id, c.name);
+    }
+    return map;
+  }, [collections]);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [conversationToRename, setConversationToRename] =
@@ -196,6 +218,54 @@ export function ConversationList({
             className="h-8 pl-8 text-xs bg-surface border-border/80 rounded-lg"
           />
         </div>
+
+        {/* Filter by Collection Selector */}
+        {collections.length > 0 && (
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <button
+                  type="button"
+                  className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-surface border border-border/80 text-xs text-fg-muted hover:text-fg transition-colors cursor-pointer"
+                />
+              }
+            >
+              <div className="flex items-center gap-1.5 truncate min-w-0">
+                <Filter className="size-3 text-accent shrink-0" aria-hidden="true" />
+                <span className="truncate">
+                  {selectedFilterCollection
+                    ? selectedFilterCollection.name
+                    : t("chat.allCollections")}
+                </span>
+              </div>
+              <ChevronDown className="size-3 text-fg-muted shrink-0" aria-hidden="true" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-56 max-h-60 overflow-y-auto">
+              <DropdownMenuItem
+                onClick={() => setSelectedFilterCollectionId(null)}
+                className="flex items-center justify-between text-xs cursor-pointer"
+              >
+                <span>{t("chat.allCollections")}</span>
+                {!selectedFilterCollectionId && (
+                  <Check className="size-3.5 text-accent" />
+                )}
+              </DropdownMenuItem>
+              {collections.map((col) => {
+                const isSelected = selectedFilterCollectionId === col.id;
+                return (
+                  <DropdownMenuItem
+                    key={col.id}
+                    onClick={() => setSelectedFilterCollectionId(col.id)}
+                    className="flex items-center justify-between text-xs cursor-pointer"
+                  >
+                    <span className="truncate">{col.name}</span>
+                    {isSelected && <Check className="size-3.5 text-accent" />}
+                  </DropdownMenuItem>
+                );
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
 
       {/* 3. Conversations scroll area */}
@@ -237,6 +307,11 @@ export function ConversationList({
                       <div className="flex items-center gap-2 min-w-0 pr-6">
                         <MessageSquare className="size-3.5 shrink-0 opacity-70" />
                         <span className="truncate">{title}</span>
+                        {item.collectionId && !selectedFilterCollectionId && collectionsMap.get(item.collectionId) && (
+                          <span className="font-mono text-2xs px-1.5 py-0.5 rounded-sm bg-accent-soft text-accent truncate max-w-[80px] shrink-0 font-medium leading-none">
+                            {collectionsMap.get(item.collectionId)}
+                          </span>
+                        )}
                       </div>
 
                       {/* Dropdown Menu actions */}
