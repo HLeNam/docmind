@@ -113,6 +113,13 @@ describe('ChatService.prepare', () => {
         collectionId: null,
         title: 'câu hỏi',
       },
+      include: {
+        collection: {
+          select: {
+            instructions: true,
+          },
+        },
+      },
     });
     expect(result.conversationId).toBe('conv-new');
   });
@@ -131,6 +138,13 @@ describe('ChatService.prepare', () => {
         membershipId: 'member-1',
         collectionId: 'col-456',
         title: 'câu hỏi theo collection',
+      },
+      include: {
+        collection: {
+          select: {
+            instructions: true,
+          },
+        },
       },
     });
     expect(result.conversationId).toBe('conv-new');

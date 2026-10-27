@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { Folder, MoreVertical, Trash2, ArrowRight, Calendar } from "lucide-react";
+import { Folder, MoreVertical, Trash2, ArrowRight, Calendar, Pin, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -7,6 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useUIStore } from "@/lib/ui-store";
 import type { CollectionResponse } from "../schemas/collection-schemas";
 
 interface CollectionCardProps {
@@ -23,6 +24,9 @@ export function CollectionCard({
   onDelete,
 }: CollectionCardProps) {
   const { t } = useTranslation();
+  const pinnedCollectionIds = useUIStore((s) => s.pinnedCollectionIds);
+  const togglePinCollection = useUIStore((s) => s.togglePinCollection);
+  const isPinned = pinnedCollectionIds.includes(collection.id);
 
   const formattedDate = new Date(collection.createdAt).toLocaleDateString(
     "vi-VN",
@@ -32,6 +36,8 @@ export function CollectionCard({
       day: "numeric",
     }
   );
+
+  const docCount = collection._count?.documents ?? 0;
 
   return (
     <article
@@ -48,7 +54,7 @@ export function CollectionCard({
       className="group relative flex flex-col justify-between rounded-2xl border border-border/80 bg-surface p-5 hover:border-accent/50 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer shadow-2xs select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
     >
       <div>
-        {/* Top Header: Icon, Name, and Menu */}
+        {/* Top Header: Icon, Name, Pin, and Menu */}
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent border border-accent/25 group-hover:scale-105 transition-transform duration-200">
@@ -58,11 +64,34 @@ export function CollectionCard({
               <h3 className="font-semibold text-sm sm:text-base text-fg tracking-tight truncate group-hover:text-accent transition-colors">
                 {collection.name}
               </h3>
+              <div className="flex items-center gap-2 mt-0.5 text-2xs text-fg-muted font-mono">
+                <span className="flex items-center gap-1">
+                  <FileText className="size-3 text-fg-muted/70" />
+                  <span>{docCount} {t("documents.title").toLowerCase()}</span>
+                </span>
+              </div>
             </div>
           </div>
 
-          {canManage && (
-            <div onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+            {/* Pin action button */}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              onClick={() => togglePinCollection(collection.id)}
+              aria-label={isPinned ? t("collections.unpin") : t("collections.pin")}
+              title={isPinned ? t("collections.unpin") : t("collections.pin")}
+              className={`size-7 transition-colors ${
+                isPinned
+                  ? "text-accent fill-accent"
+                  : "text-fg-muted/50 hover:text-fg opacity-0 group-hover:opacity-100"
+              }`}
+            >
+              <Pin className={`size-3.5 ${isPinned ? "fill-accent" : ""}`} />
+            </Button>
+
+            {canManage && (
               <DropdownMenu>
                 <DropdownMenuTrigger
                   render={
@@ -87,8 +116,8 @@ export function CollectionCard({
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* Description */}

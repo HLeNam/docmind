@@ -2,12 +2,21 @@
 // (POST /v1/query, stateless) để 2 đường trả lời CÙNG 1 cách, sửa prompt ở 1 chỗ.
 import type { RetrievedChunk } from '../retrieval/retrieval.service.js';
 
-export function buildSystemPrompt(contextBlock: string): string {
-  return `Bạn là trợ lý AI của DocMind, trả lời câu hỏi CHỈ dựa trên các đoạn trích tài liệu dưới đây. Nếu không tìm thấy thông tin liên quan trong ngữ cảnh, hãy nói rõ là không tìm thấy, KHÔNG tự bịa câu trả lời.
+export function buildSystemPrompt(
+  contextBlock: string,
+  instructions?: string | null,
+): string {
+  let prompt = `Bạn là trợ lý AI của DocMind, trả lời câu hỏi CHỈ dựa trên các đoạn trích tài liệu dưới đây. Nếu không tìm thấy thông tin liên quan trong ngữ cảnh, hãy nói rõ là không tìm thấy, KHÔNG tự bịa câu trả lời.
 
 ${contextBlock}
 
 Khi trả lời, trích dẫn nguồn bằng ký hiệu [1], [2]... tương ứng với số thứ tự đoạn trích ở trên.`;
+
+  if (instructions && instructions.trim().length > 0) {
+    prompt += `\n\nChỉ dẫn bổ sung cho bộ sưu tập này:\n${instructions.trim()}`;
+  }
+
+  return prompt;
 }
 
 export function buildContextBlock(

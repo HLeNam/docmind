@@ -24,6 +24,7 @@ interface ChatInputProps {
   isStreaming: boolean;
   onStop: () => void;
   disabled?: boolean;
+  initialCollectionId?: string;
 }
 
 export function ChatInput({
@@ -31,10 +32,18 @@ export function ChatInput({
   isStreaming,
   onStop,
   disabled = false,
+  initialCollectionId,
 }: ChatInputProps) {
   const { t } = useTranslation();
   const [content, setContent] = useState("");
-  const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null);
+  const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(
+    initialCollectionId || null
+  );
+  const [prevInitialColId, setPrevInitialColId] = useState(initialCollectionId);
+  if (initialCollectionId !== prevInitialColId) {
+    setPrevInitialColId(initialCollectionId);
+    setSelectedCollectionId(initialCollectionId || null);
+  }
   const [collectionSearch, setCollectionSearch] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 

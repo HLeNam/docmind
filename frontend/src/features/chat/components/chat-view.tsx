@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { SourcePanel } from "@/components/domain/source-panel";
 import { DocumentViewerModal } from "@/components/domain/document-viewer-modal";
 import { useCollections } from "@/features/collections";
-import { ConversationList } from "./conversation-list";
+import { useUIStore } from "@/lib/ui-store";
 import { ChatMessageItem } from "./chat-message-item";
 import { ChatInput } from "./chat-input";
 import { useChatMessages } from "../hooks/use-chat-messages";
@@ -22,11 +22,20 @@ import type { ChatCitation } from "../schemas/chat-schemas";
 
 interface ChatViewProps {
   initialConversationId?: string | null;
+  initialCollectionId?: string | null;
+  initialPrompt?: string | null;
 }
 
-export function ChatView({ initialConversationId }: ChatViewProps) {
+export function ChatView({
+  initialConversationId,
+  initialCollectionId,
+  initialPrompt,
+}: ChatViewProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+
+  const isSidebarOpen = useUIStore((s) => s.isSidebarOpen);
+  const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
 
   const [activeConversationId, setActiveConversationId] = useState<string | null>(
     initialConversationId || null
@@ -34,17 +43,12 @@ export function ChatView({ initialConversationId }: ChatViewProps) {
 
   const { data: collections = [], isLoading: isLoadingCollections } = useCollections();
 
-  const [showLeftSidebar, setShowLeftSidebar] = useState(() => {
-    if (typeof window !== "undefined" && window.innerWidth < 768) {
-      return false;
-    }
-    return true;
-  });
   const [showSourcePanel, setShowSourcePanel] = useState(false);
   const [activeCitation, setActiveCitation] = useState<ChatCitation | null>(null);
   const [viewingCitation, setViewingCitation] = useState<ChatCitation | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const sentInitialPromptRef = useRef(false);
 
   const [prevInitialId, setPrevInitialId] = useState(initialConversationId);
   if (initialConversationId !== prevInitialId) {
@@ -67,7 +71,6 @@ export function ChatView({ initialConversationId }: ChatViewProps) {
     pendingPrompt,
     sendMessage,
     stopStreaming,
-    setActiveConversationId: setStreamConvId,
   } = useChatStream({
     onConversationCreated: (newId) => {
       setActiveConversationId(newId);
@@ -78,29 +81,6 @@ export function ChatView({ initialConversationId }: ChatViewProps) {
       });
     },
   });
-
-  // Keep active conversation id synchronized and push to URL
-  const handleSelectConversation = (id: string | null) => {
-    setActiveConversationId(id);
-    setStreamConvId(id);
-    setActiveCitation(null);
-    navigate({
-      to: "/",
-      search: { c: id || undefined },
-      replace: false,
-    });
-  };
-
-  const handleNewConversation = () => {
-    setActiveConversationId(null);
-    setStreamConvId(null);
-    setActiveCitation(null);
-    navigate({
-      to: "/",
-      search: { c: undefined },
-      replace: false,
-    });
-  };
 
   const handleCitationClick = (citation: ChatCitation) => {
     setActiveCitation(citation);
@@ -114,6 +94,17 @@ export function ChatView({ initialConversationId }: ChatViewProps) {
       collectionId,
     });
   };
+
+  useEffect(() => {
+    if (initialPrompt && !sentInitialPromptRef.current && !isStreaming) {
+      sentInitialPromptRef.current = true;
+      sendMessage({
+        content: initialPrompt,
+        conversationId: activeConversationId || undefined,
+        collectionId: initialCollectionId || undefined,
+      });
+    }
+  }, [initialPrompt, initialCollectionId, isStreaming, activeConversationId, sendMessage]);
 
   // Auto-scroll to bottom on streaming or new messages
   useEffect(() => {
@@ -176,52 +167,17 @@ export function ChatView({ initialConversationId }: ChatViewProps) {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-bg relative">
-      {/* 1. Left Column: Conversation History Sidebar */}
-      {/* Mobile Backdrop for left sidebar */}
-      {showLeftSidebar && (
-        <div
-          onClick={() => setShowLeftSidebar(false)}
-          className="fixed inset-0 bg-black/40 backdrop-blur-xs z-30 md:hidden transition-opacity"
-          aria-hidden="true"
-        />
-      )}
-
-      <div
-        className={`fixed inset-y-0 left-0 z-30 md:static md:z-auto transition-all duration-200 shrink-0 ${
-          showLeftSidebar
-            ? "w-72 sm:w-80 translate-x-0"
-            : "-translate-x-full md:translate-x-0 md:w-0 overflow-hidden"
-        }`}
-      >
-        <ConversationList
-          activeConversationId={activeConversationId}
-          onToggleCollapse={() => setShowLeftSidebar(false)}
-          onSelectConversation={(id) => {
-            handleSelectConversation(id);
-            if (typeof window !== "undefined" && window.innerWidth < 768) {
-              setShowLeftSidebar(false);
-            }
-          }}
-          onNewConversation={() => {
-            handleNewConversation();
-            if (typeof window !== "undefined" && window.innerWidth < 768) {
-              setShowLeftSidebar(false);
-            }
-          }}
-        />
-      </div>
-
-      {/* 2. Main Chat Thread Area */}
+    <div className="flex h-full w-full overflow-hidden bg-bg relative">
+      {/* Main Chat Thread Area */}
       <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden bg-bg">
         {/* Top Chat Bar */}
         <div className="h-12 border-b border-border bg-surface px-4 flex items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-2 min-w-0">
-            {!showLeftSidebar && (
+            {!isSidebarOpen && (
               <Button
                 variant="ghost"
                 size="icon-xs"
-                onClick={() => setShowLeftSidebar(true)}
+                onClick={() => setSidebarOpen(true)}
                 title={t("common.openSidebar") || "Mở sidebar"}
                 aria-label="Open sidebar"
                 className="text-fg-muted hover:text-fg"
@@ -381,10 +337,11 @@ export function ChatView({ initialConversationId }: ChatViewProps) {
           isStreaming={isStreaming}
           onStop={stopStreaming}
           disabled={isLoadingMessages}
+          initialCollectionId={initialCollectionId || undefined}
         />
       </div>
 
-      {/* 3. Right Column: Source Citation Panel */}
+      {/* Right Column: Source Citation Panel */}
       {showSourcePanel && (
         <>
           <div

@@ -15,6 +15,7 @@ import {
   Filter,
   Check,
   ChevronDown,
+  Pin,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +31,7 @@ import {
 import { useAuth } from "@/features/auth";
 import { useCollections } from "@/features/collections";
 import { SettingsDialog } from "@/features/settings";
+import { useUIStore } from "@/lib/ui-store";
 import type { ConversationItem } from "../schemas/conversation-schemas";
 import { useConversations } from "../hooks/use-conversations";
 import { DeleteConversationDialog } from "./delete-conversation-dialog";
@@ -102,6 +104,11 @@ export function ConversationList({
   const { t } = useTranslation();
   const { user, logout } = useAuth();
   const { data: collections = [] } = useCollections();
+  const pinnedCollectionIds = useUIStore((s) => s.pinnedCollectionIds);
+  const pinnedCollections = useMemo(
+    () => collections.filter((c) => pinnedCollectionIds.includes(c.id)),
+    [collections, pinnedCollectionIds]
+  );
   const [selectedFilterCollectionId, setSelectedFilterCollectionId] =
     useState<string | null>(null);
   const { data, isLoading } = useConversations(
@@ -168,8 +175,8 @@ export function ConversationList({
             variant="ghost"
             size="icon-xs"
             onClick={onToggleCollapse}
-            title={t("common.closeSidebar") || "Thu gọn sidebar"}
-            aria-label="Close sidebar"
+            title={t("common.closeSidebar")}
+            aria-label={t("common.closeSidebar")}
             className="text-fg-muted hover:text-fg"
           >
             <PanelLeftClose className="size-4" />
@@ -207,6 +214,34 @@ export function ConversationList({
             </span>
           )}
         </Link>
+
+        {/* Pinned collections */}
+        {pinnedCollections.length > 0 && (
+          <div className="space-y-0.5 pt-0.5">
+            <div className="px-1 text-2xs font-semibold text-fg-muted uppercase tracking-wider flex items-center justify-between">
+              <span>{t("collections.pinned")}</span>
+              <Pin className="size-3 text-fg-muted/60" />
+            </div>
+            {pinnedCollections.map((col) => (
+              <Link
+                key={col.id}
+                to="/collections/$collectionId"
+                params={{ collectionId: col.id }}
+                className="flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs text-fg-muted hover:text-fg hover:bg-surface/60 transition-colors truncate group"
+              >
+                <div className="flex items-center gap-2 truncate min-w-0">
+                  <Folder className="size-3 text-accent shrink-0" />
+                  <span className="truncate">{col.name}</span>
+                </div>
+                {col._count && (
+                  <span className="font-mono text-2xs text-fg-muted/70 shrink-0">
+                    {col._count.documents}
+                  </span>
+                )}
+              </Link>
+            ))}
+          </div>
+        )}
 
         {/* Search input */}
         <div className="relative">

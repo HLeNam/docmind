@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import {
   createCollectionSchema,
   type CreateCollectionFormData,
+  type CollectionResponse,
 } from "../schemas/collection-schemas";
 import { useCreateCollection } from "../hooks/use-collections";
 import { AppError } from "@/lib/api-client";
@@ -24,11 +25,13 @@ import { AppError } from "@/lib/api-client";
 interface CreateCollectionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onCreated?: (collection: CollectionResponse) => void;
 }
 
 export function CreateCollectionDialog({
   open,
   onOpenChange,
+  onCreated,
 }: CreateCollectionDialogProps) {
   const { t } = useTranslation();
   const createMutation = useCreateCollection();
@@ -43,17 +46,20 @@ export function CreateCollectionDialog({
     defaultValues: {
       name: "",
       description: "",
+      instructions: "",
     },
   });
 
   const onSubmit = async (data: CreateCollectionFormData) => {
     try {
-      await createMutation.mutateAsync({
+      const created = await createMutation.mutateAsync({
         name: data.name.trim(),
         description: data.description?.trim() || undefined,
+        instructions: data.instructions?.trim() || undefined,
       });
       reset();
       onOpenChange(false);
+      onCreated?.(created);
     } catch {
       // Error is stored in createMutation.error
     }
@@ -136,7 +142,7 @@ export function CreateCollectionDialog({
                 id="collection-description"
                 {...register("description")}
                 placeholder={t("collections.descriptionPlaceholder")}
-                rows={3}
+                rows={2}
                 aria-invalid={!!errors.description}
                 aria-describedby={
                   errors.description ? "collection-desc-error" : undefined
@@ -150,6 +156,35 @@ export function CreateCollectionDialog({
                   className="text-xs text-danger"
                 >
                   {errors.description.message}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
+              <Label
+                htmlFor="collection-instructions"
+                className="text-sm font-medium text-fg"
+              >
+                {t("collections.instructionsLabel")}
+              </Label>
+              <Textarea
+                id="collection-instructions"
+                {...register("instructions")}
+                placeholder={t("collections.instructionsPlaceholder")}
+                rows={2}
+                aria-invalid={!!errors.instructions}
+                aria-describedby={
+                  errors.instructions ? "collection-instructions-error" : undefined
+                }
+                disabled={isSubmitting || createMutation.isPending}
+              />
+              {errors.instructions && (
+                <p
+                  id="collection-instructions-error"
+                  role="alert"
+                  className="text-xs text-danger"
+                >
+                  {errors.instructions.message}
                 </p>
               )}
             </div>

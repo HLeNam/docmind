@@ -1,10 +1,19 @@
-import { createRootRoute, Outlet } from "@tanstack/react-router";
+import { createRootRoute, Outlet, useRouterState } from "@tanstack/react-router";
+import { AppShell } from "@/app/shell/app-shell";
 
 export const Route = createRootRoute({
   component: RootLayout,
 });
 
+const AUTH_PATHS = ["/login", "/register", "/accept-invite"];
+
 function RootLayout() {
+  const routerState = useRouterState();
+  const pathname = routerState.location.pathname;
+  const isAuthPage =
+    AUTH_PATHS.some((path) => pathname === path || pathname.startsWith(path + "/")) ||
+    pathname.startsWith("/invitations");
+
   return (
     <>
       <a
@@ -13,7 +22,14 @@ function RootLayout() {
       >
         Chuyển đến nội dung chính (Skip to content)
       </a>
-      <Outlet />
+
+      {isAuthPage ? (
+        <Outlet />
+      ) : (
+        <AppShell>
+          <Outlet />
+        </AppShell>
+      )}
     </>
   );
 }

@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AccessTokenPayload } from '../auth/auth.service.js';
-import { CreateCollectionDto } from './dtos/collection.dto.js';
+import { CreateCollectionDto, UpdateCollectionDto } from './dtos/collection.dto.js';
 import { NotFoundAppException } from '../common/exceptions/app.exception.js';
 
 @Injectable()
@@ -15,6 +15,12 @@ export class CollectionsService {
           tenantId: caller.tenantId,
           name: dto.name,
           description: dto.description,
+          instructions: dto.instructions,
+        },
+        include: {
+          _count: {
+            select: { documents: true, conversations: true },
+          },
         },
       }),
     );
@@ -22,13 +28,67 @@ export class CollectionsService {
 
   async list(caller: AccessTokenPayload) {
     return this.prisma.runInTenantContext(caller.tenantId, async (tx) => {
+      const include = {
+        _count: {
+          select: { documents: true, conversations: true },
+        },
+      };
+
       // OWNER/ADMIN thấy mọi collection của tenant; MEMBER chỉ thấy collection được gán qua CollectionAccess.
       if (caller.role === 'OWNER' || caller.role === 'ADMIN') {
-        return tx.collection.findMany({ orderBy: { createdAt: 'desc' } });
+        return tx.collection.findMany({
+          include,
+          orderBy: { createdAt: 'desc' },
+        });
       }
       return tx.collection.findMany({
         where: { access: { some: { membershipId: caller.membershipId } } },
+        include,
         orderBy: { createdAt: 'desc' },
+      });
+    });
+  }
+
+  async getById(caller: AccessTokenPayload, collectionId: string) {
+    await this.assertCollectionAccessible(caller, collectionId);
+    return this.prisma.runInTenantContext(caller.tenantId, async (tx) => {
+      const collection = await tx.collection.findUnique({
+        where: { id: collectionId },
+        include: {
+          _count: {
+            select: { documents: true, conversations: true },
+          },
+        },
+      });
+      if (!collection) throw new NotFoundAppException('Collection not found');
+      return collection;
+    });
+  }
+
+  async update(
+    caller: AccessTokenPayload,
+    collectionId: string,
+    dto: UpdateCollectionDto,
+  ) {
+    await this.assertCollectionAccessible(caller, collectionId);
+    return this.prisma.runInTenantContext(caller.tenantId, async (tx) => {
+      const collection = await tx.collection.findUnique({
+        where: { id: collectionId },
+      });
+      if (!collection) throw new NotFoundAppException('Collection not found');
+
+      return tx.collection.update({
+        where: { id: collectionId },
+        data: {
+          ...(dto.name !== undefined && { name: dto.name }),
+          ...(dto.description !== undefined && { description: dto.description }),
+          ...(dto.instructions !== undefined && { instructions: dto.instructions }),
+        },
+        include: {
+          _count: {
+            select: { documents: true, conversations: true },
+          },
+        },
       });
     });
   }

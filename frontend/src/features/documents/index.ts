@@ -6,3 +6,4 @@ export * from "./components/upload-progress-list";
 export * from "./components/document-table";
 export * from "./components/delete-document-dialog";
 export * from "./components/collection-documents-view";
+export * from "./components/collection-files-dialog";

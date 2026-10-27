@@ -42,7 +42,7 @@ PROTECTED_PATTERNS=(
 
 if [[ "$APPLY_FLAG" == "--apply" ]]; then
   echo ">> Applying manually reviewed migration for '$MIGRATION_NAME'..."
-  npx prisma migrate dev
+  npx prisma migrate deploy
   echo "✅ Applied."
   exit 0
 fi

@@ -5,6 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/domain/empty-state";
+import { useUIStore } from "@/lib/ui-store";
 import { CollectionCard } from "./collection-card";
 import { DeleteCollectionDialog } from "./delete-collection-dialog";
 import { useCollections } from "../hooks/use-collections";
@@ -24,6 +25,7 @@ export function CollectionList({
 }: CollectionListProps) {
   const { t } = useTranslation();
   const { data: collections, isLoading, error, refetch, isFetching } = useCollections();
+  const pinnedCollectionIds = useUIStore((s) => s.pinnedCollectionIds);
 
   const [collectionToDelete, setCollectionToDelete] =
     useState<CollectionResponse | null>(null);
@@ -40,6 +42,16 @@ export function CollectionList({
         (c.description && c.description.toLowerCase().includes(q))
     );
   }, [collections, searchQuery]);
+
+  const sortedCollections = useMemo(() => {
+    return [...filteredCollections].sort((a, b) => {
+      const aPinned = pinnedCollectionIds.includes(a.id);
+      const bPinned = pinnedCollectionIds.includes(b.id);
+      if (aPinned && !bPinned) return -1;
+      if (!aPinned && bPinned) return 1;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+  }, [filteredCollections, pinnedCollectionIds]);
 
   const handleDeleteRequest = (collection: CollectionResponse) => {
     setCollectionToDelete(collection);
@@ -177,23 +189,23 @@ export function CollectionList({
             <Input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Tìm kiếm bộ sưu tập..."
+              placeholder={t("collections.searchPlaceholder")}
               className="pl-8.5 h-8.5 text-xs rounded-xl"
             />
           </div>
           <span className="text-xs font-mono text-fg-muted shrink-0">
-            {filteredCollections.length} / {collections.length} bộ sưu tập
+            {filteredCollections.length} / {collections.length} {t("collections.title").toLowerCase()}
           </span>
         </div>
       )}
 
-      {filteredCollections.length === 0 ? (
+      {sortedCollections.length === 0 ? (
         <div className="p-8 text-center text-xs text-fg-muted border border-dashed border-border rounded-2xl bg-surface/50">
-          Không tìm thấy bộ sưu tập nào khớp với từ khóa "{searchQuery}".
+          {t("collections.noSearchResults", { query: searchQuery })}
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredCollections.map((collection) => (
+          {sortedCollections.map((collection) => (
             <CollectionCard
               key={collection.id}
               collection={collection}
