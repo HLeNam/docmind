@@ -41,17 +41,8 @@ export function CollectionCard({
 
   return (
     <article
-      tabIndex={0}
-      role="button"
-      aria-label={`${collection.name}. ${t("collections.openCollection")}`}
       onClick={() => onSelect(collection)}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onSelect(collection);
-        }
-      }}
-      className="group relative flex flex-col justify-between rounded-2xl border border-border/80 bg-surface p-5 hover:border-accent/50 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer shadow-2xs select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+      className="group relative flex flex-col justify-between rounded-2xl border border-border/80 bg-surface p-5 hover:border-accent/50 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer shadow-2xs select-none"
     >
       <div>
         {/* Top Header: Icon, Name, Pin, and Menu */}
@@ -61,12 +52,19 @@ export function CollectionCard({
               <Folder className="size-5" aria-hidden="true" />
             </div>
             <div className="min-w-0">
-              <h3 className="font-semibold text-sm sm:text-base text-fg tracking-tight truncate group-hover:text-accent transition-colors">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSelect(collection);
+                }}
+                className="font-semibold text-sm sm:text-base text-fg tracking-tight truncate group-hover:text-accent transition-colors text-left focus:outline-hidden focus-visible:underline block w-full cursor-pointer"
+              >
                 {collection.name}
-              </h3>
+              </button>
               <div className="flex items-center gap-2 mt-0.5 text-2xs text-fg-muted font-mono">
                 <span className="flex items-center gap-1">
-                  <FileText className="size-3 text-fg-muted/70" />
+                  <FileText className="size-3 text-fg-muted/70" aria-hidden="true" />
                   <span>{docCount} {t("documents.title").toLowerCase()}</span>
                 </span>
               </div>
@@ -140,10 +138,17 @@ export function CollectionCard({
           <span>{formattedDate}</span>
         </span>
 
-        <span className="inline-flex items-center gap-1 text-xs font-medium text-accent group-hover:underline underline-offset-4">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onSelect(collection);
+          }}
+          className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline underline-offset-4 focus:outline-hidden focus-visible:ring-1 focus-visible:ring-accent rounded-sm cursor-pointer"
+        >
           <span>{t("collections.openCollection")}</span>
           <ArrowRight className="size-3 group-hover:translate-x-1 transition-transform" aria-hidden="true" />
-        </span>
+        </button>
       </div>
     </article>
   );
