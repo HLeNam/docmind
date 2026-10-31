@@ -1,14 +1,17 @@
 export * from "./schemas/invitation-schemas";
+export * from "./schemas/member-schemas";
 export * from "./schemas/api-key-schemas";
 export * from "./schemas/slack-schemas";
 export * from "./schemas/usage-schemas";
 
 export * from "./api/invitations-api";
+export * from "./api/members-api";
 export * from "./api/api-keys-api";
 export * from "./api/slack-api";
 export * from "./api/usage-api";
 
 export * from "./hooks/use-invitations";
+export * from "./hooks/use-members";
 export * from "./hooks/use-api-keys";
 export * from "./hooks/use-slack";
 export * from "./hooks/use-usage";

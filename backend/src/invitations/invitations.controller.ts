@@ -23,6 +23,7 @@ import {
   CreateInvitationSchema,
   InvitationResponseSchema,
   InvitationInfoResponseSchema,
+  PendingInvitationListSchema,
 } from './schemas/invitation.schema.js';
 import { Public } from '../common/decorators/public.decorator.js';
 import { ApiZodResponse } from '../common/swagger/api-zod-response.decorator.js';
@@ -57,6 +58,23 @@ export class InvitationsController {
     @Body({ schema: CreateInvitationSchema }) dto: CreateInvitationDto,
   ) {
     return this.invitationsService.create(user, dto);
+  }
+
+  @Roles('OWNER', 'ADMIN')
+  @ApiBearerAuth('access-token')
+  @Get('tenants/:tenantId/invitations')
+  @ApiOperation({
+    summary: 'List pending invitations for the organization (OWNER/ADMIN only)',
+  })
+  @ApiZodResponse({
+    status: HttpStatus.OK,
+    description: 'List of pending invitations',
+    schema: PendingInvitationListSchema,
+  })
+  @ApiErrorResponse(HttpStatus.UNAUTHORIZED, 'Unauthorized access.')
+  @ApiErrorResponse(HttpStatus.FORBIDDEN, 'Insufficient permissions.')
+  listPending(@CurrentUser() user: AccessTokenPayload) {
+    return this.invitationsService.listPending(user);
   }
 
   // Cùng lý do bỏ qua :tenantId trên URL như create() — invitationId đủ để định danh, tenant

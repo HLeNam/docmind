@@ -107,6 +107,43 @@ export class InvitationsService {
   }
 
   /**
+   * Liệt kê các lời mời đang chờ xử lý của tenant (chưa accept, chưa revoke, chưa hết hạn).
+   */
+  async listPending(inviter: AccessTokenPayload) {
+    return this.prisma.runInTenantContext(inviter.tenantId, async (tx) => {
+      const items = await tx.invitation.findMany({
+        where: {
+          acceptedAt: null,
+          revokedAt: null,
+          expiresAt: { gt: new Date() },
+        },
+        include: {
+          invitedBy: {
+            include: {
+              identity: {
+                select: { email: true, displayName: true },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      return items.map((inv) => ({
+        id: inv.id,
+        tenantId: inv.tenantId,
+        email: inv.email,
+        role: inv.role,
+        token: inv.token,
+        invitedById: inv.invitedById,
+        invitedByEmail: inv.invitedBy?.identity?.email ?? null,
+        expiresAt: inv.expiresAt,
+        createdAt: inv.createdAt,
+      }));
+    });
+  }
+
+  /**
    * Xem thông tin invitation trước khi accept — người gọi CHƯA đăng nhập, chưa biết tenant nào.
    * Đúng pattern cross-tenant discovery đã gặp ở AuthService: tra theo token (random, không đoán
    * được, không phải input tuỳ ý kiểu tenantId) qua PrismaSystemService.

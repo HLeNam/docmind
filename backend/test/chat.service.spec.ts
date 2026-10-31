@@ -130,6 +130,7 @@ describe('ChatService.prepare', () => {
     const result = await service.prepare(CALLER, {
       content: 'câu hỏi theo collection',
       collectionId: 'col-456',
+      topK: 5,
     });
 
     expect(tx.conversation.create).toHaveBeenCalledWith({

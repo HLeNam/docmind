@@ -40,3 +40,15 @@ export interface InvitationInfoResponse {
   tenantName: string;
   expiresAt: string;
 }
+
+export interface PendingInvitationItem {
+  id: string;
+  tenantId: string;
+  email: string;
+  role: string;
+  token: string;
+  invitedById: string;
+  invitedByEmail?: string | null;
+  expiresAt: string;
+  createdAt: string;
+}

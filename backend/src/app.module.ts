@@ -26,6 +26,7 @@ import { PublicApiModule } from './public-api/public-api.module.js';
 import { SlackModule } from './slack/slack.module.js';
 import { RateLimitModule } from './common/rate-limit/rate-limit.module.js';
 import { UsageModule } from './usage/usage.module.js';
+import { MembersModule } from './members/members.module.js';
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import { UsageModule } from './usage/usage.module.js';
     SlackModule,
     RateLimitModule,
     UsageModule,
+    MembersModule,
   ],
   controllers: [AppController],
   providers: [
