@@ -387,12 +387,19 @@ function CollectionWorkspacePage() {
                     <div
                       key={doc.id}
                       onClick={() => setIsFilesDialogOpen(true)}
-                      className="flex items-center justify-between p-2 rounded-lg bg-surface-muted/40 hover:bg-surface-muted border border-border/50 text-xs transition-colors cursor-pointer"
+                      className="flex items-center justify-between p-2 rounded-lg bg-surface-muted/40 hover:bg-surface-muted border border-border/50 text-xs transition-colors cursor-pointer group"
                     >
-                      <span className="truncate pr-2 font-medium text-fg text-2xs">
-                        {doc.filename}
-                      </span>
-                      <DocumentStatusBadge status={doc.status} />
+                      <div className="flex items-center gap-2 min-w-0 flex-1 mr-2">
+                        <FileText className="size-3.5 shrink-0 text-fg-muted group-hover:text-accent transition-colors" aria-hidden="true" />
+                        <span className="truncate font-medium text-fg text-2xs" title={doc.filename}>
+                          {doc.filename}
+                        </span>
+                      </div>
+                      <DocumentStatusBadge
+                        status={doc.status}
+                        failReason={doc.failReason}
+                        size="sm"
+                      />
                     </div>
                   ))}
 

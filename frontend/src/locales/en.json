@@ -123,6 +123,7 @@
     "title": "Documents",
     "subtitle": "Manage and inspect documents uploaded to this collection.",
     "upload": "Upload document",
+    "uploadButton": "Upload documents",
     "uploadTitle": "Upload documents to collection",
     "uploadDescription": "Supports PDF, DOCX, PPTX, XLSX, CSV, TXT, MD (max 50MB; tabular files max 10MB).",
     "processedAndStored": "Processed & indexed",
@@ -208,7 +209,26 @@
       "indexed": "Indexed",
       "ready": "Ready",
       "failed": "Failed",
-      "failedTooltip": "Processing failed. Click to view details or re-index."
+      "pendingTooltip": "Queued and waiting for processing.",
+      "processingTooltip": "Extracting text and generating vector embeddings...",
+      "indexedTooltip": "Document indexed successfully, ready for RAG query.",
+      "failedTooltip": "Processing failed. Hover or click to view error details."
+    },
+    "errorReasons": {
+      "rateLimitTitle": "AI Rate Limit Exceeded",
+      "rateLimitDesc": "AI model token or rate limit temporarily exceeded. Please try re-indexing in a few minutes.",
+      "rateLimitHint": "Tip: Wait 1-2 minutes, then click Re-index in the document table.",
+      "networkTitle": "Service Connection Error",
+      "networkDesc": "Connection timed out or network error while processing document. Please retry.",
+      "fileInvalidTitle": "Invalid or Protected File",
+      "fileInvalidDesc": "File is corrupted or protected with a password.",
+      "fileInvalidHint": "Tip: Remove file protection or re-save as standard PDF/DOCX and re-upload.",
+      "emptyContentTitle": "No Content Found",
+      "emptyContentDesc": "Document is empty or contains no extractable text.",
+      "emptyContentHint": "Tip: Ensure the file contains text rather than low-quality scanned images.",
+      "generalTitle": "Processing Failed",
+      "generalDesc": "Unable to process document. Please inspect file or try re-indexing.",
+      "retryHint": "Tip: Click to open document list and select Re-index."
     }
   },
   "chat": {

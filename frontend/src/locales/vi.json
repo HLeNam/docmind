@@ -145,6 +145,7 @@
     "title": "Tài liệu",
     "subtitle": "Quản lý và tra cứu các tài liệu đã tải lên trong bộ sưu tập này.",
     "upload": "Tải tài liệu lên",
+    "uploadButton": "Tải tài liệu lên",
     "uploadTitle": "Tải tài liệu vào bộ sưu tập",
     "uploadDescription": "Hỗ trợ PDF, DOCX, PPTX, XLSX, CSV, TXT, MD (tối đa 50MB; bảng tính tối đa 10MB).",
     "processedAndStored": "Đã xử lý và lưu trữ",
@@ -230,7 +231,26 @@
       "indexed": "Sẵn sàng",
       "ready": "Sẵn sàng",
       "failed": "Thất bại",
-      "failedTooltip": "Xử lý thất bại. Bấm để xem chi tiết hoặc thử tái chỉ mục."
+      "pendingTooltip": "Đang trong hàng đợi chuẩn bị xử lý.",
+      "processingTooltip": "Đang trích xuất văn bản và tạo vector nhúng...",
+      "indexedTooltip": "Tài liệu đã được lập chỉ mục đầy đủ, sẵn sàng cho AI đối soát.",
+      "failedTooltip": "Xử lý thất bại. Rê chuột hoặc bấm để xem chi tiết lỗi."
+    },
+    "errorReasons": {
+      "rateLimitTitle": "Quá tải hạn mức AI",
+      "rateLimitDesc": "Lượt gọi mô hình AI tạm thời vượt giới hạn tần suất (Rate limit). Vui lòng thử tái chỉ mục sau ít phút.",
+      "rateLimitHint": "Gợi ý: Đợi 1-2 phút rồi bấm nút Tái chỉ mục trong bảng tài liệu.",
+      "networkTitle": "Lỗi kết nối dịch vụ",
+      "networkDesc": "Mất kết nối hoặc quá thời gian xử lý khi trích xuất tài liệu. Vui lòng thử lại.",
+      "fileInvalidTitle": "Tệp tin lỗi hoặc có mật khẩu",
+      "fileInvalidDesc": "Tệp tin bị hỏng hoặc có mật khẩu bảo vệ không thể giải mã nội dung.",
+      "fileInvalidHint": "Gợi ý: Mở khóa tệp tin hoặc lưu lại thành file tiêu chuẩn rồi tải lại.",
+      "emptyContentTitle": "Không tìm thấy nội dung",
+      "emptyContentDesc": "Tài liệu trống hoặc không chứa văn bản có thể trích xuất phục vụ tìm kiếm.",
+      "emptyContentHint": "Gợi ý: Kiểm tra tệp tin có chứa văn bản thay vì chỉ là ảnh scan chất lượng thấp.",
+      "generalTitle": "Xử lý thất bại",
+      "generalDesc": "Không thể xử lý tài liệu. Vui lòng kiểm tra lại tệp tin hoặc thử tái chỉ mục.",
+      "retryHint": "Gợi ý: Nhấn vào tài liệu để mở danh sách và chọn Tái chỉ mục."
     }
   },
   "chat": {
