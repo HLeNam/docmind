@@ -199,7 +199,7 @@ function AcceptInvitationPage() {
               <User className="size-3.5 text-fg-muted" aria-hidden="true" />
               <span>{t("invitation.assignedRole")}</span>
             </span>
-            <Badge variant="secondary" className="gap-1 font-medium text-[11px]">
+            <Badge variant="secondary" className="gap-1 font-medium text-2xs">
               <ShieldCheck className="size-3 text-accent" aria-hidden="true" />
               <span>{getRoleLabel(info.role)}</span>
             </Badge>
@@ -235,7 +235,7 @@ function AcceptInvitationPage() {
                 {errors.password.message}
               </p>
             )}
-            <p className="text-[11px] text-fg-muted leading-tight">
+            <p className="text-2xs text-fg-muted leading-tight">
               {t("invitation.passwordHelp")}
             </p>
           </div>

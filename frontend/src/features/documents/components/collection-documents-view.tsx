@@ -78,13 +78,20 @@ export function CollectionDocumentsView({
             <span className="text-fg font-medium truncate max-w-xs">{collection.name}</span>
           </nav>
 
-          <h1 className="text-2xl font-semibold text-fg tracking-tight flex items-center gap-2.5">
-            <FolderOpen className="size-6 text-accent" aria-hidden="true" />
-            <span>{collection.name}</span>
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-semibold text-fg tracking-tight flex items-center gap-2.5 text-balance">
+              <FolderOpen className="size-6 text-accent" aria-hidden="true" />
+              <span>{collection.name}</span>
+            </h1>
+            {documents && (
+              <span className="text-xs px-2.5 py-0.5 rounded-full bg-surface-muted border border-border text-fg-muted font-mono">
+                {documents.length} tài liệu
+              </span>
+            )}
+          </div>
 
           {collection.description && (
-            <p className="text-sm text-fg-muted max-w-2xl">
+            <p className="text-sm text-fg-muted max-w-2xl text-pretty">
               {collection.description}
             </p>
           )}
@@ -92,7 +99,7 @@ export function CollectionDocumentsView({
 
         <div className="flex items-center gap-2 sm:self-center">
           <Button variant="outline" size="sm" onClick={onBack}>
-            <span>Quay lại</span>
+            <span>{t("common.back", { defaultValue: "Quay lại" })}</span>
           </Button>
 
           {canManage && (
@@ -110,7 +117,7 @@ export function CollectionDocumentsView({
 
       {/* Upload Dropzone (if active or if canManage & toggled) */}
       {canManage && showUploadZone && (
-        <div className="p-4 rounded-xl border border-border bg-surface-muted/30">
+        <div className="p-5 rounded-2xl border border-border bg-surface shadow-xs">
           <UploadDropzone
             collectionId={collection.id}
             onUploaded={handleDocumentUploaded}

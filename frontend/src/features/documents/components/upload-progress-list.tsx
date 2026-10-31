@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { Loader2, CheckCircle2, AlertCircle, FileText } from "lucide-react";
+import { Loader2, CheckCircle2, AlertCircle, FileText, X } from "lucide-react";
 import type { DocumentProgressEvent } from "../schemas/document-schemas";
 
 interface UploadProgressListProps {
@@ -19,11 +19,16 @@ export function UploadProgressList({
   if (items.length === 0) return null;
 
   return (
-    <div className="space-y-2 rounded-xl border border-border bg-surface p-4 shadow-xs">
-      <h4 className="text-xs font-semibold uppercase tracking-wider text-fg-muted mb-3">
-        Tiến độ xử lý thời gian thực
-      </h4>
-      <div className="space-y-3">
+    <div className="space-y-3 rounded-2xl border border-border bg-surface p-4 shadow-2xs">
+      <div className="flex items-center justify-between">
+        <h4 className="text-xs font-semibold uppercase tracking-wider text-fg-muted">
+          Tiến độ xử lý thời gian thực
+        </h4>
+        <span className="text-xs font-mono text-fg-muted">
+          {items.length} tác vụ
+        </span>
+      </div>
+      <div className="space-y-2.5">
         {items.map((item) => {
           const filename = filenamesMap[item.documentId] || item.documentId;
           const isCompleted = item.phase === "completed";
@@ -33,11 +38,13 @@ export function UploadProgressList({
           return (
             <div
               key={item.documentId}
-              className="flex flex-col gap-1.5 p-3 rounded-lg bg-surface-muted/60 border border-border/80 text-sm"
+              className="flex flex-col gap-2 p-3 rounded-xl bg-surface-muted/50 border border-border/80 text-sm shadow-2xs"
             >
               <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2 min-w-0">
-                  <FileText className="size-4 shrink-0 text-accent" aria-hidden="true" />
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="flex size-7 items-center justify-center rounded-lg bg-surface border border-border text-accent shrink-0 shadow-2xs">
+                    <FileText className="size-3.5" aria-hidden="true" />
+                  </div>
                   <span className="font-medium text-fg truncate text-xs sm:text-sm">
                     {filename}
                   </span>
@@ -45,24 +52,24 @@ export function UploadProgressList({
 
                 <div className="flex items-center gap-2 shrink-0">
                   {isCompleted ? (
-                    <div className="flex items-center gap-1 text-xs text-success">
+                    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-success-soft text-success border border-success/20">
                       <CheckCircle2 className="size-3.5" aria-hidden="true" />
                       <span>{t("documents.phases.completed")}</span>
                     </div>
                   ) : isFailed ? (
-                    <div className="flex items-center gap-1 text-xs text-danger">
+                    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-danger-soft text-danger border border-danger/20">
                       <AlertCircle className="size-3.5" aria-hidden="true" />
                       <span>{t("documents.phases.failed")}</span>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-1.5 text-xs text-accent">
+                    <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-accent-soft text-accent border border-accent/20">
                       <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
                       <span>
                         {t(`documents.phases.${item.phase}`, {
                           defaultValue: item.message || item.phase,
                         })}
                       </span>
-                      <span className="font-mono tabular-nums text-fg-muted ml-1">
+                      <span className="font-mono tabular-nums text-accent-fg/80 ml-1">
                         {percent}%
                       </span>
                     </div>
@@ -72,18 +79,19 @@ export function UploadProgressList({
                     <button
                       type="button"
                       onClick={() => onDismiss(item.documentId)}
-                      className="text-xs text-fg-muted hover:text-fg ml-1 cursor-pointer"
+                      aria-label="Đóng thông báo"
+                      className="p-1 rounded-md text-fg-muted hover:text-fg hover:bg-surface transition-colors cursor-pointer"
                     >
-                      ×
+                      <X className="size-3.5" aria-hidden="true" />
                     </button>
                   )}
                 </div>
               </div>
 
               {/* Progress bar */}
-              <div className="w-full bg-border rounded-full h-1.5 overflow-hidden">
+              <div className="w-full bg-border/80 rounded-full h-1.5 overflow-hidden">
                 <div
-                  className={`h-full transition-all duration-300 ${
+                  className={`h-full transition-all duration-300 ease-out ${
                     isFailed
                       ? "bg-danger"
                       : isCompleted

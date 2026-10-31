@@ -3,6 +3,7 @@ import { collectionsApi } from "../api/collections-api";
 import type {
   CollectionResponse,
   CreateCollectionFormData,
+  UpdateCollectionFormData,
 } from "../schemas/collection-schemas";
 
 export const COLLECTIONS_QUERY_KEY = ["collections"] as const;
@@ -14,6 +15,14 @@ export function useCollections() {
   });
 }
 
+export function useCollection(id: string | null | undefined) {
+  return useQuery<CollectionResponse, Error>({
+    queryKey: [...COLLECTIONS_QUERY_KEY, id],
+    queryFn: () => collectionsApi.getById(id!),
+    enabled: !!id,
+  });
+}
+
 export function useCreateCollection() {
   const queryClient = useQueryClient();
 
@@ -21,6 +30,24 @@ export function useCreateCollection() {
     mutationFn: (dto) => collectionsApi.create(dto),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: COLLECTIONS_QUERY_KEY });
+    },
+  });
+}
+
+export function useUpdateCollection() {
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    CollectionResponse,
+    Error,
+    { id: string; dto: UpdateCollectionFormData }
+  >({
+    mutationFn: ({ id, dto }) => collectionsApi.update(id, dto),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: COLLECTIONS_QUERY_KEY });
+      queryClient.invalidateQueries({
+        queryKey: [...COLLECTIONS_QUERY_KEY, data.id],
+      });
     },
   });
 }

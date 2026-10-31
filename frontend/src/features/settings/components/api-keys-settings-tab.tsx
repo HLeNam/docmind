@@ -209,12 +209,12 @@ export function ApiKeysSettingsTab() {
 
                       <td className="py-3 px-4 whitespace-nowrap">
                         {isRevoked ? (
-                          <Badge variant="outline" className="text-fg-muted gap-1 text-[11px]">
+                          <Badge variant="outline" className="text-fg-muted gap-1 text-2xs">
                             <span className="size-1.5 rounded-full bg-fg-muted" />
                             {t("settings.keyRevoked")}
                           </Badge>
                         ) : (
-                          <Badge variant="secondary" className="bg-success-soft text-success border-success/20 gap-1 text-[11px]">
+                          <Badge variant="secondary" className="bg-success-soft text-success border-success/20 gap-1 text-2xs">
                             <span className="size-1.5 rounded-full bg-success" />
                             {t("settings.keyActive")}
                           </Badge>

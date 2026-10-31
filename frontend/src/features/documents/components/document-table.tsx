@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import {
   FileText,
@@ -11,11 +11,15 @@ import {
   AlertCircle,
   FilePlus,
   Loader2,
+  Search,
+  Eye,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DocumentStatusBadge } from "@/components/domain/document-status-badge";
 import { EmptyState } from "@/components/domain/empty-state";
+import { DocumentViewerModal } from "@/components/domain/document-viewer-modal";
 import type {
   DocumentProgressEvent,
   DocumentResponse,
@@ -34,22 +38,42 @@ interface DocumentTableProps {
   onUploadClick?: () => void;
 }
 
-function getFileIcon(filename: string) {
+function getFileBadge(filename: string) {
   const ext = filename.split(".").pop()?.toLowerCase();
   switch (ext) {
     case "pdf":
-      return <FileText className="size-4 text-red-500/80 shrink-0" aria-hidden="true" />;
+      return (
+        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-danger-soft text-danger border border-danger/25 shadow-2xs">
+          <FileText className="size-4" aria-hidden="true" />
+        </div>
+      );
     case "xlsx":
     case "csv":
-      return <FileSpreadsheet className="size-4 text-emerald-500/80 shrink-0" aria-hidden="true" />;
+      return (
+        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-success-soft text-success border border-success/25 shadow-2xs">
+          <FileSpreadsheet className="size-4" aria-hidden="true" />
+        </div>
+      );
     case "docx":
     case "doc":
-      return <FileText className="size-4 text-sky-500/80 shrink-0" aria-hidden="true" />;
+      return (
+        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent border border-accent/25 shadow-2xs">
+          <FileText className="size-4" aria-hidden="true" />
+        </div>
+      );
     case "txt":
     case "md":
-      return <FileCode className="size-4 text-amber-500/80 shrink-0" aria-hidden="true" />;
+      return (
+        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-warning-soft text-warning border border-warning/25 shadow-2xs">
+          <FileCode className="size-4" aria-hidden="true" />
+        </div>
+      );
     default:
-      return <File className="size-4 text-fg-muted shrink-0" aria-hidden="true" />;
+      return (
+        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-surface-muted text-fg-muted border border-border/80 shadow-2xs">
+          <File className="size-4" aria-hidden="true" />
+        </div>
+      );
   }
 }
 
@@ -67,6 +91,29 @@ export function DocumentTable({
   const { t } = useTranslation();
   const reindexMutation = useReindexDocument(collectionId);
   const [reindexingId, setReindexingId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<
+    "ALL" | "INDEXED" | "PROCESSING" | "FAILED"
+  >("ALL");
+  const [viewingDoc, setViewingDoc] = useState<DocumentResponse | null>(null);
+
+  const filteredDocuments = useMemo(() => {
+    if (!documents) return [];
+    return documents.filter((doc) => {
+      // 1. Status Filter
+      if (statusFilter !== "ALL" && doc.status !== statusFilter) {
+        return false;
+      }
+      // 2. Search Query Filter
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        if (!doc.filename.toLowerCase().includes(q)) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [documents, statusFilter, searchQuery]);
 
   const handleReindex = async (doc: DocumentResponse) => {
     try {
@@ -142,140 +189,220 @@ export function DocumentTable({
     );
   }
 
-  // 4. Document Table
+  // 4. Document Table with Filters
   return (
-    <div className="rounded-xl border border-border bg-surface overflow-hidden shadow-xs">
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm border-collapse">
-          <thead>
-            <tr className="border-b border-border bg-surface-muted/40 text-xs font-semibold uppercase tracking-wider text-fg-muted">
-              <th scope="col" className="py-3 px-4 font-medium">
-                {t("documents.tableHeader.filename")}
-              </th>
-              <th scope="col" className="py-3 px-4 font-medium">
-                {t("documents.tableHeader.status")}
-              </th>
-              <th scope="col" className="py-3 px-4 font-medium">
-                {t("documents.tableHeader.createdAt")}
-              </th>
-              {canManage && (
-                <th scope="col" className="py-3 px-4 text-right font-medium">
-                  {t("documents.tableHeader.actions")}
-                </th>
-              )}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {documents.map((doc) => {
-              const liveProgress = progressMap[doc.id];
-              const isCurrentlyReindexing = reindexingId === doc.id;
-              const formattedDate = new Date(doc.createdAt).toLocaleDateString(
-                "vi-VN",
-                {
-                  year: "numeric",
-                  month: "short",
-                  day: "numeric",
-                }
-              );
+    <div className="space-y-3.5">
+      {/* Filters & Search Toolbar */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        {/* Status Filter Tabs */}
+        <div className="flex items-center gap-1 p-1 rounded-xl bg-surface-muted/60 border border-border overflow-x-auto shadow-2xs">
+          {(["ALL", "INDEXED", "PROCESSING", "FAILED"] as const).map((filter) => {
+            const isSelected = statusFilter === filter;
+            const count =
+              filter === "ALL"
+                ? documents.length
+                : documents.filter((d) => d.status === filter).length;
+            const labels = {
+              ALL: t("documents.filterAll"),
+              INDEXED: t("documents.filterIndexed"),
+              PROCESSING: t("documents.filterProcessing"),
+              FAILED: t("documents.filterFailed"),
+            };
 
-              return (
-                <tr
-                  key={doc.id}
-                  className="hover:bg-surface-muted/30 transition-colors"
-                >
-                  {/* Filename & Icon */}
-                  <td className="py-3.5 px-4">
-                    <div className="flex items-center gap-2.5 max-w-sm sm:max-w-md">
-                      <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-surface-muted border border-border">
-                        {getFileIcon(doc.filename)}
-                      </div>
-                      <div className="min-w-0">
-                        <p
-                          className="font-medium text-fg truncate text-sm"
-                          title={doc.filename}
-                        >
-                          {doc.filename}
-                        </p>
-                        {liveProgress &&
-                          liveProgress.phase !== "completed" &&
-                          liveProgress.phase !== "failed" && (
-                            <div className="flex items-center gap-1.5 text-xs text-accent mt-0.5">
-                              <Loader2 className="size-3 animate-spin" aria-hidden="true" />
-                              <span>
-                                {t(`documents.phases.${liveProgress.phase}`, {
-                                  defaultValue: liveProgress.message || liveProgress.phase,
-                                })}
-                              </span>
-                              <span className="font-mono tabular-nums text-fg-muted">
-                                ({liveProgress.percent}%)
-                              </span>
-                            </div>
-                          )}
-                      </div>
-                    </div>
-                  </td>
+            return (
+              <button
+                key={filter}
+                type="button"
+                onClick={() => setStatusFilter(filter)}
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-all cursor-pointer ${
+                  isSelected
+                    ? "bg-surface text-fg shadow-2xs border border-border/80 font-semibold"
+                    : "text-fg-muted hover:text-fg hover:bg-surface/50"
+                }`}
+              >
+                <span>{labels[filter]}</span>
+                <span className="font-mono text-2xs text-fg-muted">
+                  ({count})
+                </span>
+              </button>
+            );
+          })}
+        </div>
 
-                  {/* Status Badge */}
-                  <td className="py-3.5 px-4 whitespace-nowrap">
-                    <DocumentStatusBadge
-                      status={doc.status}
-                      failReason={doc.failReason}
-                    />
-                  </td>
-
-                  {/* Created Date */}
-                  <td className="py-3.5 px-4 whitespace-nowrap text-xs text-fg-muted tabular-nums">
-                    <span title={new Date(doc.createdAt).toLocaleString("vi-VN")}>
-                      {formattedDate}
-                    </span>
-                  </td>
-
-                  {/* Actions */}
-                  {canManage && (
-                    <td className="py-3.5 px-4 whitespace-nowrap text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        {/* Re-index button */}
-                        <Button
-                          variant="ghost"
-                          size="icon-xs"
-                          onClick={() => handleReindex(doc)}
-                          disabled={
-                            isCurrentlyReindexing ||
-                            doc.status === "PROCESSING" ||
-                            doc.status === "PENDING"
-                          }
-                          title={t("documents.reindex")}
-                          aria-label={t("documents.reindex")}
-                          className="text-fg-muted hover:text-fg"
-                        >
-                          <RotateCw
-                            className={`size-3.5 ${
-                              isCurrentlyReindexing ? "animate-spin" : ""
-                            }`}
-                            aria-hidden="true"
-                          />
-                        </Button>
-
-                        {/* Delete button */}
-                        <Button
-                          variant="ghost"
-                          size="icon-xs"
-                          onClick={() => onDeleteRequest(doc)}
-                          title={t("common.delete")}
-                          aria-label={t("common.delete")}
-                          className="text-fg-muted hover:text-danger hover:bg-danger-soft"
-                        >
-                          <Trash2 className="size-3.5" aria-hidden="true" />
-                        </Button>
-                      </div>
-                    </td>
-                  )}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        {/* Search Input */}
+        <div className="relative w-full sm:w-64">
+          <Search
+            className="size-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-fg-muted pointer-events-none"
+            aria-hidden="true"
+          />
+          <Input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder={t("documents.searchPlaceholder")}
+            className="pl-8.5 h-8.5 text-xs rounded-xl"
+          />
+        </div>
       </div>
+
+      {filteredDocuments.length === 0 ? (
+        <div className="p-8 text-center text-xs text-fg-muted border border-dashed border-border rounded-xl bg-surface/50">
+          {t("documents.noFilteredResults")}
+        </div>
+      ) : (
+        <div className="rounded-xl border border-border bg-surface overflow-hidden shadow-xs">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm border-collapse min-w-[500px]">
+              <thead>
+                <tr className="border-b border-border bg-surface-muted/40 text-xs font-semibold uppercase tracking-wider text-fg-muted">
+                  <th scope="col" className="py-3 px-4 font-medium">
+                    {t("documents.tableHeader.filename")}
+                  </th>
+                  <th scope="col" className="py-3 px-4 font-medium">
+                    {t("documents.tableHeader.status")}
+                  </th>
+                  <th scope="col" className="py-3 px-4 font-medium">
+                    {t("documents.tableHeader.createdAt")}
+                  </th>
+                  <th scope="col" className="py-3 px-4 text-right font-medium">
+                    {t("documents.tableHeader.actions")}
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {filteredDocuments.map((doc) => {
+                  const liveProgress = progressMap[doc.id];
+                  const isCurrentlyReindexing = reindexingId === doc.id;
+                  const formattedDate = new Date(doc.createdAt).toLocaleDateString(
+                    "vi-VN",
+                    {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                    }
+                  );
+
+                  return (
+                    <tr
+                      key={doc.id}
+                      className="hover:bg-surface-muted/40 transition-colors group"
+                    >
+                      {/* Filename & Icon */}
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-3 max-w-sm sm:max-w-md">
+                          {getFileBadge(doc.filename)}
+                          <div className="min-w-0">
+                            <button
+                              type="button"
+                              onClick={() => setViewingDoc(doc)}
+                              className="font-medium text-fg hover:text-accent truncate text-sm text-left transition-colors block max-w-full"
+                              title={doc.filename}
+                            >
+                              {doc.filename}
+                            </button>
+                            {liveProgress &&
+                              liveProgress.phase !== "completed" &&
+                              liveProgress.phase !== "failed" && (
+                                <div className="flex items-center gap-1.5 text-xs text-accent mt-0.5">
+                                  <Loader2 className="size-3 animate-spin" aria-hidden="true" />
+                                  <span>
+                                    {t(`documents.phases.${liveProgress.phase}`, {
+                                      defaultValue: liveProgress.message || liveProgress.phase,
+                                    })}
+                                  </span>
+                                  <span className="font-mono tabular-nums text-fg-muted">
+                                    ({liveProgress.percent}%)
+                                  </span>
+                                </div>
+                              )}
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Status Badge */}
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <DocumentStatusBadge
+                          status={doc.status}
+                          failReason={doc.failReason}
+                        />
+                      </td>
+
+                      {/* Created Date */}
+                      <td className="py-3.5 px-4 whitespace-nowrap text-xs text-fg-muted tabular-nums">
+                        <span title={new Date(doc.createdAt).toLocaleString("vi-VN")}>
+                          {formattedDate}
+                        </span>
+                      </td>
+
+                      {/* Actions */}
+                      <td className="py-3.5 px-4 whitespace-nowrap text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          {/* In-app Document Viewer Button */}
+                          <Button
+                            variant="ghost"
+                            size="icon-xs"
+                            onClick={() => setViewingDoc(doc)}
+                            title={t("documents.viewDocument")}
+                            aria-label={t("documents.viewDocument")}
+                            className="text-fg-muted hover:text-accent hover:bg-accent-soft/60"
+                          >
+                            <Eye className="size-3.5" aria-hidden="true" />
+                          </Button>
+
+                          {/* Re-index button */}
+                          {canManage && (
+                            <Button
+                              variant="ghost"
+                              size="icon-xs"
+                              onClick={() => handleReindex(doc)}
+                              disabled={
+                                isCurrentlyReindexing ||
+                                doc.status === "PROCESSING" ||
+                                doc.status === "PENDING"
+                              }
+                              title={t("documents.reindex")}
+                              aria-label={t("documents.reindex")}
+                              className="text-fg-muted hover:text-accent hover:bg-accent-soft/60"
+                            >
+                              <RotateCw
+                                className={`size-3.5 ${
+                                  isCurrentlyReindexing ? "animate-spin" : ""
+                                }`}
+                                aria-hidden="true"
+                              />
+                            </Button>
+                          )}
+
+                          {/* Delete button */}
+                          {canManage && (
+                            <Button
+                              variant="ghost"
+                              size="icon-xs"
+                              onClick={() => onDeleteRequest(doc)}
+                              title={t("common.delete")}
+                              aria-label={t("common.delete")}
+                              className="text-fg-muted hover:text-danger hover:bg-danger-soft/60"
+                            >
+                              <Trash2 className="size-3.5" aria-hidden="true" />
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* In-app Document Viewer Modal */}
+      <DocumentViewerModal
+        open={!!viewingDoc}
+        onOpenChange={(open) => !open && setViewingDoc(null)}
+        documentId={viewingDoc?.id ?? null}
+        filename={viewingDoc?.filename ?? ""}
+      />
     </div>
   );
 }

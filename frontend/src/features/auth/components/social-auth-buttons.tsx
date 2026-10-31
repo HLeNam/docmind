@@ -158,7 +158,7 @@ export function SocialAuthButtons({
       {/* Đường phân cách */}
       <div className="relative flex items-center justify-center">
         <div className="w-full border-t border-border" />
-        <span className="absolute bg-surface px-2.5 text-[11px] text-fg-muted uppercase tracking-wider font-medium">
+        <span className="absolute bg-surface px-2.5 text-2xs text-fg-muted uppercase tracking-wider font-medium">
           {t("auth.orDivider")}
         </span>
       </div>

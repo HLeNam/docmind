@@ -64,6 +64,16 @@ describe('ConversationsService.list', () => {
     expect(res.nextCursor).toBeNull();
   });
 
+  it('filters by collectionId when provided', async () => {
+    const findMany = vi.fn(async (..._a: any[]) => [conv(1)]);
+    const { svc } = build({ conversation: { findMany } });
+
+    await svc.list(CALLER, { limit: 10, collectionId: 'col-123' });
+
+    const args = findMany.mock.calls[0]![0] as any;
+    expect(args.where).toEqual({ membershipId: 'm1', collectionId: 'col-123' });
+  });
+
   it('maps all fields correctly, sets lastMessageAt and preview to null when empty, and truncates long preview', async () => {
     const long = 'x'.repeat(300);
     const findMany = vi.fn(async (..._a: any[]) => [

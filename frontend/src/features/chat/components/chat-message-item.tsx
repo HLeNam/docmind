@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { User, Copy, Check, RefreshCw, AlertCircle, Sparkles } from "lucide-react";
+import { User, Copy, Check, RefreshCw, AlertCircle, Sparkles, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DocMindLogo } from "@/components/ui/docmind-logo";
 import { CitationChip } from "@/components/domain/citation-chip";
@@ -137,11 +137,11 @@ export function ChatMessageItem({
   // 1. User Message
   if (role === "USER") {
     return (
-      <div className="flex gap-3 justify-end group py-2">
-        <div className="max-w-2xl rounded-2xl rounded-tr-sm bg-accent-soft px-4 py-2.5 text-sm text-fg shadow-xs">
+      <div className="flex gap-3 justify-end group py-2 animate-in fade-in duration-150">
+        <div className="max-w-2xl rounded-2xl rounded-tr-xs bg-accent text-accent-fg px-4 py-2.5 text-sm shadow-xs font-normal">
           <p className="whitespace-pre-wrap leading-relaxed">{content}</p>
         </div>
-        <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-surface border border-border text-fg-muted mt-0.5">
+        <div className="flex size-7 shrink-0 items-center justify-center rounded-xl bg-surface border border-border text-fg-muted shadow-2xs mt-0.5">
           <User className="size-4" aria-hidden="true" />
         </div>
       </div>
@@ -150,19 +150,19 @@ export function ChatMessageItem({
 
   // 2. Assistant Message
   return (
-    <div className="flex gap-3 group py-3">
+    <div className="flex gap-3 group py-3 animate-in fade-in duration-150">
       {/* AI Avatar */}
-      <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-surface border border-border text-fg shadow-2xs mt-0.5">
+      <div className="flex size-7 shrink-0 items-center justify-center rounded-xl bg-surface border border-border text-accent shadow-2xs mt-0.5">
         <DocMindLogo size={16} className="text-accent" />
       </div>
 
-      <div className="flex-1 max-w-[68ch] min-w-0 space-y-2">
+      <div className="flex-1 max-w-[68ch] min-w-0 space-y-2.5">
         {/* Rewritten query indicator */}
         {rewrittenQuery && (
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-surface-muted text-[11px] text-fg-muted border border-border mb-1">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface-muted/70 text-2xs text-fg-muted border border-border/70 mb-1">
             <Sparkles className="size-3 text-accent shrink-0" aria-hidden="true" />
             <span className="font-medium">{t("chat.rewrittenQueryNotice")}</span>
-            <span className="italic text-fg">"{rewrittenQuery}"</span>
+            <span className="italic text-fg font-medium">"{rewrittenQuery}"</span>
           </div>
         )}
 
@@ -187,6 +187,35 @@ export function ChatMessageItem({
             <span className="inline-block size-1.5 rounded-full bg-accent animate-pulse ml-1 align-baseline" />
           )}
         </div>
+
+        {/* Cited Sources Strip below assistant answer */}
+        {!isStreaming && citations && citations.length > 0 && (
+          <div className="pt-2.5 border-t border-border/60 space-y-2">
+            <span className="text-2xs font-medium text-fg-muted flex items-center gap-1.5">
+              <FileText className="size-3 text-accent" aria-hidden="true" />
+              <span>{t("chat.citations")}:</span>
+            </span>
+            <div className="flex flex-wrap gap-1.5">
+              {citations.map((c) => (
+                <button
+                  key={c.index}
+                  type="button"
+                  onClick={() => onCitationClick?.(c)}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-border/80 bg-surface hover:bg-surface-muted hover:border-accent/50 text-2xs text-fg transition-all text-left shadow-2xs group/cite focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+                >
+                  <span className="font-mono font-semibold text-accent">[{c.index}]</span>
+                  <span className="truncate max-w-[140px] font-medium">{c.filename}</span>
+                  {c.pageNumber && (
+                    <span className="text-fg-muted text-2xs">p.{c.pageNumber}</span>
+                  )}
+                  <span className="text-accent text-2xs font-mono font-medium ml-0.5">
+                    {Math.round(c.score * 100)}%
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Error during stream */}
         {error && (

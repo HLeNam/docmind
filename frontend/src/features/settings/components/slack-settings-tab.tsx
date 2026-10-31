@@ -148,7 +148,7 @@ export function SlackSettingsTab() {
                   <h3 className="text-sm font-semibold text-fg">
                     {t("settings.slackConnected")}
                   </h3>
-                  <Badge variant="secondary" className="bg-success-soft text-success border-success/20 text-[11px]">
+                  <Badge variant="secondary" className="bg-success-soft text-success border-success/20 text-2xs">
                     Active
                   </Badge>
                 </div>
@@ -205,7 +205,7 @@ export function SlackSettingsTab() {
                 <p className="text-xs font-medium text-fg">
                   {t("settings.noChannelMappings")}
                 </p>
-                <p className="text-[11px] text-fg-muted">
+                <p className="text-2xs text-fg-muted">
                   {t("settings.noChannelMappingsDesc")}
                 </p>
               </div>

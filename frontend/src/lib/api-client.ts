@@ -230,3 +230,100 @@ export async function apiClient<T>(
 
   return json.data as T;
 }
+
+export interface BlobResult {
+  blob: Blob;
+  filename: string;
+  mimeType: string;
+}
+
+export async function apiFetchBlob(
+  endpoint: string,
+  options: Omit<RequestOptions, "body"> = {}
+): Promise<BlobResult> {
+  const {
+    headers: customHeaders = {},
+    skipAuth = false,
+    skip401Retry = false,
+    params,
+    ...restOptions
+  } = options;
+
+  let url = `${API_BASE_URL}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`;
+
+  if (params) {
+    const searchParams = new URLSearchParams();
+    for (const [key, value] of Object.entries(params)) {
+      if (value !== undefined) {
+        searchParams.append(key, String(value));
+      }
+    }
+    const queryString = searchParams.toString();
+    if (queryString) {
+      url += (url.includes("?") ? "&" : "?") + queryString;
+    }
+  }
+  const headers = new Headers(customHeaders);
+
+  const token = getAccessToken();
+  if (!skipAuth && token && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      ...restOptions,
+      headers,
+      credentials: "include",
+    });
+  } catch (networkError) {
+    throw new AppError(
+      "NETWORK_ERROR",
+      networkError instanceof Error ? networkError.message : "Network error",
+      0
+    );
+  }
+
+  if (response.status === 429) {
+    const retryAfterHeader = response.headers.get("Retry-After");
+    const retryAfterSeconds = retryAfterHeader ? parseInt(retryAfterHeader, 10) : 60;
+    throw new RateLimitError(
+      Number.isFinite(retryAfterSeconds) ? retryAfterSeconds : 60
+    );
+  }
+
+  if (response.status === 401 && !skip401Retry && !endpoint.includes("/auth/")) {
+    const newToken = await refreshAccessTokenSingleFlight();
+    if (newToken) {
+      return apiFetchBlob(endpoint, {
+        ...options,
+        skip401Retry: true,
+      });
+    }
+    clearAccessToken();
+    throw new AppError("UNAUTHORIZED", "Phiên đăng nhập đã hết hạn", 401);
+  }
+
+  if (!response.ok) {
+    throw new AppError(
+      response.status === 403 ? "FORBIDDEN" : "HTTP_ERROR",
+      `HTTP Error ${response.status}`,
+      response.status
+    );
+  }
+
+  const blob = await response.blob();
+  const disposition = response.headers.get("content-disposition");
+  let filename = "document";
+  if (disposition && disposition.includes("filename=")) {
+    const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+    if (match && match[1]) {
+      filename = decodeURIComponent(match[1].replace(/['"]/g, ""));
+    }
+  }
+  const mimeType =
+    response.headers.get("content-type") || blob.type || "application/octet-stream";
+
+  return { blob, filename, mimeType };
+}

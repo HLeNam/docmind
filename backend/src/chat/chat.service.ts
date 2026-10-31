@@ -88,6 +88,7 @@ export class ChatService {
       caller,
       dto.conversationId,
       dto.content,
+      dto.collectionId,
     );
 
     const recentHistory = await this.prisma.runInTenantContext(
@@ -154,7 +155,7 @@ export class ChatService {
       rewrittenQuery: searchQuery !== dto.content ? searchQuery : null,
       messages,
       systemPrompt:
-        buildSystemPrompt(contextBlock) +
+        buildSystemPrompt(contextBlock, conversation.collection?.instructions) +
         buildSummarySection(conversation.summary),
       citations,
     };
@@ -214,6 +215,7 @@ export class ChatService {
     caller: AccessTokenPayload,
     conversationId: string | undefined,
     firstMessage: string,
+    collectionId?: string,
   ) {
     if (!conversationId) {
       return this.prisma.runInTenantContext(caller.tenantId, (tx) =>
@@ -222,7 +224,13 @@ export class ChatService {
           data: {
             tenantId: caller.tenantId,
             membershipId: caller.membershipId,
+            collectionId: collectionId || null,
             title: deriveConversationTitle(firstMessage),
+          },
+          include: {
+            collection: {
+              select: { instructions: true },
+            },
           },
         }),
       );
@@ -231,6 +239,11 @@ export class ChatService {
     return this.prisma.runInTenantContext(caller.tenantId, async (tx) => {
       const conversation = await tx.conversation.findUnique({
         where: { id: conversationId },
+        include: {
+          collection: {
+            select: { instructions: true },
+          },
+        },
       });
       // Conversation gắn với ĐÚNG membership đã tạo ra nó — khác Collection (chia sẻ trong tenant
       // qua CollectionAccess), hội thoại chat là RIÊNG TƯ của từng thành viên, kể cả với OWNER/ADMIN

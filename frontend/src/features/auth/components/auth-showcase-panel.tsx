@@ -47,7 +47,7 @@ export function AuthShowcasePanel() {
               </div>
               <span className="text-xs font-semibold text-fg">Câu trả lời AI</span>
             </div>
-            <span className="text-[11px] text-fg-muted font-medium">Đã xác minh</span>
+            <span className="text-2xs text-fg-muted font-medium">Đã xác minh</span>
           </div>
 
           <p className="text-xs xl:text-sm text-fg leading-relaxed">
@@ -71,12 +71,12 @@ export function AuthShowcasePanel() {
                   {t("auth.showcaseDocPage")}
                 </span>
               </div>
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-success-soft text-success shrink-0">
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-2xs font-medium bg-success-soft text-success shrink-0">
                 {t("auth.showcaseRelevance")}
               </span>
             </div>
 
-            <p className="text-[11px] text-fg-muted leading-relaxed font-mono bg-surface p-2 rounded border border-border/60">
+            <p className="text-2xs text-fg-muted leading-relaxed font-mono bg-surface p-2 rounded border border-border/60">
               &ldquo;{t("auth.showcaseDocSnippet")}&rdquo;
             </p>
           </div>

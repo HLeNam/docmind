@@ -62,3 +62,12 @@ export const DocumentStatusResponseSchema = z.object({
   status: z.enum(['PENDING', 'PROCESSING', 'INDEXED', 'FAILED']),
   failReason: z.string().nullable(),
 });
+
+export const DocumentChunkResponseSchema = z.object({
+  id: z.string().uuid(),
+  documentId: z.string().uuid(),
+  chunkIndex: z.number().int(),
+  pageNumber: z.number().int().nullable(),
+  headingContext: z.string().nullable(),
+  content: z.string(),
+});

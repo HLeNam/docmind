@@ -183,16 +183,18 @@ model Invitation {
 // ─────────────────────────────────────────────
 
 model Collection {
-  id          String   @id @default(uuid())
-  tenantId    String @map("tenant_id")
-  name        String
-  description String?
-  createdAt   DateTime @default(now()) @map("created_at")
+  id           String   @id @default(uuid())
+  tenantId     String   @map("tenant_id")
+  name         String
+  description  String?
+  instructions String?
+  createdAt    DateTime @default(now()) @map("created_at")
 
   tenant           Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   documents        Document[]
   access           CollectionAccess[]
   slackChannelMaps SlackChannelMapping[]
+  conversations    Conversation[]
 
   @@index([tenantId])
   @@map("collections")
@@ -269,6 +271,7 @@ model Conversation {
   id           String   @id @default(uuid())
   tenantId     String @map("tenant_id")
   membershipId String @map("membership_id")
+  collectionId String? @map("collection_id")
   title        String?
    // Tóm tắt luỹ tiến phần ĐẦU hội thoại (ngoài cửa sổ HISTORY_WINDOW tin gần nhất) — xem ConversationSummarizerService.
   summary          String?
@@ -278,10 +281,12 @@ model Conversation {
 
   tenant     Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   membership TenantMembership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  collection Collection?      @relation(fields: [collectionId], references: [id], onDelete: SetNull)
   messages   Message[]
 
   @@index([tenantId])
   @@index([membershipId])
+  @@index([collectionId])
   @@map("conversations")
 }
 

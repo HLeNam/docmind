@@ -2,6 +2,7 @@ import type { ChatCitation } from "./chat-schemas";
 
 export interface ConversationItem {
   id: string;
+  collectionId?: string | null;
   title: string | null;
   createdAt: string;
   lastMessageAt: string | null;

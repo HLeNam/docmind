@@ -1,14 +1,19 @@
 import { useState, useRef, useEffect } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import {
-  PanelLeftClose,
   PanelLeft,
   Bookmark,
   Sparkles,
+  Download,
+  FolderPlus,
+  Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SourcePanel } from "@/components/domain/source-panel";
-import { ConversationList } from "./conversation-list";
+import { DocumentViewerModal } from "@/components/domain/document-viewer-modal";
+import { useCollections } from "@/features/collections";
+import { useUIStore } from "@/lib/ui-store";
 import { ChatMessageItem } from "./chat-message-item";
 import { ChatInput } from "./chat-input";
 import { useChatMessages } from "../hooks/use-chat-messages";
@@ -17,19 +22,40 @@ import type { ChatCitation } from "../schemas/chat-schemas";
 
 interface ChatViewProps {
   initialConversationId?: string | null;
+  initialCollectionId?: string | null;
+  initialPrompt?: string | null;
 }
 
-export function ChatView({ initialConversationId }: ChatViewProps) {
+export function ChatView({
+  initialConversationId,
+  initialCollectionId,
+  initialPrompt,
+}: ChatViewProps) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+
+  const isSidebarOpen = useUIStore((s) => s.isSidebarOpen);
+  const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
+
   const [activeConversationId, setActiveConversationId] = useState<string | null>(
     initialConversationId || null
   );
 
-  const [showLeftSidebar, setShowLeftSidebar] = useState(true);
+  const { data: collections = [], isLoading: isLoadingCollections } = useCollections();
+
   const [showSourcePanel, setShowSourcePanel] = useState(false);
   const [activeCitation, setActiveCitation] = useState<ChatCitation | null>(null);
+  const [viewingCitation, setViewingCitation] = useState<ChatCitation | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const sentInitialPromptRef = useRef(false);
+
+  const [prevInitialId, setPrevInitialId] = useState(initialConversationId);
+  if (initialConversationId !== prevInitialId) {
+    setPrevInitialId(initialConversationId);
+    setActiveConversationId(initialConversationId || null);
+    setActiveCitation(null);
+  }
 
   // TanStack Query for messages in active conversation
   const { data: messagesData, isLoading: isLoadingMessages } =
@@ -45,25 +71,16 @@ export function ChatView({ initialConversationId }: ChatViewProps) {
     pendingPrompt,
     sendMessage,
     stopStreaming,
-    setActiveConversationId: setStreamConvId,
   } = useChatStream({
     onConversationCreated: (newId) => {
       setActiveConversationId(newId);
+      navigate({
+        to: "/",
+        search: { c: newId },
+        replace: true,
+      });
     },
   });
-
-  // Keep active conversation id synchronized
-  const handleSelectConversation = (id: string | null) => {
-    setActiveConversationId(id);
-    setStreamConvId(id);
-    setActiveCitation(null);
-  };
-
-  const handleNewConversation = () => {
-    setActiveConversationId(null);
-    setStreamConvId(null);
-    setActiveCitation(null);
-  };
 
   const handleCitationClick = (citation: ChatCitation) => {
     setActiveCitation(citation);
@@ -77,6 +94,17 @@ export function ChatView({ initialConversationId }: ChatViewProps) {
       collectionId,
     });
   };
+
+  useEffect(() => {
+    if (initialPrompt && !sentInitialPromptRef.current && !isStreaming) {
+      sentInitialPromptRef.current = true;
+      sendMessage({
+        content: initialPrompt,
+        conversationId: activeConversationId || undefined,
+        collectionId: initialCollectionId || undefined,
+      });
+    }
+  }, [initialPrompt, initialCollectionId, isStreaming, activeConversationId, sendMessage]);
 
   // Auto-scroll to bottom on streaming or new messages
   useEffect(() => {
@@ -97,61 +125,103 @@ export function ChatView({ initialConversationId }: ChatViewProps) {
 
   const conversationMessages = messagesData?.items || [];
 
-  return (
-    <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden bg-bg">
-      {/* 1. Left Column: Conversation History Sidebar */}
-      <div
-        className={`${
-          showLeftSidebar ? "w-64 sm:w-72" : "w-0 hidden md:hidden"
-        } shrink-0 transition-all duration-200 h-full overflow-hidden`}
-      >
-        <ConversationList
-          activeConversationId={activeConversationId}
-          onSelectConversation={handleSelectConversation}
-          onNewConversation={handleNewConversation}
-        />
-      </div>
+  const isPendingPromptAlreadyRendered = Boolean(
+    pendingPrompt &&
+      conversationMessages.length > 0 &&
+      conversationMessages[conversationMessages.length - 1].role === "USER" &&
+      conversationMessages[conversationMessages.length - 1].content.trim() ===
+        pendingPrompt.trim()
+  );
 
-      {/* 2. Middle Column: Main Chat Area */}
-      <div className="flex-1 flex flex-col h-full min-w-0 bg-bg">
+  const handleExportMarkdown = () => {
+    if (conversationMessages.length === 0) return;
+
+    let md = `# DocMind — ${t("chat.title")}\n\n`;
+    md += `*Ngày xuất: ${new Date().toLocaleString("vi-VN")}*\n\n---\n\n`;
+
+    for (const msg of conversationMessages) {
+      if (msg.role === "USER") {
+        md += `### 👤 Người dùng:\n\n${msg.content}\n\n`;
+      } else {
+        md += `### 🤖 Trợ lý DocMind:\n\n${msg.content}\n\n`;
+        if (msg.citations && msg.citations.length > 0) {
+          md += `**Nguồn trích dẫn:**\n\n`;
+          for (const c of msg.citations) {
+            md += `- [${c.index}] **${c.filename}** (trang ${c.pageNumber || 1}) — Độ khớp: ${Math.round(c.score * 100)}%\n`;
+          }
+          md += `\n`;
+        }
+      }
+      md += `---\n\n`;
+    }
+
+    const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `docmind-conversation-${activeConversationId || "new"}.md`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="flex h-full w-full overflow-hidden bg-bg relative">
+      {/* Main Chat Thread Area */}
+      <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden bg-bg">
         {/* Top Chat Bar */}
         <div className="h-12 border-b border-border bg-surface px-4 flex items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-2 min-w-0">
-            <Button
-              variant="ghost"
-              size="icon-xs"
-              onClick={() => setShowLeftSidebar((prev) => !prev)}
-              title={showLeftSidebar ? "Thu gọn sidebar" : "Mở rộng sidebar"}
-              aria-label="Toggle sidebar"
-              className="text-fg-muted hover:text-fg"
-            >
-              {showLeftSidebar ? (
-                <PanelLeftClose className="size-4" />
-              ) : (
+            {!isSidebarOpen && (
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                onClick={() => setSidebarOpen(true)}
+                title={t("common.openSidebar") || "Mở sidebar"}
+                aria-label="Open sidebar"
+                className="text-fg-muted hover:text-fg"
+              >
                 <PanelLeft className="size-4" />
-              )}
-            </Button>
+              </Button>
+            )}
 
-            <span className="font-medium text-xs sm:text-sm text-fg truncate">
+            <span className="font-semibold text-xs sm:text-sm text-fg truncate">
               {activeConversationId ? t("chat.title") : t("chat.newConversation")}
             </span>
           </div>
 
-          {/* Source Panel Toggle */}
-          <Button
-            variant={showSourcePanel ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => setShowSourcePanel((prev) => !prev)}
-            className="text-xs gap-1.5 h-7 px-2"
-          >
-            <Bookmark className="size-3.5 text-accent" aria-hidden="true" />
-            <span className="hidden sm:inline">{t("chat.citations")}</span>
-            {displayedCitations.length > 0 && (
-              <span className="font-mono text-[10px] px-1 py-0.2 rounded-full bg-accent-soft text-accent">
-                {displayedCitations.length}
-              </span>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* Export Markdown Button */}
+            {conversationMessages.length > 0 && (
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                onClick={handleExportMarkdown}
+                title={t("chat.exportMarkdown")}
+                aria-label={t("chat.exportMarkdown")}
+                className="text-fg-muted hover:text-fg"
+              >
+                <Download className="size-4" />
+              </Button>
             )}
-          </Button>
+
+            {/* Toggle Source Citations Panel */}
+            <Button
+              variant={showSourcePanel ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => setShowSourcePanel((prev) => !prev)}
+              className="text-xs gap-1.5 h-7 px-2"
+            >
+              <Bookmark className="size-3.5 text-accent" aria-hidden="true" />
+              <span className="hidden sm:inline">{t("chat.citations")}</span>
+              {displayedCitations.length > 0 && (
+                <span className="font-mono text-2xs px-1.5 py-0.5 rounded-full bg-accent-soft text-accent leading-none">
+                  {displayedCitations.length}
+                </span>
+              )}
+            </Button>
+          </div>
         </div>
 
         {/* Messages Stream Scroll Area */}
@@ -159,17 +229,72 @@ export function ChatView({ initialConversationId }: ChatViewProps) {
           <div className="max-w-3xl mx-auto space-y-4">
             {/* If fresh conversation with no messages yet */}
             {conversationMessages.length === 0 && !isStreaming && !pendingPrompt ? (
-              <div className="text-center py-16 px-4 space-y-4 max-w-lg mx-auto">
-                <div className="flex size-12 mx-auto items-center justify-center rounded-2xl bg-accent-soft text-accent border border-accent/20 shadow-xs">
-                  <Sparkles className="size-6" aria-hidden="true" />
+              collections.length === 0 && !isLoadingCollections ? (
+                /* Onboarding state when user has zero collections/documents */
+                <div className="text-center py-12 px-4 space-y-6 max-w-lg mx-auto">
+                  <div className="flex size-14 mx-auto items-center justify-center rounded-2xl bg-accent-soft text-accent border border-accent/20 shadow-xs">
+                    <FolderPlus className="size-7" aria-hidden="true" />
+                  </div>
+                  <div className="space-y-2">
+                    <h3 className="font-semibold text-xl text-fg tracking-tight">
+                      {t("chat.onboardingTitle")}
+                    </h3>
+                    <p className="text-xs sm:text-sm text-fg-muted leading-relaxed max-w-md mx-auto">
+                      {t("chat.onboardingSubtitle")}
+                    </p>
+                  </div>
+
+                  <div className="pt-2 flex flex-col items-center gap-3">
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={() => navigate({ to: "/collections" })}
+                      className="gap-2 shadow-xs"
+                    >
+                      <Upload className="size-4" aria-hidden="true" />
+                      <span>{t("chat.onboardingUploadButton")}</span>
+                    </Button>
+                    <span className="text-2xs text-fg-muted">
+                      {t("chat.onboardingBadge")}
+                    </span>
+                  </div>
                 </div>
-                <h3 className="font-semibold text-lg text-fg tracking-tight">
-                  {t("chat.emptyChatTitle")}
-                </h3>
-                <p className="text-xs sm:text-sm text-fg-muted leading-relaxed">
-                  {t("chat.emptyChatSubtitle")}
-                </p>
-              </div>
+              ) : (
+                /* Standard empty state with prompt starters */
+                <div className="text-center py-12 px-4 space-y-6 max-w-xl mx-auto">
+                  <div className="flex size-14 mx-auto items-center justify-center rounded-2xl bg-accent-soft text-accent border border-accent/20 shadow-xs">
+                    <Sparkles className="size-7" aria-hidden="true" />
+                  </div>
+                  <div className="space-y-2">
+                    <h3 className="font-semibold text-xl text-fg tracking-tight">
+                      {t("chat.emptyChatTitle")}
+                    </h3>
+                    <p className="text-xs sm:text-sm text-fg-muted leading-relaxed max-w-md mx-auto">
+                      {t("chat.emptyChatSubtitle")}
+                    </p>
+                  </div>
+
+                  {/* Prompt Starters */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2 text-left">
+                    {[
+                      "Tóm tắt các chỉ số quan trọng trong tài liệu mới nhất",
+                      "Phân tích dữ liệu doanh thu và tăng trưởng định kỳ",
+                      "Kiểm tra các điều khoản pháp lý và bảo mật",
+                      "Tìm kiếm các trích dẫn về quy trình vận hành",
+                    ].map((starter, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => handleSend(starter)}
+                        className="p-3 rounded-xl border border-border bg-surface hover:border-accent hover:bg-accent-soft/20 text-xs text-fg-muted hover:text-fg transition-all duration-150 shadow-2xs group flex items-start gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                      >
+                        <Sparkles className="size-3.5 text-accent shrink-0 mt-0.5 group-hover:scale-110 transition-transform" aria-hidden="true" />
+                        <span className="line-clamp-2 leading-relaxed">{starter}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )
             ) : null}
 
             {/* Render persisted messages */}
@@ -184,7 +309,7 @@ export function ChatView({ initialConversationId }: ChatViewProps) {
             ))}
 
             {/* Render live pending user prompt while stream is initializing */}
-            {isStreaming && pendingPrompt && (
+            {isStreaming && pendingPrompt && !isPendingPromptAlreadyRendered && (
               <ChatMessageItem role="USER" content={pendingPrompt} />
             )}
 
@@ -212,20 +337,39 @@ export function ChatView({ initialConversationId }: ChatViewProps) {
           isStreaming={isStreaming}
           onStop={stopStreaming}
           disabled={isLoadingMessages}
+          initialCollectionId={initialCollectionId || undefined}
         />
       </div>
 
-      {/* 3. Right Column: Source Citation Panel */}
+      {/* Right Column: Source Citation Panel */}
       {showSourcePanel && (
-        <div className="w-80 sm:w-96 shrink-0 h-full overflow-hidden transition-all duration-200">
-          <SourcePanel
-            citations={displayedCitations}
-            activeCitationIndex={activeCitation?.index}
-            onSelectCitation={(citation) => setActiveCitation(citation)}
-            onClose={() => setShowSourcePanel(false)}
+        <>
+          <div
+            onClick={() => setShowSourcePanel(false)}
+            className="fixed inset-0 bg-black/40 backdrop-blur-xs z-30 md:hidden transition-opacity"
+            aria-hidden="true"
           />
-        </div>
+          <div className="fixed inset-y-0 right-0 w-full sm:w-96 max-w-[88vw] bg-surface border-l border-border shadow-xl z-30 md:static md:shadow-none md:z-auto md:w-80 lg:w-96 shrink-0 h-full overflow-hidden transition-all duration-200">
+            <SourcePanel
+              citations={displayedCitations}
+              activeCitationIndex={activeCitation?.index}
+              onSelectCitation={(citation) => setActiveCitation(citation)}
+              onViewDocument={(citation) => setViewingCitation(citation)}
+              onClose={() => setShowSourcePanel(false)}
+            />
+          </div>
+        </>
       )}
+
+      {/* In-app Document Viewer Modal */}
+      <DocumentViewerModal
+        open={!!viewingCitation}
+        onOpenChange={(open) => !open && setViewingCitation(null)}
+        documentId={viewingCitation?.documentId ?? null}
+        filename={viewingCitation?.filename ?? ""}
+        initialPage={viewingCitation?.pageNumber}
+        initialChunkIndex={viewingCitation?.chunkIndex}
+      />
     </div>
   );
 }

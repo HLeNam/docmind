@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { Readable } from 'stream';
 import {
   S3Client,
   PutObjectCommand,
@@ -122,6 +123,26 @@ export class StorageService {
       return Buffer.concat(chunks);
     } catch (err) {
       this.logger.error(`Download failed: ${key}`, err as Error);
+      throw new InternalAppException(ErrorCode.STORAGE_DOWNLOAD_FAILED);
+    }
+  }
+
+  async getObjectStream(key: string): Promise<{
+    body: Readable;
+    contentType?: string;
+    contentLength?: number;
+  }> {
+    try {
+      const result = await this.client.send(
+        new GetObjectCommand({ Bucket: this.bucket, Key: key }),
+      );
+      return {
+        body: result.Body as unknown as Readable,
+        contentType: result.ContentType,
+        contentLength: result.ContentLength,
+      };
+    } catch (err) {
+      this.logger.error(`Download stream failed: ${key}`, err as Error);
       throw new InternalAppException(ErrorCode.STORAGE_DOWNLOAD_FAILED);
     }
   }

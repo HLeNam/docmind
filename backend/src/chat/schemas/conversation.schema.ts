@@ -8,6 +8,7 @@ export const ListConversationsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
   // `nextCursor` của trang trước (id của hội thoại cuối cùng).
   cursor: z.string().uuid('Invalid UUID format for cursor').optional(),
+  collectionId: z.string().uuid('Invalid UUID format for collectionId').optional(),
 });
 
 export const RenameConversationSchema = z.object({
@@ -27,6 +28,7 @@ export const ListMessagesQuerySchema = z.object({
 // ── Response (dùng cho Swagger) ──
 export const ConversationItemSchema = z.object({
   id: z.string(),
+  collectionId: z.string().nullable().optional(),
   title: z
     .string()
     .nullable()

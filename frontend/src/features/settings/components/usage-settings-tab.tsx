@@ -121,7 +121,7 @@ export function UsageSettingsTab() {
               <div className="text-2xl font-bold tracking-tight text-fg font-mono">
                 {totals.tokens.toLocaleString()}
               </div>
-              <div className="text-[11px] text-fg-muted">
+              <div className="text-2xs text-fg-muted">
                 {t("settings.recordsCount", { count: totals.records.toLocaleString() })}
               </div>
             </div>
@@ -137,7 +137,7 @@ export function UsageSettingsTab() {
               <div className="text-2xl font-bold tracking-tight text-fg font-mono">
                 {totals.byType.GENERATION.tokens.toLocaleString()}
               </div>
-              <div className="text-[11px] text-fg-muted">
+              <div className="text-2xs text-fg-muted">
                 ${totals.byType.GENERATION.costUsd.toFixed(4)} USD
               </div>
             </div>
@@ -153,7 +153,7 @@ export function UsageSettingsTab() {
               <div className="text-2xl font-bold tracking-tight text-fg font-mono">
                 {totals.byType.EMBEDDING.tokens.toLocaleString()}
               </div>
-              <div className="text-[11px] text-fg-muted">
+              <div className="text-2xs text-fg-muted">
                 ${totals.byType.EMBEDDING.costUsd.toFixed(4)} USD
               </div>
             </div>
@@ -169,7 +169,7 @@ export function UsageSettingsTab() {
               <div className="text-2xl font-bold tracking-tight text-fg font-mono">
                 ${totals.costUsd.toFixed(4)}
               </div>
-              <div className="text-[11px] text-fg-muted">
+              <div className="text-2xs text-fg-muted">
                 UTC {usage.from} → {usage.to}
               </div>
             </div>
@@ -207,22 +207,22 @@ export function UsageSettingsTab() {
                         className="flex-1 min-w-[20px] flex flex-col items-center gap-1.5 group relative"
                       >
                         {/* Tooltip on hover */}
-                        <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute bottom-full mb-1 left-1/2 -translate-x-1/2 pointer-events-none z-10 p-2 rounded-lg bg-fg text-bg text-[10px] whitespace-nowrap shadow-md">
-                          <p className="font-semibold">{item.date}</p>
-                          <p>{item.tokens.toLocaleString()} tokens</p>
-                          <p>${item.costUsd.toFixed(4)} USD</p>
+                        <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute bottom-full mb-1 left-1/2 -translate-x-1/2 pointer-events-none z-10 p-2 rounded-xl bg-surface border border-border text-fg text-xs whitespace-nowrap shadow-md space-y-0.5">
+                          <p className="font-semibold text-fg">{item.date}</p>
+                          <p className="text-fg-muted font-mono">{item.tokens.toLocaleString()} tokens</p>
+                          <p className="text-accent font-mono font-medium">${item.costUsd.toFixed(4)} USD</p>
                         </div>
 
                         {/* Bar */}
                         <div
                           style={{ height: `${heightPercent}%` }}
-                          className={`w-full max-w-[28px] rounded-t transition-all ${
+                          className={`w-full max-w-[28px] rounded-t-md transition-all duration-150 ${
                             item.tokens > 0
-                              ? "bg-accent group-hover:bg-accent/80"
+                              ? "bg-accent group-hover:bg-accent/80 shadow-2xs"
                               : "bg-surface-muted"
                           }`}
                         />
-                        <span className="text-[9px] text-fg-muted font-mono whitespace-nowrap">
+                        <span className="text-2xs text-fg-muted font-mono whitespace-nowrap">
                           {dateFormatted}
                         </span>
                       </div>

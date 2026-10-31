@@ -44,7 +44,7 @@ Dùng OKLCH. Light là mặc định, dark định nghĩa lại cùng tên token
 
 - Sans: **Inter** (chữ UI và nội dung); hỗ trợ tiếng Việt đầy đủ. Mono: **JetBrains Mono** (code, ID, đường dẫn).
 - Tự host font (`@fontsource-variable`), `font-display: swap`. Không tải từ CDN.
-- Thang chữ (rem, line-height): `text-xs` .75/1.4 · `text-sm` .875/1.35 · `text-base` 1/1.55 · `text-lg` 1.125/1.5 · `text-xl` 1.25/1.4 · `text-2xl` 1.5/1.3 · `text-3xl` 1.875/1.2.
+- Thang chữ (rem, line-height): `text-2xs` .6875/1.4 (micro-badge, toạ độ bảng, nhãn phụ) · `text-xs` .75/1.4 · `text-sm` .875/1.35 · `text-base` 1/1.55 · `text-lg` 1.125/1.5 · `text-xl` 1.25/1.4 · `text-2xl` 1.5/1.3 · `text-3xl` 1.875/1.2.
 - Độ đậm chỉ 400, 500, 600. Nội dung câu trả lời dài dùng `text-base`, độ rộng dòng tối đa `68ch`.
 - Số trong bảng và thống kê dùng `tabular-nums`.
 - Tiêu đề và nhãn viết hoa kiểu câu (sentence case). Không IN HOA TOÀN BỘ trừ nhãn rất ngắn.

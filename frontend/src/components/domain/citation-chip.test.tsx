@@ -38,7 +38,7 @@ describe("CitationChip Component", () => {
   it("applies active styling when isActive is true", () => {
     render(<CitationChip citation={sampleCitation} isActive={true} />);
     const button = screen.getByRole("button");
-    expect(button.className).toContain("ring-1 ring-accent");
+    expect(button.className).toContain("ring-2 ring-accent");
   });
 
   it("has no accessibility violations", async () => {

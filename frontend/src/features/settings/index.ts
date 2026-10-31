@@ -20,3 +20,4 @@ export * from "./components/api-keys-settings-tab";
 export * from "./components/add-slack-channel-dialog";
 export * from "./components/slack-settings-tab";
 export * from "./components/usage-settings-tab";
+export * from "./components/settings-dialog";
