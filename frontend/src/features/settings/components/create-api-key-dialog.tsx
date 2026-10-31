@@ -208,6 +208,8 @@ export function CreateApiKeyDialog({
                 </Label>
                 <Input
                   id="key-name"
+                  autoComplete="off"
+                  spellCheck={false}
                   {...register("name")}
                   placeholder={t("settings.keyNamePlaceholder")}
                   autoFocus

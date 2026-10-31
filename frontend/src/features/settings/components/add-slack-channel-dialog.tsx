@@ -113,6 +113,8 @@ export function AddSlackChannelDialog({
               </Label>
               <Input
                 id="slack-channel-id"
+                autoComplete="off"
+                spellCheck={false}
                 {...register("channelId")}
                 placeholder={t("settings.slackChannelIdPlaceholder")}
                 className="font-mono text-xs uppercase"
