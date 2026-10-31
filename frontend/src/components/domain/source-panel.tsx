@@ -147,6 +147,12 @@ export function SourcePanel({
                       </span>
                     )}
                   </div>
+
+                  {citation.snippet && (
+                    <p className="mt-2 text-2xs text-fg leading-relaxed bg-surface-muted/60 p-2 rounded-lg border border-border/60 italic font-sans line-clamp-4">
+                      "{citation.snippet}"
+                    </p>
+                  )}
                 </div>
               </div>
 

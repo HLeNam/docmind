@@ -8,6 +8,7 @@ export interface ChatCitation {
   pageNumber: number | null;
   headingContext: string | null;
   score: number;
+  snippet?: string;
 }
 
 export const sendMessageSchema = z.object({
