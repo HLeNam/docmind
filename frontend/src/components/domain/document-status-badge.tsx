@@ -26,29 +26,37 @@ export function DocumentStatusBadge({
 
   const config = {
     INDEXED: {
-      label: t("documents.status.indexed"),
-      tooltip: t("documents.status.indexedTooltip"),
+      label: t("documents.status.indexed", { defaultValue: "Sẵn sàng" }),
+      tooltip: t("documents.status.indexedTooltip", {
+        defaultValue: "Tài liệu đã được lập chỉ mục, sẵn sàng cho hỏi đáp AI.",
+      }),
       icon: CheckCircle2,
       style: "bg-success-soft text-success border border-success/25 shadow-2xs",
       iconStyle: "text-success",
     },
     PROCESSING: {
-      label: t("documents.status.processing"),
-      tooltip: t("documents.status.processingTooltip"),
+      label: t("documents.status.processing", { defaultValue: "Đang xử lý" }),
+      tooltip: t("documents.status.processingTooltip", {
+        defaultValue: "Đang trích xuất văn bản và tạo vector nhúng...",
+      }),
       icon: Loader2,
       style: "bg-warning-soft text-warning border border-warning/30 shadow-2xs",
       iconStyle: "animate-spin text-warning",
     },
     PENDING: {
-      label: t("documents.status.pending"),
-      tooltip: t("documents.status.pendingTooltip"),
+      label: t("documents.status.pending", { defaultValue: "Chờ xử lý" }),
+      tooltip: t("documents.status.pendingTooltip", {
+        defaultValue: "Đang trong hàng đợi chuẩn bị xử lý.",
+      }),
       icon: Clock,
       style: "bg-surface-muted text-fg-muted border border-border/80 shadow-2xs",
       iconStyle: "text-fg-muted",
     },
     FAILED: {
-      label: t("documents.status.failed"),
-      tooltip: t("documents.status.failedTooltip"),
+      label: t("documents.status.failed", { defaultValue: "Thất bại" }),
+      tooltip: t("documents.status.failedTooltip", {
+        defaultValue: "Xử lý thất bại. Rê chuột hoặc bấm để xem chi tiết lỗi.",
+      }),
       icon: AlertCircle,
       style: "bg-danger-soft text-danger border border-danger/25 shadow-2xs",
       iconStyle: "text-danger",
@@ -92,16 +100,19 @@ export function DocumentStatusBadge({
           <Icon className={cn(iconSizeClass, config.iconStyle)} aria-hidden="true" />
           <span>{config.label}</span>
         </TooltipTrigger>
-        <TooltipContent side="top" className="max-w-xs p-3 space-y-1.5 text-xs shadow-md z-50">
-          <div className="flex items-center gap-1.5 font-semibold text-danger">
+        <TooltipContent
+          side="top"
+          className="flex flex-col items-start gap-1.5 text-left w-72 max-w-xs p-3 text-xs shadow-md z-50"
+        >
+          <div className="flex items-center gap-1.5 font-semibold text-danger-fg">
             <AlertCircle className="size-3.5 shrink-0" aria-hidden="true" />
             <span>{errorInfo.title}</span>
           </div>
-          <p className="text-fg-muted leading-relaxed text-2xs">
+          <p className="text-2xs opacity-90 leading-relaxed">
             {errorInfo.detail}
           </p>
           {errorInfo.hint && (
-            <p className="text-fg-subtle text-2xs border-t border-border/60 pt-1.5 font-medium">
+            <p className="text-2xs opacity-75 border-t border-background/20 pt-1.5 font-medium w-full">
               {errorInfo.hint}
             </p>
           )}
@@ -124,7 +135,7 @@ export function DocumentStatusBadge({
         <span>{config.label}</span>
       </TooltipTrigger>
       <TooltipContent side="top" className="max-w-xs px-2.5 py-1.5 text-2xs shadow-md z-50">
-        <p className="text-fg">{config.tooltip}</p>
+        <span className="leading-snug">{config.tooltip}</span>
       </TooltipContent>
     </Tooltip>
   );

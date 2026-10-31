@@ -49,7 +49,8 @@ function CollectionWorkspacePage() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const toggleSidebar = useUIStore((s) => s.toggleSidebar);
+  const isSidebarOpen = useUIStore((s) => s.isSidebarOpen);
+  const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
   const pinnedCollectionIds = useUIStore((s) => s.pinnedCollectionIds);
   const togglePinCollection = useUIStore((s) => s.togglePinCollection);
   const isPinned = pinnedCollectionIds.includes(collectionId);
@@ -132,16 +133,19 @@ function CollectionWorkspacePage() {
       {/* 1. Top Breadcrumb Bar */}
       <header className="h-12 px-4 border-b border-border flex items-center justify-between shrink-0 bg-surface/40 backdrop-blur-xs sticky top-0 z-10">
         <div className="flex items-center gap-2 min-w-0">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            onClick={toggleSidebar}
-            className="md:hidden text-fg-muted hover:text-fg"
-            aria-label={t("common.openSidebar")}
-          >
-            <PanelLeft className="size-4" />
-          </Button>
+          {!isSidebarOpen && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              onClick={() => setSidebarOpen(true)}
+              className="text-fg-muted hover:text-fg"
+              title={t("common.openSidebar")}
+              aria-label={t("common.openSidebar")}
+            >
+              <PanelLeft className="size-4" />
+            </Button>
+          )}
 
           <Link
             to="/collections"
