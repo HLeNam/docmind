@@ -96,11 +96,18 @@ export function SourcePanel({
           const matchPercent = Math.round(citation.score * 100);
 
           return (
-            <button
+            <div
               key={citation.index}
-              type="button"
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onSelectCitation?.(citation);
+                }
+              }}
               onClick={() => onSelectCitation?.(citation)}
-              className={`w-full text-left p-3.5 rounded-2xl border transition-all duration-200 group/card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+              className={`w-full text-left p-3.5 rounded-2xl border transition-all duration-200 group/card cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
                 isActive
                   ? "border-accent bg-accent-soft/30 ring-1 ring-accent shadow-xs"
                   : "border-border bg-surface hover:border-border-strong hover:bg-surface-muted/40 shadow-2xs"
@@ -147,6 +154,12 @@ export function SourcePanel({
                       </span>
                     )}
                   </div>
+
+                  {citation.snippet && (
+                    <p className="mt-2 text-2xs text-fg leading-relaxed bg-surface-muted/60 p-2 rounded-lg border border-border/60 italic font-sans line-clamp-4">
+                      "{citation.snippet}"
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -168,7 +181,7 @@ export function SourcePanel({
                   </Button>
                 </div>
               )}
-            </button>
+            </div>
           );
         })}
       </div>

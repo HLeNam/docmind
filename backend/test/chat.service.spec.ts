@@ -130,6 +130,7 @@ describe('ChatService.prepare', () => {
     const result = await service.prepare(CALLER, {
       content: 'câu hỏi theo collection',
       collectionId: 'col-456',
+      topK: 5,
     });
 
     expect(tx.conversation.create).toHaveBeenCalledWith({
@@ -245,6 +246,7 @@ describe('ChatService.prepare', () => {
         pageNumber: 3,
         headingContext: null,
         score: 0.9,
+        snippet: 'A',
       },
       {
         index: 2,
@@ -254,6 +256,7 @@ describe('ChatService.prepare', () => {
         pageNumber: null,
         headingContext: '## Giới thiệu SCM',
         score: 0.8,
+        snippet: 'B',
       },
     ]);
     expect(result.systemPrompt).toContain('[1] (a.pdf) A');

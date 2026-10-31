@@ -4,6 +4,7 @@ import type {
   CreateInvitationFormData,
   InvitationInfoResponse,
   InvitationResponse,
+  PendingInvitationItem,
 } from "../schemas/invitation-schemas";
 import type { TokensResponse } from "@/features/auth/api/auth-api";
 import { setAccessToken } from "@/lib/auth-token";
@@ -28,6 +29,12 @@ export const invitationsApi = {
       {
         method: "DELETE",
       }
+    );
+  },
+
+  async listPending(tenantId: string): Promise<PendingInvitationItem[]> {
+    return apiClient<PendingInvitationItem[]>(
+      `/tenants/${tenantId}/invitations`
     );
   },
 

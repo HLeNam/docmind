@@ -37,3 +37,17 @@ export const InvitationInfoResponseSchema = z.object({
   tenantName: z.string(),
   expiresAt: z.date(),
 });
+
+export const PendingInvitationItemSchema = z.object({
+  id: z.string().uuid(),
+  tenantId: z.string().uuid(),
+  email: z.string().email(),
+  role: z.string(),
+  token: z.string(),
+  invitedById: z.string().uuid(),
+  invitedByEmail: z.string().email().nullable().optional(),
+  expiresAt: z.date(),
+  createdAt: z.date(),
+});
+
+export const PendingInvitationListSchema = z.array(PendingInvitationItemSchema);

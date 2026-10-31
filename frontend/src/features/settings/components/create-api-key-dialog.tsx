@@ -124,9 +124,9 @@ export function CreateApiKeyDialog({
             {/* Warning Callout */}
             <div
               role="alert"
-              className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-700 dark:text-amber-300 flex items-start gap-2.5"
+              className="p-3.5 rounded-xl bg-warning-soft border border-warning/20 text-xs text-warning-fg flex items-start gap-2.5"
             >
-              <AlertTriangle className="size-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" aria-hidden="true" />
+              <AlertTriangle className="size-4 text-warning shrink-0 mt-0.5" aria-hidden="true" />
               <p className="leading-relaxed">{t("settings.copyKeyWarning")}</p>
             </div>
 
@@ -208,6 +208,8 @@ export function CreateApiKeyDialog({
                 </Label>
                 <Input
                   id="key-name"
+                  autoComplete="off"
+                  spellCheck={false}
                   {...register("name")}
                   placeholder={t("settings.keyNamePlaceholder")}
                   autoFocus

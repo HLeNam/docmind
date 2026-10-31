@@ -95,7 +95,7 @@ export function CollectionFilesDialog({
                 className="gap-1.5 shrink-0"
               >
                 <UploadCloud className="size-4" aria-hidden="true" />
-                <span>{showUploadZone ? t("common.cancel") : t("documents.uploadButton")}</span>
+                <span>{showUploadZone ? t("common.cancel") : t("documents.uploadButton", { defaultValue: "Tải tài liệu lên" })}</span>
                 {showUploadZone ? (
                   <ChevronUp className="size-3.5" />
                 ) : (

@@ -34,7 +34,8 @@ function SettingsPage() {
   const { user } = useAuth();
   const search = Route.useSearch();
   const navigate = useNavigate();
-  const toggleSidebar = useUIStore((s) => s.toggleSidebar);
+  const isSidebarOpen = useUIStore((s) => s.isSidebarOpen);
+  const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
 
   const activeTab: SettingsTab = (search.tab as SettingsTab) || "members";
 
@@ -82,16 +83,19 @@ function SettingsPage() {
       {/* Top Bar with Mobile Toggle */}
       <header className="h-12 px-4 border-b border-border flex items-center justify-between shrink-0 bg-surface/40 backdrop-blur-xs">
         <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            onClick={toggleSidebar}
-            className="md:hidden text-fg-muted hover:text-fg"
-            aria-label={t("common.openSidebar")}
-          >
-            <PanelLeft className="size-4" />
-          </Button>
+          {!isSidebarOpen && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              onClick={() => setSidebarOpen(true)}
+              className="text-fg-muted hover:text-fg"
+              title={t("common.openSidebar")}
+              aria-label={t("common.openSidebar")}
+            >
+              <PanelLeft className="size-4" />
+            </Button>
+          )}
           <span className="text-xs font-medium text-fg-muted">DocMind</span>
           <span className="text-fg-muted/40 text-xs">/</span>
           <span className="text-xs font-semibold text-fg">{t("settings.title")}</span>

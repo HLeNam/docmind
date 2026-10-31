@@ -5,8 +5,17 @@ import type {
   CreateInvitationFormData,
   InvitationInfoResponse,
   InvitationResponse,
+  PendingInvitationItem,
 } from "../schemas/invitation-schemas";
 import type { TokensResponse } from "@/features/auth/api/auth-api";
+
+export function usePendingInvitations(tenantId: string) {
+  return useQuery<PendingInvitationItem[], Error>({
+    queryKey: ["invitations", tenantId],
+    queryFn: () => invitationsApi.listPending(tenantId),
+    enabled: !!tenantId,
+  });
+}
 
 export function useCreateInvitation(tenantId: string) {
   const queryClient = useQueryClient();

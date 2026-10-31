@@ -34,6 +34,12 @@ export const ErrorCode = {
   INVITATION_PASSWORD_REQUIRED: 'INVITATION_PASSWORD_REQUIRED',
   INVITATION_ALREADY_MEMBER: 'INVITATION_ALREADY_MEMBER',
 
+  // ---- Members ----
+  MEMBER_NOT_FOUND: 'MEMBER_NOT_FOUND',
+  CANNOT_DEMOTE_LAST_OWNER: 'CANNOT_DEMOTE_LAST_OWNER',
+  CANNOT_REMOVE_LAST_OWNER: 'CANNOT_REMOVE_LAST_OWNER',
+  CANNOT_MODIFY_OWNER: 'CANNOT_MODIFY_OWNER',
+
   // Storage (S3/MinIO)
   STORAGE_UPLOAD_FAILED: 'STORAGE_UPLOAD_FAILED',
   STORAGE_DOWNLOAD_FAILED: 'STORAGE_DOWNLOAD_FAILED',
@@ -95,6 +101,11 @@ export const ErrorMessage: Record<ErrorCode, string> = {
   INVITATION_EXPIRED: 'Invitation has expired',
   INVITATION_PASSWORD_REQUIRED: 'Password is required to create a new account',
   INVITATION_ALREADY_MEMBER: 'You are already a member of this organization',
+
+  MEMBER_NOT_FOUND: 'Member not found',
+  CANNOT_DEMOTE_LAST_OWNER: 'Cannot demote the last owner of the workspace',
+  CANNOT_REMOVE_LAST_OWNER: 'Cannot remove the last owner of the workspace',
+  CANNOT_MODIFY_OWNER: 'Only an owner can modify another owner',
 
   STORAGE_UPLOAD_FAILED: 'Failed to upload file to storage',
   STORAGE_DOWNLOAD_FAILED: 'Failed to download file from storage',
