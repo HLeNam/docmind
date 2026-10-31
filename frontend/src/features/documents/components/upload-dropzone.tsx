@@ -139,7 +139,7 @@ export function UploadDropzone({
         onDrop={onDrop}
         className={`relative flex flex-col items-center justify-center p-6 sm:p-8 rounded-2xl border-2 border-dashed transition-all duration-200 text-center ${
           isDragOver
-            ? "border-accent bg-accent-soft/60 shadow-inner ring-4 ring-accent/15 scale-[1.01]"
+            ? "border-accent bg-accent-soft/60 shadow-inner ring-4 ring-accent/15"
             : "border-border/90 bg-surface hover:border-accent/50 hover:bg-surface-muted/30"
         } ${disabled ? "opacity-50 pointer-events-none" : ""}`}
       >
@@ -152,6 +152,7 @@ export function UploadDropzone({
           className="hidden"
           disabled={disabled || isUploading}
           id="document-file-input"
+          aria-label={t("documents.uploadButton")}
         />
 
         <div className="flex size-12 items-center justify-center rounded-2xl bg-accent-soft text-accent border border-accent/25 mb-3.5 shadow-2xs">

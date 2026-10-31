@@ -397,5 +397,27 @@
     "revoked": "This invitation has been revoked by an administrator.",
     "invalid": "Invalid or missing invitation link.",
     "acceptSuccess": "Joined workspace successfully! Redirecting..."
+  },
+  "errors": {
+    "GENERIC": "An unexpected error occurred. Please try again.",
+    "NETWORK_ERROR": "Cannot connect to server. Please check your network connection.",
+    "RATE_LIMITED": "Too many requests. Please try again in {{seconds}} seconds.",
+    "VALIDATION_ERROR": "The provided input data is invalid.",
+    "UNAUTHORIZED": "Session has expired. Please log in again.",
+    "FORBIDDEN": "You do not have permission to perform this action.",
+    "NOT_FOUND": "The requested resource could not be found.",
+    "AUTH_EMAIL_TAKEN": "This email is already in use. Please sign in or use another email.",
+    "AUTH_INVALID_CREDENTIALS": "Incorrect email or password.",
+    "AUTH_TENANT_MISMATCH": "You are not a member of this workspace.",
+    "AUTH_NO_TENANT_MEMBERSHIP": "Your account does not belong to any workspace.",
+    "AUTH_NO_ACTIVE_MEMBERSHIP": "Your account is not active in this workspace.",
+    "AUTH_REFRESH_TOKEN_INVALID": "Invalid session. Please log in again.",
+    "AUTH_REFRESH_TOKEN_REUSED": "Suspicious login session detected. Please log in again.",
+    "AUTH_REFRESH_TOKEN_EXPIRED": "Session expired. Please log in again.",
+    "AUTH_GOOGLE_TOKEN_INVALID": "Google authentication token is invalid or expired.",
+    "INVITATION_NOT_FOUND": "Invitation not found or no longer exists.",
+    "INVITATION_ALREADY_ACCEPTED": "This invitation has already been accepted.",
+    "INVITATION_REVOKED": "This invitation was revoked by an administrator.",
+    "INVITATION_EXPIRED": "This invitation has expired."
   }
 }

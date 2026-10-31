@@ -36,6 +36,12 @@
 ### 1. Quản lý Bộ sưu tập & Kho tài liệu (Collections & Documents)
 - **Tổ chức theo chủ đề**: Gom nhóm tài liệu theo phòng ban, dự án hoặc danh mục nghiệp vụ.
 - **Đa định dạng tài liệu**: Hỗ trợ `.pdf`, `.docx`, `.pptx`, `.xlsx`, `.csv`, `.txt`, `.md`.
+- **Trình xem tài liệu đa năng tích hợp (Universal Document Viewers)**:
+  - **PDF**: Trình xem trang với điều hướng nhanh và phóng to thu nhỏ.
+  - **Word (.docx)**: Kết xuất trực tiếp cấu trúc tài liệu DOM chuẩn xác qua `docx-preview`.
+  - **Excel / CSV (.xlsx, .csv)**: Bảng dữ liệu tương tác đa sheet với bộ lọc, tìm kiếm và phân trang trực quan qua `xlsx`.
+  - **PowerPoint (.pptx)**: Trình chiếu theo từng slide kèm tiêu đề và ghi chú phân tích.
+  - **Markdown / Text**: Chế độ xem trước định dạng hoặc mã nguồn gốc (Raw view toggle).
 - **OCR thông minh**: Tự động nhận dạng ký tự đối với tài liệu scan ảnh chất lượng kém.
 - **Tiến độ xử lý thời gian thực**: Lắng nghe WebSocket (`/realtime`) cập nhật từng bước: *Trích xuất văn bản* $\rightarrow$ *Phân đoạn (Chunking)* $\rightarrow$ *OCR* $\rightarrow$ *Vector Embedding* $\rightarrow$ *Lưu trữ chỉ mục (Indexing)*.
 - **Tái chỉ mục (Re-index) & Xoá an toàn**: Dễ dàng chạy lại pipeline nhúng vector hoặc xoá hoàn toàn dữ liệu trích dẫn khi cần.
@@ -43,9 +49,13 @@
 ### 2. Trợ lý AI & Trích dẫn minh bạch (Conversational RAG & Citations)
 - **Truy xuất lai (Hybrid Search)**: Kết hợp tìm kiếm ngữ nghĩa Dense Vector (pgvector) với Full-text Search (BM25) để tối ưu độ chính xác.
 - **Stream câu trả lời SSE**: Tốc độ phản hồi tức thì với hiệu ứng gõ chữ và nút Dừng/Thử lại linh hoạt.
-- **Chip trích dẫn tương tác `[1]`, `[2]`**:
-  - Di chuột: Xem nhanh tên tài liệu, trang số và đoạn tóm tắt.
-  - Bấm chọn: Mở Panel nguồn bên phải, tự động cuộn đến và tô đậm văn bản gốc trong tài liệu kèm chỉ số tin cậy.
+- **Trích dẫn nguồn kèm đoạn trích dẫn (Citation Snippets)**:
+  - **Di chuột (Tooltip)**: Hiển thị nhanh tên tài liệu, trang/sheet/slide, tỷ lệ khớp ngữ nghĩa và đoạn trích dẫn thực tế trong tài liệu.
+  - **Bấm chọn (SourcePanel)**: Mở ngăn xem nguồn đối soát bên phải, trình bày toàn bộ ngữ cảnh, thứ tự ưu tiên và liên kết mở nhanh tài liệu nguồn.
+
+### 3. Tối ưu hóa hiệu năng & Code-Splitting (Performance & Bundle Splitting)
+- **Tải lười (Lazy-loading)**: Tất cả các thư viện nặng (`xlsx`, `docx-preview`, trình xem tài liệu) đều được tách thành các chunk độc lập tải động qua `React.lazy()`.
+- **Phân tách Vendor Chunks**: Đảm bảo gói mã chính (initial index bundle) siêu nhẹ (~379 kB / 105 kB gzip), hoàn toàn không có cảnh báo vượt ngưỡng kích thước của Vite.
 
 ### 3. Bảo mật & Cô lập Doanh nghiệp (Enterprise Security)
 - **Xác thực an toàn (Zero XSS)**: Access Token (JWT) được lưu thuần túy **trong bộ nhớ** (Module memory), tuyệt đối không lưu ở `localStorage` hay `sessionStorage`.
@@ -192,8 +202,10 @@ Bạn có thể đăng ký tài khoản mới trực tiếp tại `http://localh
 - [x] **Phase F4: Hoàn thiện & Tối ưu hóa (Polish & Launch)**
   - Nút chuyển đổi giao diện Sáng/Tối (Dark Mode Toggle) lưu trữ trạng thái và tự động nhận diện hệ thống.
   - Bổ sung Skip Link truy cập nhanh và rà soát phím bấm đạt chuẩn trợ năng WCAG 2.2 AA.
-  - Hạ tầng kiểm thử tự động Vitest + Testing Library + vitest-axe với 20/20 test cases vượt qua.
-  - Kịch bản kiểm thử luồng người dùng E2E với Playwright và Axe-Core.
+  - Tối ưu hóa kích thước bundle và phân tách mã (Code Splitting / Lazy Loading) giúp initial bundle chỉ 379 kB.
+  - Bộ kiểm thử tự động Frontend: **20 test files, 92 tests passing (100%), 0 vi phạm axe accessibility**.
+  - Bộ kiểm thử tự động Backend: **61 test files, 487 tests passing (100%)**.
+  - Bộ kịch bản kiểm thử luồng người dùng E2E với Playwright và Axe-Core (`e2e/auth-and-navigation`, `e2e/collections-and-documents`, `e2e/chat-rag`, `e2e/settings-and-members`).
 
 ---
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, lazy, Suspense } from "react";
 import { useTranslation } from "react-i18next";
 import {
   X,
@@ -34,10 +34,25 @@ import {
   useDocumentChunks,
 } from "@/features/documents/hooks/use-documents";
 import type { DocumentChunk } from "@/features/documents/schemas/document-schemas";
-import { DocxViewer } from "./viewers/docx-viewer";
-import { SpreadsheetViewer } from "./viewers/spreadsheet-viewer";
-import { PresentationViewer } from "./viewers/presentation-viewer";
-import { MarkdownViewer } from "./viewers/markdown-viewer";
+
+const DocxViewer = lazy(() =>
+  import("./viewers/docx-viewer").then((m) => ({ default: m.DocxViewer }))
+);
+const SpreadsheetViewer = lazy(() =>
+  import("./viewers/spreadsheet-viewer").then((m) => ({
+    default: m.SpreadsheetViewer,
+  }))
+);
+const PresentationViewer = lazy(() =>
+  import("./viewers/presentation-viewer").then((m) => ({
+    default: m.PresentationViewer,
+  }))
+);
+const MarkdownViewer = lazy(() =>
+  import("./viewers/markdown-viewer").then((m) => ({
+    default: m.MarkdownViewer,
+  }))
+);
 
 interface DocumentViewerModalProps {
   open: boolean;
@@ -277,7 +292,7 @@ function DocumentViewerContent({
           {getFileBadge(filename)}
           <div className="min-w-0">
             <h2
-              className="text-sm font-semibold text-fg truncate max-w-[200px] sm:max-w-md md:max-w-lg"
+              className="text-sm font-semibold text-fg truncate max-w-48 sm:max-w-md md:max-w-lg"
               title={filename}
             >
               {filename}
@@ -413,11 +428,20 @@ function DocumentViewerContent({
           <div className="flex-1 flex flex-col min-h-0 relative">
             {/* 1. PPTX Presentation Viewer (Uses structured slide chunks) */}
             {fileType === "pptx" ? (
-              <PresentationViewer
-                chunks={chunksData || []}
-                filename={filename}
-                initialSlideNumber={initialPage}
-              />
+              <Suspense
+                fallback={
+                  <div className="flex-1 flex flex-col items-center justify-center p-8 space-y-4">
+                    <Loader2 className="size-8 text-accent animate-spin" aria-hidden="true" />
+                    <p className="text-sm text-fg-muted">{t("documents.viewer.loading")}</p>
+                  </div>
+                }
+              >
+                <PresentationViewer
+                  chunks={chunksData || []}
+                  filename={filename}
+                  initialSlideNumber={initialPage}
+                />
+              </Suspense>
             ) : isFileLoading ? (
               <div className="flex-1 flex flex-col items-center justify-center p-8 space-y-4">
                 <Loader2
@@ -460,13 +484,40 @@ function DocumentViewerContent({
               />
             ) : fileType === "docx" ? (
               /* WORD (.DOCX) VIEWER: High-fidelity DOM renderer via docx-preview */
-              <DocxViewer blob={blob} filename={filename} />
+              <Suspense
+                fallback={
+                  <div className="flex-1 flex flex-col items-center justify-center p-8 space-y-4">
+                    <Loader2 className="size-8 text-accent animate-spin" aria-hidden="true" />
+                    <p className="text-sm text-fg-muted">{t("documents.viewer.loading")}</p>
+                  </div>
+                }
+              >
+                <DocxViewer blob={blob} filename={filename} />
+              </Suspense>
             ) : fileType === "spreadsheet" ? (
               /* EXCEL / CSV (.XLSX / .CSV) VIEWER: Interactive multi-sheet grid */
-              <SpreadsheetViewer blob={blob} filename={filename} />
+              <Suspense
+                fallback={
+                  <div className="flex-1 flex flex-col items-center justify-center p-8 space-y-4">
+                    <Loader2 className="size-8 text-accent animate-spin" aria-hidden="true" />
+                    <p className="text-sm text-fg-muted">{t("documents.viewer.loading")}</p>
+                  </div>
+                }
+              >
+                <SpreadsheetViewer blob={blob} filename={filename} />
+              </Suspense>
             ) : fileType === "markdown" && textContent !== null ? (
               /* MARKDOWN (.MD) VIEWER: Formatted preview + raw toggle */
-              <MarkdownViewer content={textContent} filename={filename} />
+              <Suspense
+                fallback={
+                  <div className="flex-1 flex flex-col items-center justify-center p-8 space-y-4">
+                    <Loader2 className="size-8 text-accent animate-spin" aria-hidden="true" />
+                    <p className="text-sm text-fg-muted">{t("documents.viewer.loading")}</p>
+                  </div>
+                }
+              >
+                <MarkdownViewer content={textContent} filename={filename} />
+              </Suspense>
             ) : fileType === "image" ? (
               /* IMAGE VIEWER: with interactive Zoom & Rotate controls */
               <div className="flex-1 flex flex-col min-h-0">
@@ -685,7 +736,7 @@ function DocumentViewerContent({
 
                           {chunk.headingContext && (
                             <span
-                              className="text-xs font-medium text-fg-muted truncate max-w-[240px] italic"
+                              className="text-xs font-medium text-fg-muted truncate max-w-60 italic"
                               title={chunk.headingContext}
                             >
                               {chunk.headingContext}

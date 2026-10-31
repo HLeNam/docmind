@@ -26,6 +26,24 @@ export default defineConfig(({ mode }) => {
                 "@": path.resolve(import.meta.dirname, "./src"),
             },
         },
+        build: {
+            chunkSizeWarningLimit: 600,
+            rollupOptions: {
+                output: {
+                    manualChunks(id: string) {
+                        if (id.includes("node_modules/react/") || id.includes("node_modules/react-dom/")) {
+                            return "vendor-react";
+                        }
+                        if (id.includes("node_modules/@tanstack/")) {
+                            return "vendor-tanstack";
+                        }
+                        if (id.includes("node_modules/@base-ui/")) {
+                            return "vendor-base-ui";
+                        }
+                    },
+                },
+            },
+        },
         server: {
             port: 5173,
             strictPort: true,

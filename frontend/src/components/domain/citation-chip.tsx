@@ -55,7 +55,7 @@ export function CitationChip({
 
         {/* Location & Score */}
         <div className="flex items-center justify-between w-full text-2xs opacity-85 pt-1.5 border-t border-background/20">
-          <span className="truncate max-w-[170px]" title={pageLabel || headingLabel || "Tài liệu đính kèm"}>
+          <span className="truncate max-w-44" title={pageLabel || headingLabel || "Tài liệu đính kèm"}>
             {pageLabel || headingLabel || "Tài liệu đính kèm"}
           </span>
           <span className="tabular-nums font-mono text-accent shrink-0 font-medium">
