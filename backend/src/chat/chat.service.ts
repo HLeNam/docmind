@@ -41,6 +41,7 @@ export interface ChatCitation {
   pageNumber: number | null;
   headingContext: string | null;
   score: number;
+  snippet?: string; // Đoạn trích nội dung để hiển thị nhanh trên UI
 }
 
 export interface PreparedChat {
@@ -125,6 +126,11 @@ export class ChatService {
       pageNumber: chunk.pageNumber,
       headingContext: chunk.headingContext,
       score: chunk.score,
+      snippet: chunk.content
+        ? chunk.content.length > 280
+          ? chunk.content.slice(0, 280) + '...'
+          : chunk.content
+        : undefined,
     }));
 
     const contextBlock = buildContextBlock(retrieved);
