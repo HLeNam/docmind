@@ -251,7 +251,7 @@ export function DocumentTable({
       ) : (
         <div className="rounded-xl border border-border bg-surface overflow-hidden shadow-xs">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm border-collapse min-w-[500px]">
+            <table className="w-full text-left text-sm border-collapse min-w-lg">
               <thead>
                 <tr className="border-b border-border bg-surface-muted/40 text-xs font-semibold uppercase tracking-wider text-fg-muted">
                   <th scope="col" className="py-3 px-4 font-medium">

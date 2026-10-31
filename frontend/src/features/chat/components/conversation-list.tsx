@@ -343,7 +343,7 @@ export function ConversationList({
                         <MessageSquare className="size-3.5 shrink-0 opacity-70" />
                         <span className="truncate">{title}</span>
                         {item.collectionId && !selectedFilterCollectionId && collectionsMap.get(item.collectionId) && (
-                          <span className="font-mono text-2xs px-1.5 py-0.5 rounded-sm bg-accent-soft text-accent truncate max-w-[80px] shrink-0 font-medium leading-none">
+                          <span className="font-mono text-2xs px-1.5 py-0.5 rounded-sm bg-accent-soft text-accent truncate max-w-20 shrink-0 font-medium leading-none">
                             {collectionsMap.get(item.collectionId)}
                           </span>
                         )}

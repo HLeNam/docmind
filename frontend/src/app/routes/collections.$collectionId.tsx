@@ -154,7 +154,7 @@ function CollectionWorkspacePage() {
             {t("collections.title")}
           </Link>
           <span className="text-fg-muted/40 text-xs">/</span>
-          <span className="text-xs font-semibold text-fg truncate max-w-[200px] sm:max-w-xs">
+          <span className="text-xs font-semibold text-fg truncate max-w-48 sm:max-w-xs">
             {collection.name}
           </span>
         </div>

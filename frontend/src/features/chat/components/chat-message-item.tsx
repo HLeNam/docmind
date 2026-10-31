@@ -204,7 +204,7 @@ export function ChatMessageItem({
                   className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-border/80 bg-surface hover:bg-surface-muted hover:border-accent/50 text-2xs text-fg transition-all text-left shadow-2xs group/cite focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
                 >
                   <span className="font-mono font-semibold text-accent">[{c.index}]</span>
-                  <span className="truncate max-w-[140px] font-medium">{c.filename}</span>
+                  <span className="truncate max-w-36 font-medium">{c.filename}</span>
                   {c.pageNumber && (
                     <span className="text-fg-muted text-2xs">p.{c.pageNumber}</span>
                   )}

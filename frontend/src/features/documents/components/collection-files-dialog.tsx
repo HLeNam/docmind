@@ -72,7 +72,7 @@ export function CollectionFilesDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-4xl h-[88vh] max-h-[800px] flex flex-col p-6 overflow-hidden">
+      <DialogContent className="sm:max-w-4xl h-[88vh] max-h-200 flex flex-col p-6 overflow-hidden">
         {/* Header */}
         <DialogHeader className="shrink-0 pb-3 border-b border-border">
           <div className="flex items-center justify-between gap-4 pr-6">

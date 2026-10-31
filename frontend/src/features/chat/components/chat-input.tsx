@@ -107,7 +107,7 @@ export function ChatInput({
           placeholder={t("chat.inputPlaceholder")}
           rows={1}
           disabled={disabled || isStreaming}
-          className="w-full resize-none border-0 bg-transparent px-2.5 py-1.5 text-sm focus-visible:ring-0 shadow-none min-h-[46px] max-h-48 text-fg placeholder:text-fg-muted/60 leading-relaxed"
+          className="w-full resize-none border-0 bg-transparent px-2.5 py-1.5 text-sm focus-visible:ring-0 shadow-none min-h-11 max-h-48 text-fg placeholder:text-fg-muted/60 leading-relaxed"
         />
 
         {/* Footer controls inside Dock */}
@@ -124,7 +124,7 @@ export function ChatInput({
                 }
               >
                 <Folder className="size-3.5 text-accent shrink-0" aria-hidden="true" />
-                <span className="truncate max-w-[140px] sm:max-w-[220px]">
+                <span className="truncate max-w-36 sm:max-w-56">
                   {selectedCollection
                     ? selectedCollection.name
                     : t("chat.allCollections")}

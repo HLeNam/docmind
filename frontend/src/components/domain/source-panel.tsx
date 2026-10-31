@@ -47,7 +47,7 @@ export function SourcePanel({
           <div className="flex size-10 items-center justify-center rounded-xl bg-surface-muted text-fg-muted/60">
             <Bookmark className="size-5" aria-hidden="true" />
           </div>
-          <p className="max-w-[200px] leading-relaxed">
+          <p className="max-w-48 leading-relaxed">
             {t("chat.noCitations")}
           </p>
         </div>
@@ -147,7 +147,7 @@ export function SourcePanel({
                     )}
                     {citation.headingContext && (
                       <span
-                        className="truncate max-w-[180px] italic text-2xs text-fg-muted"
+                        className="truncate max-w-44 italic text-2xs text-fg-muted"
                         title={citation.headingContext}
                       >
                         {citation.headingContext}
