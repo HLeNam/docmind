@@ -379,7 +379,11 @@
     "last30Days": "30 ngày gần nhất",
     "last7Days": "7 ngày gần nhất",
     "recordsCount": "{{count}} lượt",
-    "noUsageData": "Chưa có dữ liệu sử dụng trong khoảng thời gian này."
+    "noUsageData": "Chưa có dữ liệu sử dụng trong khoảng thời gian này.",
+    "tableDate": "Ngày",
+    "llmTokens": "Token LLM",
+    "embeddingTokensShort": "Token Embedding",
+    "costUsd": "Chi phí (USD)"
   },
   "invitation": {
     "title": "Lời mời tham gia Không gian làm việc",

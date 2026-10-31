@@ -170,7 +170,7 @@ export function ApiKeysSettingsTab() {
                       <td className="py-3 px-4 font-medium text-fg">
                         <div className="flex items-center gap-2">
                           <KeyRound className="size-3.5 text-accent shrink-0" aria-hidden="true" />
-                          <span className="truncate max-w-[160px] sm:max-w-[220px]">
+                          <span className="truncate max-w-40 sm:max-w-56">
                             {key.name}
                           </span>
                         </div>
@@ -186,7 +186,7 @@ export function ApiKeysSettingsTab() {
                         {collectionName ? (
                           <span className="inline-flex items-center gap-1.5">
                             <FolderOpen className="size-3 text-accent shrink-0" aria-hidden="true" />
-                            <span className="truncate max-w-[140px]">
+                            <span className="truncate max-w-36">
                               {collectionName}
                             </span>
                           </span>

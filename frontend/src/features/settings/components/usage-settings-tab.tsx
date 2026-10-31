@@ -135,10 +135,10 @@ export function UsageSettingsTab() {
                 </div>
               </div>
               <div className="text-2xl font-bold tracking-tight text-fg font-mono">
-                {totals.byType.GENERATION.tokens.toLocaleString()}
+                {(totals.byType?.GENERATION?.tokens ?? 0).toLocaleString()}
               </div>
               <div className="text-2xs text-fg-muted">
-                ${totals.byType.GENERATION.costUsd.toFixed(4)} USD
+                ${(totals.byType?.GENERATION?.costUsd ?? 0).toFixed(4)} USD
               </div>
             </div>
 
@@ -151,10 +151,10 @@ export function UsageSettingsTab() {
                 </div>
               </div>
               <div className="text-2xl font-bold tracking-tight text-fg font-mono">
-                {totals.byType.EMBEDDING.tokens.toLocaleString()}
+                {(totals.byType?.EMBEDDING?.tokens ?? 0).toLocaleString()}
               </div>
               <div className="text-2xs text-fg-muted">
-                ${totals.byType.EMBEDDING.costUsd.toFixed(4)} USD
+                ${(totals.byType?.EMBEDDING?.costUsd ?? 0).toFixed(4)} USD
               </div>
             </div>
 
@@ -204,7 +204,7 @@ export function UsageSettingsTab() {
                     return (
                       <div
                         key={item.date}
-                        className="flex-1 min-w-[20px] flex flex-col items-center gap-1.5 group relative"
+                        className="flex-1 min-w-5 flex flex-col items-center gap-1.5 group relative"
                       >
                         {/* Tooltip on hover */}
                         <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute bottom-full mb-1 left-1/2 -translate-x-1/2 pointer-events-none z-10 p-2 rounded-xl bg-surface border border-border text-fg text-xs whitespace-nowrap shadow-md space-y-0.5">
@@ -216,7 +216,7 @@ export function UsageSettingsTab() {
                         {/* Bar */}
                         <div
                           style={{ height: `${heightPercent}%` }}
-                          className={`w-full max-w-[28px] rounded-t-md transition-all duration-150 ${
+                          className={`w-full max-w-7 rounded-t-md transition-all duration-150 ${
                             item.tokens > 0
                               ? "bg-accent group-hover:bg-accent/80 shadow-2xs"
                               : "bg-surface-muted"
@@ -236,19 +236,19 @@ export function UsageSettingsTab() {
                     <thead className="bg-surface-muted/60 text-fg-muted border-b border-border">
                       <tr>
                         <th scope="col" className="py-2.5 px-3 font-medium">
-                          Ngày
+                          {t("settings.tableDate")}
                         </th>
                         <th scope="col" className="py-2.5 px-3 font-medium text-right">
-                          LLM Tokens
+                          {t("settings.llmTokens")}
                         </th>
                         <th scope="col" className="py-2.5 px-3 font-medium text-right">
-                          Embedding Tokens
+                          {t("settings.embeddingTokensShort")}
                         </th>
                         <th scope="col" className="py-2.5 px-3 font-medium text-right">
-                          Tổng Tokens
+                          {t("settings.totalTokens")}
                         </th>
                         <th scope="col" className="py-2.5 px-3 font-medium text-right">
-                          Chi phí (USD)
+                          {t("settings.costUsd")}
                         </th>
                       </tr>
                     </thead>

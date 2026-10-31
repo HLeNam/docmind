@@ -357,7 +357,11 @@
     "last30Days": "Last 30 days",
     "last7Days": "Last 7 days",
     "recordsCount": "{{count}} requests",
-    "noUsageData": "No usage data recorded for this period."
+    "noUsageData": "No usage data recorded for this period.",
+    "tableDate": "Date",
+    "llmTokens": "LLM Tokens",
+    "embeddingTokensShort": "Embedding Tokens",
+    "costUsd": "Cost (USD)"
   },
   "invitation": {
     "title": "Workspace Invitation",
