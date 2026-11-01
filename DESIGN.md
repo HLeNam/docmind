@@ -21,22 +21,22 @@ Dùng OKLCH. Light là mặc định, dark định nghĩa lại cùng tên token
 
 ### 2.1 Màu ngữ nghĩa
 
-| Token                                  | Light                                                         | Dark                   | Dùng cho                                                   |
+| Token                                  | Light (Warm Sand)                                             | Dark (Warm Obsidian)   | Dùng cho                                                   |
 | -------------------------------------- | ------------------------------------------------------------- | ---------------------- | ---------------------------------------------------------- |
-| `--bg`                                 | oklch(0.985 0.003 90)                                         | oklch(0.17 0.01 260)   | nền trang                                                  |
-| `--surface`                            | oklch(1 0 0)                                                  | oklch(0.21 0.012 260)  | card, panel                                                |
-| `--surface-muted`                      | oklch(0.965 0.004 90)                                         | oklch(0.245 0.012 260) | vùng phụ, hàng hover                                       |
-| `--border`                             | oklch(0.91 0.005 90)                                          | oklch(0.31 0.012 260)  | đường kẻ, viền card (chỉ trang trí)                        |
-| `--border-strong`                      | oklch(0.62 0.01 260)                                          | oklch(0.55 0.012 260)  | viền input, checkbox, nút outline (≥ 3:1 theo WCAG 1.4.11) |
-| `--fg`                                 | oklch(0.22 0.01 260)                                          | oklch(0.96 0.005 90)   | chữ chính                                                  |
-| `--fg-muted`                           | oklch(0.48 0.012 260)                                         | oklch(0.72 0.01 260)   | chữ phụ (đạt AA trên `--bg`)                               |
-| `--accent`                             | oklch(0.52 0.13 255)                                          | oklch(0.72 0.12 255)   | hành động chính, link, focus, trích dẫn                    |
-| `--accent-fg`                          | oklch(0.99 0 0)                                               | oklch(0.17 0.01 260)   | chữ trên nền accent                                        |
-| `--accent-soft`                        | oklch(0.95 0.025 255)                                         | oklch(0.27 0.04 255)   | nền nhấn nhẹ, chip trích dẫn                               |
+| `--bg`                                 | oklch(0.976 0.007 65)                                         | oklch(0.18 0.008 55)   | nền trang (giấy cát ấm / đá ấm)                            |
+| `--surface`                            | oklch(1 0 0)                                                  | oklch(0.22 0.01 55)    | card, panel, dialog                                        |
+| `--surface-muted`                      | oklch(0.952 0.009 65)                                         | oklch(0.26 0.012 55)   | vùng phụ, hàng hover, input phụ                            |
+| `--border`                             | oklch(0.895 0.01 65)                                          | oklch(0.32 0.012 55)   | đường kẻ, viền card (ấm, tự nhiên)                         |
+| `--border-strong`                      | oklch(0.58 0.02 65)                                           | oklch(0.54 0.015 55)   | viền input, checkbox, nút outline (≥ 3:1 theo WCAG 1.4.11) |
+| `--fg`                                 | oklch(0.20 0.015 60)                                          | oklch(0.96 0.006 65)   | chữ chính (mực than ấm / trắng ngà)                        |
+| `--fg-muted`                           | oklch(0.46 0.018 60)                                          | oklch(0.72 0.01 65)    | chữ phụ (đạt ≥ 4.5:1 AA trên `--bg`)                       |
+| `--accent`                             | oklch(0.54 0.15 42)                                           | oklch(0.74 0.13 42)    | hành động chính, link, focus, trích dẫn (Terracotta ấm)    |
+| `--accent-fg`                          | oklch(0.99 0 0)                                               | oklch(0.18 0.008 55)   | chữ trên nền accent                                        |
+| `--accent-soft`                        | oklch(0.945 0.035 42)                                         | oklch(0.28 0.04 42)    | nền nhấn nhẹ, chip trích dẫn (cam đất ấm nhạt)             |
 | `--success` / `--warning` / `--danger` | xanh lá / hổ phách / đỏ, mỗi màu có biến thể `-soft` và `-fg` |                        | trạng thái                                                 |
 | `--ring`                               | = `--accent`                                                  |                        | vòng focus                                                 |
 
-- Màu nhấn chỉ **một** (xanh dương trầm, có thể đổi sau khi chọn hướng thiết kế; đổi ở token là đủ).
+- Màu nhấn chỉ **một** (Terracotta / Đất nung hổ phách ấm, phong cách thư viện tri thức biên tập).
 - Trạng thái không bao giờ chỉ dựa vào màu: luôn kèm icon hoặc nhãn.
 - Kiểm tra tương phản bằng công cụ trước khi đổi bất kỳ token màu nào: chữ thường ≥ 4.5:1, chữ lớn và icon ≥ 3:1.
 
@@ -160,6 +160,9 @@ Nếu thật sự cần giá trị ngoài token (ví dụ kích thước cố đ
 - Thêm ngôn ngữ: thêm file locale, không đổi component.
 - Đổi hướng thiết kế: sửa `tokens.css` và `DESIGN.md` cùng một PR.
 
-## 12. Hướng thiết kế (chờ chốt)
+## 12. Hướng thiết kế
 
-Bản này dùng "Yên tĩnh, biên tập" (nền ấm nhẹ, chữ rõ, một màu nhấn xanh trầm). Nếu chọn hướng khác sau khi xem mockup, chỉ cập nhật mục 2.1, 2.2 và 12.
+Bản này chính thức áp dụng hướng "Warm Editorial Sand" (Thư viện tri thức biên tập ấm áp — phong cách Claude/Notion):
+- Nền cát ấm mịn (`oklch(0.976 0.007 65)`), bề mặt card trắng tinh khiết nổi nhẹ (`0.995-1.0`), mực than ấm tương phản cao (`oklch(0.20 0.015 60)`).
+- Màu nhấn chủ đạo là Terracotta / Đất nung hổ phách ấm (`oklch(0.54 0.15 42)`), chip trích dẫn `[1]` có nền cam đất ấm nhẹ (`oklch(0.945 0.035 42)`).
+- Chế độ tối chuyển sang Warm Obsidian (`oklch(0.18 0.008 55)`) êm dịu, không gây lóa mắt.

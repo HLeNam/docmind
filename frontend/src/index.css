@@ -58,9 +58,7 @@
     --muted-foreground: var(--fg-muted);
     --destructive: var(--danger);
     --destructive-foreground: var(--danger-fg);
-    --border: var(--border);
     --input: var(--border-strong);
-    --ring: var(--ring);
     --sidebar: var(--surface-muted);
     --sidebar-foreground: var(--fg);
     --sidebar-primary: var(--accent);
@@ -86,9 +84,7 @@
     --muted-foreground: var(--fg-muted);
     --destructive: var(--danger);
     --destructive-foreground: var(--danger-fg);
-    --border: var(--border);
     --input: var(--border-strong);
-    --ring: var(--ring);
     --sidebar: var(--surface);
     --sidebar-foreground: var(--fg);
     --sidebar-primary: var(--accent);

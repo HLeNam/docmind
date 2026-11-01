@@ -419,29 +419,38 @@ export function ConversationList({
               </div>
               <MoreVertical className="size-3.5 text-fg-muted group-hover:text-fg shrink-0" />
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" side="top" className="w-56 mb-1">
-              <div className="px-2 py-1.5 border-b border-border text-xs">
+            <DropdownMenuContent
+              side="top"
+              sideOffset={8}
+              align="start"
+              className="w-(--anchor-width) rounded-2xl border border-border bg-surface p-1.5 shadow-lg"
+            >
+              <div className="px-2.5 py-2 border-b border-border/80 text-xs">
                 <p className="font-semibold text-fg truncate">{user.tenant.name}</p>
-                <p className="text-2xs text-fg-muted font-mono">{user.membership.role}</p>
+                <p className="text-2xs text-fg-muted font-mono mt-0.5 truncate">
+                  {user.identity.email} • {user.membership.role}
+                </p>
               </div>
-              <DropdownMenuItem
-                onClick={() => setIsSettingsOpen(true)}
-                className="flex items-center gap-2 text-xs cursor-pointer"
-              >
-                <Settings className="size-3.5 text-fg-muted" />
-                <span>{t("settings.title")}</span>
-              </DropdownMenuItem>
-              <div className="px-2 py-1.5 flex items-center justify-between border-t border-border">
-                <span className="text-xs text-fg-muted">{t("common.theme")}</span>
-                <ThemeToggle />
+              <div className="pt-1 space-y-0.5">
+                <DropdownMenuItem
+                  onClick={() => setIsSettingsOpen(true)}
+                  className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs cursor-pointer text-fg hover:bg-surface-muted transition-colors"
+                >
+                  <Settings className="size-3.5 text-fg-muted" />
+                  <span>{t("settings.title")}</span>
+                </DropdownMenuItem>
+                <div className="px-2.5 py-1.5 flex items-center justify-between rounded-lg hover:bg-surface-muted/50 transition-colors">
+                  <span className="text-xs text-fg-muted">{t("common.theme")}</span>
+                  <ThemeToggle />
+                </div>
+                <DropdownMenuItem
+                  onClick={() => logout()}
+                  className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-danger focus:text-danger hover:bg-danger-soft/50 cursor-pointer border-t border-border/60 transition-colors"
+                >
+                  <LogOut className="size-3.5" />
+                  <span>{t("auth.logout")}</span>
+                </DropdownMenuItem>
               </div>
-              <DropdownMenuItem
-                onClick={() => logout()}
-                className="flex items-center gap-2 text-xs text-danger focus:text-danger cursor-pointer border-t border-border"
-              >
-                <LogOut className="size-3.5" />
-                <span>{t("auth.logout")}</span>
-              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
