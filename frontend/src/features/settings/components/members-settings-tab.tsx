@@ -368,7 +368,10 @@ export function MembersSettingsTab() {
                             </Button>
                           }
                         />
-                        <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuContent
+                          align="end"
+                          className="w-auto min-w-64 p-1.5 rounded-xl shadow-lg border border-border bg-surface"
+                        >
                           {member.role !== "ADMIN" && (
                             <DropdownMenuItem
                               onClick={() =>
@@ -377,8 +380,9 @@ export function MembersSettingsTab() {
                                   role: "ADMIN",
                                 })
                               }
+                              className="text-xs whitespace-nowrap cursor-pointer py-2 px-2.5 rounded-lg flex items-center gap-2"
                             >
-                              <ShieldCheck className="size-4 mr-2 text-accent" />
+                              <ShieldCheck className="size-4 text-accent shrink-0" />
                               <span>{t("settings.setAsAdmin")}</span>
                             </DropdownMenuItem>
                           )}
@@ -390,17 +394,18 @@ export function MembersSettingsTab() {
                                   role: "MEMBER",
                                 })
                               }
+                              className="text-xs whitespace-nowrap cursor-pointer py-2 px-2.5 rounded-lg flex items-center gap-2"
                             >
-                              <User className="size-4 mr-2 text-fg-muted" />
+                              <User className="size-4 text-fg-muted shrink-0" />
                               <span>{t("settings.setAsMember")}</span>
                             </DropdownMenuItem>
                           )}
-                          <DropdownMenuSeparator />
+                          <DropdownMenuSeparator className="my-1 border-t border-border/80" />
                           <DropdownMenuItem
                             onClick={() => setMemberToRemove(member)}
-                            className="text-destructive focus:text-destructive"
+                            className="text-xs whitespace-nowrap text-danger focus:text-danger cursor-pointer py-2 px-2.5 rounded-lg flex items-center gap-2 hover:bg-danger-soft/50"
                           >
-                            <Trash2 className="size-4 mr-2" />
+                            <Trash2 className="size-4 shrink-0" />
                             <span>{t("settings.removeMember")}</span>
                           </DropdownMenuItem>
                         </DropdownMenuContent>

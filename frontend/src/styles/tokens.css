@@ -3,33 +3,35 @@
 :root {
     color-scheme: light;
 
-    --bg: oklch(0.985 0.003 90);
+    /* Hướng 2: Warm Editorial Sand (Ấm áp, êm dịu, chuẩn phong cách Claude / Notion) */
+    --bg: oklch(0.976 0.007 65);
     --surface: oklch(1 0 0);
-    --surface-muted: oklch(0.965 0.004 90);
-    --border: oklch(0.91 0.005 90);
-    --border-strong: oklch(0.62 0.01 260);
-    --fg: oklch(0.22 0.01 260);
-    --fg-muted: oklch(0.48 0.012 260);
+    --surface-muted: oklch(0.952 0.009 65);
+    --border: oklch(0.915 0.006 65);
+    --border-strong: oklch(0.62 0.015 65);
+    --fg: oklch(0.20 0.015 60);
+    --fg-muted: oklch(0.46 0.018 60);
 
-    --accent: oklch(0.52 0.13 255);
+    /* Màu nhấn: Terracotta / Đất nung hổ phách ấm */
+    --accent: oklch(0.54 0.15 42);
     --accent-fg: oklch(0.99 0 0);
-    --accent-soft: oklch(0.95 0.025 255);
+    --accent-soft: oklch(0.945 0.035 42);
 
-    --success: oklch(0.5 0.12 150);
-    --success-soft: oklch(0.95 0.03 150);
-    --success-fg: oklch(0.38 0.1 150);
-    --warning: oklch(0.58 0.13 75);
-    --warning-soft: oklch(0.96 0.04 85);
+    --success: oklch(0.52 0.13 145);
+    --success-soft: oklch(0.95 0.03 145);
+    --success-fg: oklch(0.38 0.1 145);
+    --warning: oklch(0.60 0.14 70);
+    --warning-soft: oklch(0.95 0.04 70);
     --warning-fg: oklch(0.42 0.1 70);
     --danger: oklch(0.54 0.19 27);
-    --danger-soft: oklch(0.96 0.025 25);
+    --danger-soft: oklch(0.96 0.025 27);
     --danger-fg: oklch(0.44 0.17 27);
 
     --ring: var(--accent);
 
-    --shadow-sm: 0 1px 2px oklch(0.22 0.01 260 / 0.06);
-    --shadow-md: 0 4px 12px oklch(0.22 0.01 260 / 0.1);
-    --shadow-lg: 0 12px 32px oklch(0.22 0.01 260 / 0.16);
+    --shadow-sm: 0 1px 2px oklch(0.20 0.015 60 / 0.05);
+    --shadow-md: 0 4px 12px oklch(0.20 0.015 60 / 0.08);
+    --shadow-lg: 0 12px 32px oklch(0.20 0.015 60 / 0.12);
 
     --dur-fast: 120ms;
     --dur-base: 200ms;
@@ -37,29 +39,29 @@
     --ease-standard: cubic-bezier(0.2, 0, 0, 1);
 }
 
-/* Dark: định nghĩa lại cùng tên token. Theo hệ thống, trừ khi người dùng ép bằng data-theme. */
+/* Dark: định nghĩa lại cùng tên token theo phong cách Warm Obsidian */
 @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
         color-scheme: dark;
-        --bg: oklch(0.17 0.01 260);
-        --surface: oklch(0.21 0.012 260);
-        --surface-muted: oklch(0.245 0.012 260);
-        --border: oklch(0.31 0.012 260);
-        --border-strong: oklch(0.55 0.012 260);
-        --fg: oklch(0.96 0.005 90);
-        --fg-muted: oklch(0.72 0.01 260);
-        --accent: oklch(0.72 0.12 255);
-        --accent-fg: oklch(0.17 0.01 260);
-        --accent-soft: oklch(0.27 0.04 255);
-        --success: oklch(0.74 0.13 150);
-        --success-soft: oklch(0.27 0.045 150);
-        --success-fg: oklch(0.86 0.1 150);
-        --warning: oklch(0.8 0.13 80);
-        --warning-soft: oklch(0.29 0.05 80);
-        --warning-fg: oklch(0.88 0.1 85);
-        --danger: oklch(0.7 0.17 27);
+        --bg: oklch(0.18 0.008 55);
+        --surface: oklch(0.22 0.01 55);
+        --surface-muted: oklch(0.26 0.012 55);
+        --border: oklch(0.32 0.012 55);
+        --border-strong: oklch(0.54 0.015 55);
+        --fg: oklch(0.96 0.006 65);
+        --fg-muted: oklch(0.72 0.01 65);
+        --accent: oklch(0.74 0.13 42);
+        --accent-fg: oklch(0.18 0.008 55);
+        --accent-soft: oklch(0.28 0.04 42);
+        --success: oklch(0.74 0.13 145);
+        --success-soft: oklch(0.27 0.045 145);
+        --success-fg: oklch(0.86 0.1 145);
+        --warning: oklch(0.80 0.13 75);
+        --warning-soft: oklch(0.29 0.05 75);
+        --warning-fg: oklch(0.88 0.1 75);
+        --danger: oklch(0.70 0.17 27);
         --danger-soft: oklch(0.28 0.06 27);
-        --danger-fg: oklch(0.84 0.1 25);
+        --danger-fg: oklch(0.84 0.1 27);
         --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.4);
         --shadow-md: 0 4px 12px oklch(0 0 0 / 0.45);
         --shadow-lg: 0 12px 32px oklch(0 0 0 / 0.55);
@@ -70,25 +72,25 @@
 :root.dark,
 .dark {
     color-scheme: dark;
-    --bg: oklch(0.17 0.01 260);
-    --surface: oklch(0.21 0.012 260);
-    --surface-muted: oklch(0.245 0.012 260);
-    --border: oklch(0.31 0.012 260);
-    --border-strong: oklch(0.55 0.012 260);
-    --fg: oklch(0.96 0.005 90);
-    --fg-muted: oklch(0.72 0.01 260);
-    --accent: oklch(0.72 0.12 255);
-    --accent-fg: oklch(0.17 0.01 260);
-    --accent-soft: oklch(0.27 0.04 255);
-    --success: oklch(0.74 0.13 150);
-    --success-soft: oklch(0.27 0.045 150);
-    --success-fg: oklch(0.86 0.1 150);
-    --warning: oklch(0.8 0.13 80);
-    --warning-soft: oklch(0.29 0.05 80);
-    --warning-fg: oklch(0.88 0.1 85);
-    --danger: oklch(0.7 0.17 27);
+    --bg: oklch(0.18 0.008 55);
+    --surface: oklch(0.22 0.01 55);
+    --surface-muted: oklch(0.26 0.012 55);
+    --border: oklch(0.32 0.012 55);
+    --border-strong: oklch(0.54 0.015 55);
+    --fg: oklch(0.96 0.006 65);
+    --fg-muted: oklch(0.72 0.01 65);
+    --accent: oklch(0.74 0.13 42);
+    --accent-fg: oklch(0.18 0.008 55);
+    --accent-soft: oklch(0.28 0.04 42);
+    --success: oklch(0.74 0.13 145);
+    --success-soft: oklch(0.27 0.045 145);
+    --success-fg: oklch(0.86 0.1 145);
+    --warning: oklch(0.80 0.13 75);
+    --warning-soft: oklch(0.29 0.05 75);
+    --warning-fg: oklch(0.88 0.1 75);
+    --danger: oklch(0.70 0.17 27);
     --danger-soft: oklch(0.28 0.06 27);
-    --danger-fg: oklch(0.84 0.1 25);
+    --danger-fg: oklch(0.84 0.1 27);
     --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.4);
     --shadow-md: 0 4px 12px oklch(0 0 0 / 0.45);
     --shadow-lg: 0 12px 32px oklch(0 0 0 / 0.55);
